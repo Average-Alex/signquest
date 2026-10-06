@@ -1,0 +1,5 @@
+MediaPipe Tasks Vision 0.10.14 (@mediapipe/tasks-vision on npm) and the
+hand_landmarker.task model, copied here so the game works offline and on
+networks that block CDNs.
+
+License: Apache License 2.0 - https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE

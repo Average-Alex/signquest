@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SignQuest</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- One shared camera view. screens.js moves it into whichever screen has a .camera-slot. -->
+  <div id="camera-home" hidden>
+    <div id="camera" class="camera">
+      <video id="camera-video" playsinline muted></video>
+      <canvas id="camera-canvas"></canvas>
+      <div id="camera-flash" class="camera-flash"></div>
+    </div>
+  </div>
+
+  <!-- 1. Title / setup -->
+  <section id="screen-title" class="screen">
+    <h1 tabindex="-1" class="logo">✨ SignQuest ✨</h1>
+    <p class="tagline">Sign to cast spells!</p>
+
+    <div class="card setup">
+      <label for="player-name" class="label">Your name</label>
+      <input id="player-name" type="text" maxlength="16" autocomplete="off" placeholder="Name">
+
+      <p class="label">Pick your hero</p>
+      <div id="character-pick" class="pick-row" role="group" aria-label="Pick your hero"></div>
+
+      <button id="start-camera" class="btn big">📷 Turn on camera</button>
+      <div id="hand-check" class="hand-check" hidden>
+        <div class="camera-slot"></div>
+        <p id="hand-status" class="status" aria-live="polite">Show me your hand ✋</p>
+        <button id="title-continue" class="btn big go" disabled>Let's go! ▶</button>
+      </div>
+      <p id="camera-error" class="error" hidden></p>
+      <button id="keyboard-play" class="btn small" hidden>⌨️ Play with keyboard (test mode)</button>
+    </div>
+
+    <p class="privacy">🔒 Your camera stays on this device. No video or pictures are saved or sent anywhere.</p>
+  </section>
+
+  <!-- 2. World map -->
+  <section id="screen-map" class="screen" hidden>
+    <header class="topbar">
+      <div class="who">
+        <span class="avatar" data-avatar></span>
+        <div>
+          <div id="map-name" class="name"></div>
+          <div class="level">Level <span id="map-level"></span>
+            <span class="xpbar" aria-hidden="true"><span id="map-xp"></span></span>
+          </div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="coins" aria-label="Coins">🪙 <span id="map-coins"></span></span>
+        <button class="btn small" data-go="shop">🛍️ Shop</button>
+        <button class="btn small icon" data-go="settings" aria-label="Settings">⚙️</button>
+      </div>
+    </header>
+    <h2 tabindex="-1" class="sr-only">World map</h2>
+    <div id="zones" class="zones"></div>
+
+    <div id="zone-panel" class="card zone-panel" hidden>
+      <h3 id="zone-panel-title"></h3>
+      <div id="zone-panel-letters" class="letter-row"></div>
+      <div id="zone-panel-stages" class="stages"></div>
+      <button id="zone-panel-close" class="btn small">Close</button>
+    </div>
+  </section>
+
+  <!-- 3. Learn card -->
+  <section id="screen-learn" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <span id="learn-count" class="count"></span>
+    </div>
+    <h2 tabindex="-1" class="learn-title">New sign!</h2>
+    <div class="learn">
+      <div class="card learn-card">
+        <div id="learn-letter" class="big-letter"></div>
+        <img id="learn-img" class="hand-img" alt="" hidden>
+        <p id="learn-tip" class="tip"></p>
+      </div>
+      <div class="learn-cam">
+        <div class="camera-slot"></div>
+        <div class="hold" aria-hidden="true"><div id="learn-hold" class="hold-fill"></div></div>
+        <p id="learn-status" class="status" aria-live="polite">Your turn! Make the sign.</p>
+        <button id="learn-skip" class="btn small" hidden>Skip for now ⏭</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Battle -->
+  <section id="screen-battle" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <h2 tabindex="-1" id="battle-title" class="battle-title"></h2>
+      <span id="battle-count" class="count"></span>
+    </div>
+    <div class="arena">
+      <div class="fighter player"><span class="avatar" data-avatar></span></div>
+      <div id="spell" class="spell" aria-hidden="true">✨</div>
+      <div class="fighter monster-side">
+        <div class="hp" aria-hidden="true"><div id="monster-hp" class="hp-fill"></div></div>
+        <div id="monster" class="monster"></div>
+      </div>
+      <div id="pop" class="pop" aria-hidden="true"></div>
+    </div>
+    <div id="target" class="target" aria-live="polite"></div>
+    <div class="battle-bottom">
+      <div class="camera-slot"></div>
+      <div class="battle-side">
+        <div class="hold" aria-hidden="true"><div id="battle-hold" class="hold-fill"></div></div>
+        <p id="seeing" class="seeing"></p>
+        <div id="hint" class="card hint" hidden>
+          <img id="hint-img" class="hand-img small" alt="" hidden>
+          <p id="hint-tip" class="tip"></p>
+        </div>
+        <div class="row">
+          <button id="hint-btn" class="btn small">💡 Hint</button>
+          <button id="skip-btn" class="btn small" hidden>Skip ⏭</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Results -->
+  <section id="screen-results" class="screen" hidden>
+    <h2 tabindex="-1" id="results-title" class="results-title">You won!</h2>
+    <div class="card results">
+      <div id="results-stars" class="stars-big"></div>
+      <p class="rewards"><span id="results-xp"></span> &nbsp; <span id="results-coins"></span></p>
+      <div id="results-practice" hidden>
+        <p class="label">Practice these:</p>
+        <div id="results-letters" class="letter-row"></div>
+      </div>
+    </div>
+    <div class="row center">
+      <button class="btn" data-go="map">🗺️ Map</button>
+      <button id="results-again" class="btn">🔁 Again</button>
+      <button id="results-next" class="btn go">Next ▶</button>
+    </div>
+  </section>
+
+  <!-- 6. Shop / closet -->
+  <section id="screen-shop" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <h2 tabindex="-1">🛍️ Shop</h2>
+      <span class="coins">🪙 <span id="shop-coins"></span></span>
+    </div>
+    <div class="shop-preview"><span class="avatar huge" data-avatar></span></div>
+    <h3>Hats</h3>
+    <div id="shop-hats" class="shop-grid"></div>
+    <h3>Pets</h3>
+    <div id="shop-pets" class="shop-grid"></div>
+  </section>
+
+  <!-- 7. Settings (+ hidden Record page link) -->
+  <section id="screen-settings" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <h2 tabindex="-1">⚙️ Settings</h2>
+      <span></span>
+    </div>
+    <div class="card settings">
+      <label class="setting">
+        <span>Hold time: <b id="hold-value"></b></span>
+        <input id="set-hold" type="range" min="200" max="1500" step="100">
+      </label>
+      <label class="setting">
+        <span>How sure the camera must be: <b id="conf-value"></b></span>
+        <input id="set-conf" type="range" min="0.5" max="0.95" step="0.05">
+      </label>
+      <label class="setting">
+        <span>I sign with my</span>
+        <select id="set-hand">
+          <option value="auto">Either hand (auto)</option>
+          <option value="right">Right hand</option>
+          <option value="left">Left hand</option>
+        </select>
+      </label>
+      <label class="setting">
+        <span>Recognizer</span>
+        <select id="set-recognizer">
+          <option value="auto">Auto (best available)</option>
+          <option value="model">Trained model</option>
+          <option value="knn">My recorded signs (kNN)</option>
+          <option value="keyboard">Keyboard (testing)</option>
+        </select>
+      </label>
+      <p id="recognizer-info" class="small-text"></p>
+      <div class="danger">
+        <button id="reset-btn" class="btn small">Start over</button>
+        <button id="reset-confirm" class="btn small warn" hidden>Yes, erase my progress</button>
+      </div>
+    </div>
+    <button id="open-record" class="btn small" data-go="record" hidden>🎥 Data recorder</button>
+  </section>
+
+  <!-- Record page (for builders; shown with ?dev in the URL) -->
+  <section id="screen-record" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="settings">⬅ Settings</button>
+      <h2 tabindex="-1">🎥 Record signs</h2>
+      <span></span>
+    </div>
+    <div class="record">
+      <div>
+        <div class="camera-slot"></div>
+        <p id="record-live" class="seeing"></p>
+      </div>
+      <div class="card">
+        <label class="setting"><span>Who is signing?</span>
+          <input id="record-who" type="text" maxlength="20" placeholder="e.g. alex">
+        </label>
+        <p class="label">Letter</p>
+        <div id="record-letters" class="record-grid"></div>
+        <button id="record-go" class="btn big">⏺ Record 3 seconds</button>
+        <p id="record-status" class="status" aria-live="polite"></p>
+        <p class="small-text">Move your hand around while recording: closer, farther, tilted. Swap hands sometimes.</p>
+        <div class="row">
+          <button id="record-download" class="btn small">⬇ Download CSV</button>
+          <button id="record-clear-letter" class="btn small">Clear this letter</button>
+          <button id="record-clear-all" class="btn small">Clear all</button>
+          <button id="record-clear-confirm" class="btn small warn" hidden>Yes, delete all samples</button>
+        </div>
+        <p id="record-total" class="small-text"></p>
+      </div>
+    </div>
+  </section>
+
+  <div id="announce" class="sr-only" aria-live="assertive"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

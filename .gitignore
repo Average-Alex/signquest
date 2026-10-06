@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# Recorded sign data has recorder names (often kids' first names) - keep it
+# off a public repo. Share CSVs privately instead.
+training/data/*
+!training/data/.gitkeep

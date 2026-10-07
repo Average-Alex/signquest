@@ -25,8 +25,11 @@
       <label for="player-name" class="label">Your name</label>
       <input id="player-name" type="text" maxlength="16" autocomplete="off" placeholder="Name">
 
-      <p class="label">Pick your hero</p>
-      <div id="character-pick" class="pick-row" role="group" aria-label="Pick your hero"></div>
+      <p class="label">Your hero</p>
+      <div class="hero-row">
+        <span class="avatar" data-avatar></span>
+        <button id="make-hero" class="btn small">✏️ Make your hero</button>
+      </div>
 
       <button id="start-camera" class="btn big">📷 Turn on camera</button>
       <div id="hand-check" class="hand-check" hidden>
@@ -54,20 +57,49 @@
         </div>
       </div>
       <div class="top-actions">
+        <span class="coins shards" aria-label="Beacon Shards">💎 <span id="map-shards"></span></span>
         <span class="coins" aria-label="Coins">🪙 <span id="map-coins"></span></span>
+        <button id="map-book" class="btn small">📖 Book</button>
         <button class="btn small" data-go="shop">🛍️ Shop</button>
         <button class="btn small icon" data-go="settings" aria-label="Settings">⚙️</button>
       </div>
     </header>
     <h2 tabindex="-1" class="sr-only">World map</h2>
-    <div id="zones" class="zones"></div>
+    <div id="zones" class="world"></div>
+  </section>
 
-    <div id="zone-panel" class="card zone-panel" hidden>
-      <h3 id="zone-panel-title"></h3>
-      <div id="zone-panel-letters" class="letter-row"></div>
-      <div id="zone-panel-stages" class="stages"></div>
-      <button id="zone-panel-close" class="btn small">Close</button>
+  <!-- 2b. Biome: walk around a zone, bump into creatures to battle (biome.js) -->
+  <section id="screen-biome" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <h2 tabindex="-1" id="biome-title"></h2>
+      <div class="top-actions">
+        <span class="coins" aria-label="Coins">🪙 <span id="biome-coins"></span></span>
+        <button id="biome-book" class="btn small">📖 Book</button>
+      </div>
     </div>
+    <div id="biome-wrap" class="biome-wrap">
+      <canvas id="biome-canvas" class="sprite biome-canvas" aria-label="The area you're exploring. Use the arrow keys, or tap where to walk."></canvas>
+      <div id="biome-labels" class="biome-labels" aria-hidden="true"></div>
+      <div id="biome-toast" class="biome-toast" role="status" hidden></div>
+      <!-- Sign-locked treasure chest -->
+      <div id="chest-panel" class="card chest-panel" hidden>
+        <p class="chest-title">🔐 Sign <b id="chest-letter"></b> to open the chest!</p>
+        <div class="chest-row">
+          <div class="camera-slot"></div>
+          <div class="chest-help">
+            <div id="chest-big" class="big-letter"></div>
+            <img id="chest-img" class="hand-img small" alt="" hidden>
+            <p id="chest-tip" class="tip"></p>
+          </div>
+        </div>
+        <div class="hold" aria-hidden="true"><div id="chest-hold" class="hold-fill"></div></div>
+        <p id="chest-status" class="status" aria-live="polite"></p>
+        <button id="chest-cancel" class="btn small">Not now</button>
+      </div>
+    </div>
+    <div id="biome-goals" class="biome-goals"></div>
+    <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Bump into a creature to battle it! ⚔️ letters · 📜 words · 👑 boss · 💤 sleeping gate guard · 🔐 chest · 🪧 sign</p>
   </section>
 
   <!-- 3. Learn card -->
@@ -99,16 +131,40 @@
       <h2 tabindex="-1" id="battle-title" class="battle-title"></h2>
       <span id="battle-count" class="count"></span>
     </div>
-    <div class="arena">
-      <div class="fighter player"><span class="avatar" data-avatar></span></div>
+    <div id="arena" class="arena">
+      <img id="arena-bg" class="sprite arena-bg" alt="">
+      <!-- Name / HP panels -->
+      <div class="hud hud-you">
+        <div id="hud-you-portrait" class="hud-portrait" aria-hidden="true"></div>
+        <div class="hud-info">
+          <div id="hud-you-name" class="hud-name"></div>
+          <div class="hp player-hp" aria-hidden="true"><div id="player-hp" class="hp-fill"></div><span id="player-hp-text" class="hp-text"></span></div>
+          <div class="hud-sub"><span id="hud-you-level"></span><div id="energy" class="energy" role="img"></div></div>
+          <div id="player-status" class="status-icons" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="hud hud-foe">
+        <div id="hud-foe-portrait" class="hud-portrait" aria-hidden="true"></div>
+        <div class="hud-info">
+          <div id="monster-name" class="hud-name"></div>
+          <div class="hp hex" aria-hidden="true"><div id="monster-hp" class="hp-fill"></div><span id="monster-hp-text" class="hp-text"></span></div>
+          <div id="hud-foe-sub" class="hud-sub"></div>
+        </div>
+      </div>
+      <div id="turn" class="turn-banner" aria-hidden="true"></div>
+      <div class="fighter player">
+        <span class="avatar" data-avatar></span>
+        <div id="player-dmg" class="dmg" aria-hidden="true"></div>
+      </div>
       <div id="spell" class="spell" aria-hidden="true">✨</div>
       <div class="fighter monster-side">
-        <div class="hp" aria-hidden="true"><div id="monster-hp" class="hp-fill"></div></div>
         <div id="monster" class="monster"></div>
+        <div id="monster-dmg" class="dmg" aria-hidden="true"></div>
       </div>
       <div id="pop" class="pop" aria-hidden="true"></div>
     </div>
     <div id="target" class="target" aria-live="polite"></div>
+    <div id="battle-moves" class="moves" role="group" aria-label="Pick a move, then sign to use it"></div>
     <div class="battle-bottom">
       <div class="camera-slot"></div>
       <div class="battle-side">
@@ -122,6 +178,8 @@
           <button id="hint-btn" class="btn small">💡 Hint</button>
           <button id="skip-btn" class="btn small" hidden>Skip ⏭</button>
         </div>
+        <p class="label">Potions &amp; power-ups</p>
+        <div id="battle-items" class="items-bar"></div>
       </div>
     </div>
   </section>
@@ -132,6 +190,11 @@
     <div class="card results">
       <div id="results-stars" class="stars-big"></div>
       <p class="rewards"><span id="results-xp"></span> &nbsp; <span id="results-coins"></span></p>
+      <p id="results-shard" class="shard-line" hidden></p>
+      <p id="results-loot" class="loot" hidden></p>
+      <p id="results-caught" class="caught" hidden></p>
+      <p id="results-level" class="level-up" hidden></p>
+      <p id="results-tip" class="small-text" hidden></p>
       <div id="results-practice" hidden>
         <p class="label">Practice these:</p>
         <div id="results-letters" class="letter-row"></div>
@@ -140,7 +203,7 @@
     <div class="row center">
       <button class="btn" data-go="map">🗺️ Map</button>
       <button id="results-again" class="btn">🔁 Again</button>
-      <button id="results-next" class="btn go">Next ▶</button>
+      <button id="results-next" class="btn go">Keep exploring ▶</button>
     </div>
   </section>
 
@@ -151,11 +214,44 @@
       <h2 tabindex="-1">🛍️ Shop</h2>
       <span class="coins">🪙 <span id="shop-coins"></span></span>
     </div>
-    <div class="shop-preview"><span class="avatar huge" data-avatar></span></div>
+    <div class="shop-preview">
+      <span class="avatar huge" data-avatar></span>
+      <button id="shop-look" class="btn small">✏️ Change my look</button>
+    </div>
+    <h3>Potions &amp; power-ups</h3>
+    <div id="shop-consumables" class="shop-grid"></div>
     <h3>Hats</h3>
     <div id="shop-hats" class="shop-grid"></div>
-    <h3>Pets</h3>
+    <h3>Rare creatures</h3>
     <div id="shop-pets" class="shop-grid"></div>
+  </section>
+
+  <!-- 6c. Creature book -->
+  <section id="screen-book" class="screen" hidden>
+    <div class="screen-top">
+      <button id="book-back" class="btn small">⬅ Back</button>
+      <h2 tabindex="-1">📖 Creature book</h2>
+      <span id="book-count" class="count"></span>
+    </div>
+    <p class="book-help">Break a creature's hex to free it. Pick up to 2 buddies for your team: they fight beside you, each with its own special move, and level up after every battle.</p>
+    <div id="book-grid" class="book-grid"></div>
+  </section>
+
+  <!-- 6b. Hero maker -->
+  <section id="screen-hero" class="screen" hidden>
+    <div class="screen-top">
+      <button id="hero-back" class="btn small">⬅ Back</button>
+      <h2 tabindex="-1">✏️ Make your hero</h2>
+      <span></span>
+    </div>
+    <div class="maker">
+      <div class="card maker-preview">
+        <span class="avatar huge" data-avatar></span>
+        <button id="hero-random" class="btn small">🎲 Surprise me</button>
+      </div>
+      <div id="hero-options" class="card maker-options"></div>
+    </div>
+    <div class="row center"><button id="hero-done" class="btn go">Done ✓</button></div>
   </section>
 
   <!-- 7. Settings (+ hidden Record page link) -->
@@ -231,6 +327,21 @@
       </div>
     </div>
   </section>
+
+  <!-- Story dialogue (story.js) -->
+  <div id="story" class="story" role="dialog" aria-modal="true" aria-labelledby="story-name" hidden>
+    <div class="story-box">
+      <div id="story-portrait" class="story-portrait" aria-hidden="true"></div>
+      <div class="story-body">
+        <p id="story-name" class="story-name"></p>
+        <p id="story-text" class="story-text" aria-live="polite"></p>
+        <div class="story-buttons">
+          <button id="story-skip" class="btn small">Skip</button>
+          <button id="story-next" class="btn go">Next ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="announce" class="sr-only" aria-live="assertive"></div>
   <script type="module" src="js/main.js"></script>

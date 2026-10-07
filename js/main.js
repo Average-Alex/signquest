@@ -4,7 +4,8 @@ import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
 import * as progress from "./progress.js";
 import { initRecordPage } from "./record.js";
-import { renderCharacterPick, show } from "./screens.js";
+import { show } from "./screens.js";
+import { playScene } from "./story.js";
 
 const $ = (id) => document.getElementById(id);
 const DEV = new URLSearchParams(location.search).has("dev");
@@ -24,7 +25,6 @@ $("open-record").hidden = !DEV;
 let handSeen = false;
 $("player-name").value = progress.get().name;
 $("player-name").oninput = (e) => progress.update({ name: e.target.value.trim() });
-renderCharacterPick();
 
 $("start-camera").onclick = async () => {
   $("start-camera").disabled = true;
@@ -57,13 +57,17 @@ onHand((hand) => {
   $("title-continue").focus();
 });
 
-$("title-continue").onclick = () => {
+// Off to the map. The first time, the story's intro plays over it.
+function startAdventure() {
   if (!progress.get().name) progress.update({ name: "Hero" });
   show("map");
-};
+  playScene("intro");
+}
+
+$("title-continue").onclick = startAdventure;
 
 // With ?dev, holding a letter key always counts as signing it.
-$("keyboard-play").onclick = () => show("map");
+$("keyboard-play").onclick = startAdventure;
 
 // Builders can skip the camera entirely with ?dev.
 $("keyboard-play").hidden = !DEV;

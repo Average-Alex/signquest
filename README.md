@@ -25,6 +25,71 @@ Then open http://localhost:8000. The camera only works on `localhost` or an
 - holding a letter key counts as signing it, anywhere in the game
 - Settings > **Data recorder**
 
+## How playing works
+
+**Exploring.** Pick a zone on the map to walk around it. Use the arrow keys
+or WASD, or tap where to go. Each zone is six areas tall, explored bottom to
+top along a winding path, and the view scrolls with you. Creatures roam
+around. Bump into one to battle it:
+
+- ⚔️ practice battle (letters)
+- 📜 word battle, once you've won a practice battle in that zone
+- 💤 a gate guard: a locked gate separates each area from the next. Its guard
+  wakes up after you beat 2 creatures in that area. Beat the guard to open
+  the gate.
+- 👑 the boss, by the zone's landmark at the very top. Once it's beaten, it's
+  gone for good and the next zone opens.
+
+Also in each area:
+
+- 🔐 a treasure chest. Sign the letter shown to open it, for coins or a potion.
+- 🪧 a signpost with a fact about ASL and Deaf culture, or a game tip.
+- ✨ coins to pick up.
+
+**Getting stronger.** Monsters have levels (shown as "Lv"). They're higher
+in later areas and later zones, from Lv 1 in the Meadow up to about Lv 50.
+Higher levels hit harder and take more signs to beat. Your own max HP grows
+with your player level.
+
+**The Starfall Realm.** Beating the Castle boss opens a portal on the map to
+a second dimension with three harder zones: Crystal Spires (the look-alike
+fist letters A, E, M, N, S, T), Cloud Kingdom, and the Void Rift (the whole
+alphabet).
+
+**The story.** Malgrath the Hollow King shattered the Great Beacon into 8
+Beacon Shards, and creatures everywhere became Hexbound. You're the last
+apprentice of the Signkeeper Academy, with Pip the fox-moth at your side.
+Each zone's boss guards a shard. Each shard brings back one of Pip's
+memories, building to the twist that Pip is the Beacon's own spirit.
+Malgrath himself waits at the top of the Void Rift. The script is in
+`js/story.js`. Scenes play once each: the intro, the first visit to each
+zone, before each boss, and after each boss.
+
+**Battles** are turn-based. On your turn, pick a move, then sign the target
+(a letter, or a whole word one letter at a time) to fire it:
+
+- Your hero's spells: ✨ Spark (free), 💥 Blast (3⚡, 2x damage), 🌟 Nova
+  (6⚡, 3.5x damage).
+- Each buddy's special move, such as a big hit, a shield, a heal, or a stun.
+  Every creature has its own move and energy cost.
+- Energy ⚡ comes from signing: +1 for every letter, +1 more for signing fast
+  without a hint. Spark is free, so you're never stuck.
+
+Your move can be a critical hit (more often if you signed fast). Then both
+buddies get a free hit, and the monster attacks back. Sometimes signing fast
+leaves it too dizzy to attack, and a stun always does. The battle lasts until
+the hex bar is empty. Potions and power-ups don't use up your turn. They come
+from the Shop, chests, and loot after wins. Run out of HP and you're knocked
+out, but you keep some XP and can try again.
+
+**Creatures.** Break a creature's hex the first time and it joins you. Pick up
+to 2 buddies in the 📖 creature book. They fight beside you and level up after
+every battle. A few rare creatures are sold in the Shop.
+
+The numbers (HP, damage, levels, crit and dizzy chances, buddy leveling, how
+fast is "fast", areas per zone, loot) and the zone and creature lists are in
+`js/config.js`.
+
 ## How recognition works
 
 1. Webcam frame → MediaPipe Hand Landmarker → 21 hand points (`js/camera.js`)
@@ -79,12 +144,16 @@ If you change `toFeatures()` in `js/features.js`, change `to_features()` in
 | `index.html` | All screens, as hidden sections |
 | `css/style.css` | All styles |
 | `js/config.js` | Zones, letters, words, tips, shop items, tuning numbers |
+| `js/sprites.js` | Pixel art drawn as text grids (hero maker parts, hats, creatures, potions, landmarks), smoothed with Scale2x |
+| `js/worldmap.js` | Paints the world maps (the Overworld island and the Starfall Realm) |
 | `js/camera.js` | Webcam + MediaPipe, emits hand points each frame |
 | `js/features.js` | Hand points → 63 normalized numbers |
 | `js/classifier.js` | `getPrediction()`, smoothing, hold timer, model/kNN/keyboard |
-| `js/game.js` | Battles: targets, hits, hints, skip, stars, rewards |
-| `js/screens.js` | Screen switching, map, learn cards, results, shop, settings |
-| `js/progress.js` | XP, coins, stars, miss counts, closet - saved in localStorage |
+| `js/biome.js` | The walkable area for each zone: map building, gates, chests, walking, roaming creatures |
+| `js/game.js` | Turn-based battles: moves and energy, crits, buddies, the monster's attack, potions, stars, loot, freeing creatures |
+| `js/story.js` | The story script and the dialogue box |
+| `js/screens.js` | Screen switching, map, learn cards, results, shop, hero maker, creature book, settings |
+| `js/progress.js` | XP, coins, stars, miss counts, hats, potions, creatures - saved in localStorage |
 | `js/samples.js`, `js/record.js` | Recorded samples and the Record page |
 | `js/main.js` | Startup and the title screen |
 | `vendor/mediapipe/` | MediaPipe files, kept locally so it works offline / on school networks |

@@ -2,7 +2,7 @@
 // screens. The battle itself lives in game.js.
 
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
-import { biomeBattleOver, enterBiome } from "./biome.js";
+import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_DAMAGE, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, CREATURES,
   DIMENSIONS, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
@@ -80,7 +80,10 @@ showHooks.map = () => {
   // The newest zone you can play, and which dimension's map to show.
   let newest = 0;
   ZONES.forEach((_, z) => progress.zoneUnlocked(z) && (newest = z));
-  if (mapDimension === null) mapDimension = ZONES[newest].dimension;
+  // Show the newest dimension you've reached, and never one you can't get to yet.
+  if (mapDimension === null || !ZONES.some((zone, z) => zone.dimension === mapDimension && progress.zoneUnlocked(z))) {
+    mapDimension = ZONES[newest].dimension;
+  }
   const dim = mapDimension;
 
   // Map picture, then a landmark + ribbon label for each zone on top.
@@ -407,6 +410,9 @@ $("set-recognizer").onchange = (e) => (progress.updateSettings({ recognizer: e.t
 $("reset-btn").onclick = () => ($("reset-confirm").hidden = false);
 $("reset-confirm").onclick = () => {
   progress.reset();
+  // Forget everything kept from before: the map's dimension and the zones' gates, bosses, and chests.
+  mapDimension = null;
+  resetBiomes();
   show("title");
 };
 

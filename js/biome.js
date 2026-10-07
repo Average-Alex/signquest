@@ -97,6 +97,12 @@ const BRIDGE = ["#a8743a", "#8a5a2a"];
 
 // One saved biome per zone, so creatures and your spot stay put while you battle.
 const biomes = new Map();
+
+// After "Start over", zones get rebuilt from the fresh progress.
+export function resetBiomes() {
+  biomes.clear();
+  current = null;
+}
 let current = null; // the biome on screen
 const keys = new Set();
 let pendingToast = null; // shown when you come back from a battle

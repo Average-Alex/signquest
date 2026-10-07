@@ -14,8 +14,11 @@ saved, and there are no accounts.
 No install or build step needed. From this folder:
 
 ```
-python -m http.server 8000
+python serve.py
 ```
+
+(`serve.py` is Python's built-in web server, but it tells the browser not to
+cache files, so a normal refresh always loads your latest changes.)
 
 Then open http://localhost:8000. The camera only works on `localhost` or an
 `https://` site (GitHub Pages works).

@@ -49,6 +49,9 @@ function load() {
         consumables: saved.consumables || base.consumables,
         settings: { ...base.settings, ...saved.settings },
       };
+      // The old default (80%) was too strict for target-aware checking.
+      if (!saved.settingsVersion && loaded.settings.minConfidence === 0.8) loaded.settings.minConfidence = DEFAULT_SETTINGS.minConfidence;
+      loaded.settingsVersion = 2;
       if (!saved.creatures) migratePets(loaded);
       migrateToTeam(loaded, saved);
       return loaded;

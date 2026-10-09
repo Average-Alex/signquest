@@ -141,12 +141,22 @@ fast is "fast", areas per zone, loot) and the zone and creature lists are in
 ## How recognition works
 
 1. Webcam frame → MediaPipe Hand Landmarker → 21 hand points (`js/camera.js`)
-2. Normalize: wrist to the origin, divide by hand size, mirror left hands → 63
-   numbers (`js/features.js`)
-3. Recognizer → a probability for each of the 24 static letters (`js/classifier.js`)
-4. Average the last 8 frames so the result doesn't flicker
-5. Count it when the target letter is above the confidence bar and held for
-   the hold time (both adjustable in Settings)
+2. If part of the hand is cut off at the edge of the picture, don't guess -
+   ask the player to move their whole hand into view
+3. Turn the points into 94 numbers that describe the hand's *shape*, not where
+   it is or how it's turned (`js/features.js`):
+   - the 21 points in the hand's own frame (wrist, palm direction, palm
+     facing), so tilting your hand doesn't change them
+   - how bent each finger joint is (15 angles)
+   - distances between fingertips (10, e.g. thumb-to-index, which tells
+     A/S/T/M/N apart)
+   - which way the hand points and faces (6, for letters like G/H vs U and
+     P/K, which differ mainly in direction)
+4. Recognizer → a probability for each of the 24 static letters (`js/classifier.js`)
+5. Average the last 8 frames so the result doesn't flicker
+6. Count it when the target letter is above the confidence bar (60% by
+   default), or is the top guess and close to it, and is held for the hold
+   time (both adjustable in Settings)
 
 Using hand points, not raw images, keeps the model tiny and makes it far less
 sensitive to skin tone, lighting, and background.
@@ -162,11 +172,24 @@ The recognizer behind it is picked automatically:
 | Recognizer | When it's used |
 |---|---|
 | Trained model | `model/weights.json` exists |
-| kNN on recorded signs | no model yet, but samples were recorded on the Record page |
+| kNN on recorded signs | no model yet, but samples were recorded (Teach the camera, or the Record page) |
 | Keyboard | nothing else available (or `?dev` in the URL) |
 
 So the game is playable with your own hand as soon as you record a few signs,
 before any model is trained.
+
+### Teach the camera your hands
+
+Without a trained model, recognition is only as good as the signs it has seen.
+The **🎯 Teach the camera your hands** screen (offered on the title screen,
+and in Settings) walks through all 24 letters and records about 2.5 seconds of
+each, around 35 samples per letter, in about 2 minutes. It already knows which
+letter it asked for, so it works even when recognition is bad.
+
+The kNN weighs the finger-shape numbers more heavily than raw positions, keeps
+the same number of samples for every letter, and adds slightly turned copies
+of each one, so a sign is still recognized when you hold your hand at a
+slightly different angle than when you recorded it.
 
 ## Training the model
 
@@ -177,13 +200,15 @@ before any model is trained.
 4. Download CSV → put it in `training/data/` (gitignored, since it has names).
 5. `python training/train.py` (needs `torch` and `numpy`)
 
-It prints accuracy with each person held out in turn - the honest number for
+Training uses the same features as the game, plus slightly turned copies of
+every sample. It prints accuracy with each person held out in turn - the honest number for
 a new player - plus the most common mix-ups and a confusion matrix for the
 look-alike letters A/S/E/T/M/N. Then it writes `model/weights.json`, which the
 game picks up on the next reload.
 
 If you change `toFeatures()` in `js/features.js`, change `to_features()` in
-`training/train.py` to match.
+`training/train.py` to match (and retrain: the game ignores a model built for
+a different number of features).
 
 ## Project layout
 

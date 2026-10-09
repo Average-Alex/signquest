@@ -3,7 +3,7 @@
 
 import { getLastHand, getPrediction } from "./classifier.js";
 import { LETTERS } from "./config.js";
-import { flatten, resolveHand } from "./features.js";
+import { flatten, handInView, resolveHand } from "./features.js";
 import * as progress from "./progress.js";
 import { addSamples, clearSamples, countsByLetter, getSamples, onSamplesChanged, toCSV } from "./samples.js";
 import { isShowing } from "./screens.js";
@@ -72,7 +72,7 @@ function livePreview() {
     const which = resolveHand(hand.handedness, progress.get().settings.hand);
     $("record-live").textContent =
       `${which === "left" ? "Left" : "Right"} hand` +
-      (prediction ? ` · looks like ${prediction.letter} (${Math.round(prediction.confidence * 100)}%)` : "");
+      (prediction?.partial ? " · only partly in view" : prediction ? ` · looks like ${prediction.letter} (${Math.round(prediction.confidence * 100)}%)` : "");
   }
 }
 
@@ -98,8 +98,8 @@ async function record() {
   await new Promise((resolve) => {
     const step = (now) => {
       const hand = getLastHand();
-      // Only keep new frames with a hand in them, spaced out a little.
-      if (hand && hand !== lastHand && now - last >= SAMPLE_GAP_MS) {
+      // Only keep new frames with a whole hand in them, spaced out a little.
+      if (hand && hand !== lastHand && handInView(hand.landmarks) && now - last >= SAMPLE_GAP_MS) {
         captured.push({
           letter: selected,
           hand: resolveHand(hand.handedness, progress.get().settings.hand),

@@ -231,7 +231,7 @@ export const playerMaxHp = (playerLevel) => Math.min(250, 97 + playerLevel * 3);
 // Defaults for the Settings screen.
 export const DEFAULT_SETTINGS = {
   holdMs: 500, // how long a sign must be held to count
-  minConfidence: 0.8, // how sure the recognizer must be
+  minConfidence: 0.6, // how sure the recognizer must be that it's the target letter
   hand: "auto", // "auto" | "right" | "left" - which hand the player signs with
   recognizer: "auto", // "auto" | "model" | "knn" | "keyboard"
 };

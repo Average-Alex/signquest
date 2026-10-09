@@ -36,6 +36,7 @@
         <div class="camera-slot"></div>
         <p id="hand-status" class="status" aria-live="polite">Show me your hand ✋</p>
         <button id="title-continue" class="btn big go" disabled>Let's go! ▶</button>
+        <button id="title-calibrate" class="btn small" hidden>🎯 First time? Teach the camera your hands (2 min)</button>
       </div>
       <p id="camera-error" class="error" hidden></p>
       <button id="keyboard-play" class="btn small" hidden>⌨️ Play with keyboard (test mode)</button>
@@ -274,6 +275,39 @@
     <div class="row center"><button id="hero-done" class="btn go">Done ✓</button></div>
   </section>
 
+  <!-- 6d. Teach the camera your hands (calibrate.js) -->
+  <section id="screen-calibrate" class="screen" hidden>
+    <div class="screen-top">
+      <button id="calib-back" class="btn small">⬅ Back</button>
+      <h2 tabindex="-1">🎯 Teach the camera your hands</h2>
+      <span id="calib-count" class="count"></span>
+    </div>
+    <p class="calib-intro">Sign each letter and hold it while I record. Move your hand a little as you hold it: closer, farther, tilted. It takes about 2 minutes, and it makes the camera MUCH better at reading your signs.</p>
+    <div id="calib-main" class="calib">
+      <div class="card calib-card">
+        <div id="calib-letter" class="big-letter"></div>
+        <img id="calib-img" class="hand-img" alt="" hidden>
+        <p id="calib-tip" class="tip"></p>
+      </div>
+      <div class="calib-cam">
+        <div class="camera-slot"></div>
+        <div class="hold" aria-hidden="true"><div id="calib-bar" class="hold-fill"></div></div>
+        <p id="calib-status" class="status" aria-live="polite"></p>
+        <button id="calib-start-camera" class="btn" hidden>📷 Turn on camera</button>
+        <div class="row">
+          <button id="calib-redo" class="btn small">↺ Redo this letter</button>
+          <button id="calib-skip" class="btn small">Skip ⏭</button>
+        </div>
+      </div>
+    </div>
+    <div id="calib-done" class="card calib-done" hidden>
+      <p class="calib-done-title">🎉 All done!</p>
+      <p>The camera knows your hands now. If a letter still gives you trouble, come back and record it again.</p>
+      <button id="calib-done-back" class="btn go">Let's play! ▶</button>
+    </div>
+    <div id="calib-chips" class="calib-chips" aria-hidden="true"></div>
+  </section>
+
   <!-- 7. Settings (+ hidden Record page link) -->
   <section id="screen-settings" class="screen" hidden>
     <div class="screen-top">
@@ -308,6 +342,7 @@
         </select>
       </label>
       <p id="recognizer-info" class="small-text"></p>
+      <button id="open-calibrate" class="btn small">🎯 Teach the camera your hands</button>
       <div class="danger">
         <button id="reset-btn" class="btn small">Start over</button>
         <button id="reset-confirm" class="btn small warn" hidden>Yes, erase my progress</button>

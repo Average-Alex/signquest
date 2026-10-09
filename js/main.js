@@ -3,7 +3,9 @@
 import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
 import * as progress from "./progress.js";
+import { ENOUGH, openCalibration } from "./calibrate.js";
 import { initRecordPage } from "./record.js";
+import { countsByLetter } from "./samples.js";
 import { show } from "./screens.js";
 import { playScene } from "./story.js";
 
@@ -55,6 +57,9 @@ onHand((hand) => {
   $("hand-status").className = "status good";
   $("title-continue").disabled = false;
   $("title-continue").focus();
+  // Suggest teaching the camera if it hasn't learned most letters yet.
+  const counts = countsByLetter();
+  $("title-calibrate").hidden = Object.values(counts).filter((n) => n >= ENOUGH).length >= 20;
 });
 
 // Off to the map. The first time, the story's intro plays over it.
@@ -65,6 +70,8 @@ function startAdventure() {
 }
 
 $("title-continue").onclick = startAdventure;
+$("title-calibrate").onclick = () => openCalibration(() => show("title"));
+$("open-calibrate").onclick = () => openCalibration(() => show("settings"));
 
 // With ?dev, holding a letter key always counts as signing it.
 $("keyboard-play").onclick = startAdventure;

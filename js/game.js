@@ -196,7 +196,7 @@ function tick(now) {
 
   const letter = currentLetter();
   const prediction = getPrediction();
-  $("seeing").textContent = prediction ? `I see: ${prediction.letter}` : "Show your hand ✋";
+  $("seeing").textContent = prediction?.partial ? "✋ Move your whole hand into view" : prediction ? `I see: ${prediction.letter}` : "Show your hand ✋";
   const held = battle.hold.update(letter, prediction, now);
   $("battle-hold").style.width = `${held * 100}%`;
 

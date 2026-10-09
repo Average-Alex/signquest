@@ -61,6 +61,10 @@ function createLandmarker(vision, delegate) {
     baseOptions: { modelAssetPath: MODEL_PATH, delegate },
     runningMode: "VIDEO",
     numHands: 1,
+    // A little pickier than the defaults (0.5), so blurry half-hands don't count.
+    minHandDetectionConfidence: 0.6,
+    minHandPresenceConfidence: 0.6,
+    minTrackingConfidence: 0.6,
   });
 }
 

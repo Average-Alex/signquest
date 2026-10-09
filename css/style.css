@@ -349,23 +349,6 @@ input[type=text], select {
 @keyframes freed { 0% { filter: brightness(3) drop-shadow(0 0 2cqw #fff); transform: scale(1.15); } 60% { filter: brightness(1.3); transform: scale(1); } 100% { filter: none; opacity: 0.9; } }
 .turn-banner { top: auto !important; bottom: 3cqw; font-size: max(13px, 2cqw) !important; }
 
-/* Move buttons, under the letter to sign. */
-.moves { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 0 0 14px; }
-.move-btn {
-  position: relative; font: inherit; font-weight: 700; cursor: pointer; min-width: 96px; padding: 8px 10px 6px;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: var(--card); border: var(--outline); border-radius: 10px; box-shadow: inset 0 -4px 0 var(--card-2), 0 3px 0 var(--ink);
-}
-.move-btn:hover:not(:disabled) { transform: translateY(-2px); }
-.move-btn.picked { background: var(--gold); box-shadow: inset 0 -4px 0 var(--gold-dark), 0 0 0 4px #fff, 0 3px 0 4px var(--ink); }
-.move-btn:disabled { opacity: 0.45; cursor: default; filter: grayscale(0.7); }
-.move-btn.buddy-move { background: #efe6ff; }
-.move-btn.buddy-move.picked { background: #c9a8ff; }
-.move-icon { font-size: 26px; line-height: 1.1; }
-.move-art { width: 34px; }
-.move-name { font-size: 14px; white-space: nowrap; }
-.move-cost { font-size: 13px; color: #fff; background: var(--ink); border-radius: 99px; padding: 0 8px; }
-.move-key { position: absolute; top: 3px; left: 6px; font-size: 11px; color: var(--muted); }
 
 .arena.shake { animation: arena-shake 0.4s; }
 @keyframes arena-shake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(6px, -3px); } 60% { transform: translate(-4px, 2px); } 80% { transform: translate(3px, -1px); } }
@@ -577,3 +560,96 @@ input[type=text], select {
 .shard-line { font-size: 22px; font-weight: 700; color: #6a3fd0; background: #efe6ff; border: var(--outline); border-radius: 10px; padding: 8px 12px; }
 .coins.shards { color: #6a3fd0; }
 .book-move { font-size: 14px; font-weight: 700; color: var(--brand-dark); background: #efe6ff; border-radius: 8px; padding: 2px 8px; }
+
+/* ---------- Battle command panel: camera | what to sign | moves ---------- */
+.command {
+  display: grid; grid-template-columns: minmax(180px, 230px) minmax(200px, 1fr) minmax(280px, 1.25fr); gap: 16px; align-items: stretch;
+  margin-top: 14px; padding: 14px; background: var(--card); border: var(--outline); border-radius: 14px;
+  box-shadow: inset 0 0 0 3px var(--card-2), 0 5px 0 var(--ink);
+}
+
+/* Camera, with what it sees and the hold bar tucked onto it. */
+.cmd-cam { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.cmd-cam .camera { border-width: 3px; box-shadow: none; }
+.cmd-cam .seeing {
+  position: absolute; top: 8px; left: 8px; z-index: 2; margin: 0; font-size: 14px; padding: 2px 10px;
+  background: rgba(251, 241, 214, 0.92); border-width: 2px;
+}
+.cmd-cam .hold { height: 12px; margin: 0; border-width: 2px; }
+
+/* The letter or word to sign. */
+.cmd-sign { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.cmd-label { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.cmd-sign .target { margin: 0; min-height: 0; gap: 6px; flex-wrap: wrap; }
+.cmd-sign .slot { width: 58px; height: 72px; font-size: 44px; border-width: 3px; }
+.cmd-sign .slot.single { width: 104px; height: 104px; font-size: 72px; }
+.cmd-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.cmd-tools .btn.small { min-height: 38px; padding: 4px 12px; font-size: 15px; }
+
+/* Hint and bag pop up above the panel, over the bottom of the battle field. */
+.pop-card {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 20; width: min(320px, 86vw);
+  background: var(--card); border: var(--outline); border-radius: 12px; padding: 12px; text-align: center;
+  box-shadow: inset 0 0 0 3px var(--card-2), 0 5px 0 var(--ink), 0 12px 30px rgba(0, 0, 0, 0.3);
+  animation: pop-card 0.18s ease-out;
+}
+.pop-card::after { content: ""; position: absolute; left: 50%; bottom: -10px; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg); background: var(--card); border-right: var(--outline); border-bottom: var(--outline); }
+@keyframes pop-card { from { opacity: 0; transform: translate(-50%, 8px); } }
+.pop-card .tip { font-size: 17px; margin: 4px 0 0; }
+.pop-card .hand-img { max-height: 120px; margin: 0 auto 6px; }
+.pop-title { margin: 0 0 8px; font-weight: 700; }
+.pop-card.bag { width: min(370px, 90vw); }
+.bag .items-bar { justify-content: center; flex-wrap: nowrap; }
+.bag .use-btn { width: 70px; }
+.hint.glow { animation: pop-card 0.18s ease-out, glow 1.2s ease-in-out infinite alternate; }
+
+/* Move picker: tabs for you and each buddy, then that character's 3 moves. */
+.cmd-moves { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cmd-moves-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.move-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.move-tab {
+  position: relative; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  padding: 3px 10px 3px 4px; border: 2px solid var(--ink); border-radius: 99px; background: var(--card-2); color: var(--muted);
+}
+.move-tab.open { background: #fff; color: var(--ink); box-shadow: 0 3px 0 var(--ink); transform: translateY(-1px); }
+.move-tab.has-pick::after { content: ""; position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 2px solid var(--ink); }
+.tab-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; position: relative; background: #dfe8ff; flex: none; }
+.tab-face .sprite { position: absolute; left: 50%; transform: translateX(-50%); width: 24px; top: 3px; }
+.tab-face .tab-hero { width: 36px; top: -8px; }
+.move-energy { flex: none; font-weight: 700; font-size: 14px; color: #fff; background: var(--ink); border-radius: 99px; padding: 2px 10px; }
+
+.moves { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.move-btn {
+  position: relative; font: inherit; cursor: pointer; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px;
+  padding: 6px 10px 6px 8px; text-align: left; background: #fffaf0; border: 2px solid var(--ink); border-left-width: 6px; border-radius: 10px;
+  box-shadow: 0 3px 0 var(--ink); transition: transform 0.08s;
+}
+.move-btn.type-attack { border-left-color: #e8413b; }
+.move-btn.type-shield { border-left-color: #3a7fd6; }
+.move-btn.type-heal { border-left-color: #3faa3a; }
+.move-btn.type-stun { border-left-color: #8a5ad6; }
+.move-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.move-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.move-btn.picked { background: #fff3c4; box-shadow: 0 0 0 3px var(--gold), 0 3px 0 3px var(--ink); }
+.move-btn:disabled { cursor: default; opacity: 0.5; box-shadow: none; }
+.move-icon { font-size: 24px; text-align: center; line-height: 1; }
+.move-text { display: flex; flex-direction: column; min-width: 0; }
+.move-name { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.move-desc { font-size: 13px; color: var(--muted); }
+.move-cost { font-weight: 700; font-size: 13px; color: #fff; background: var(--ink); border-radius: 99px; padding: 1px 9px; }
+.move-key { position: absolute; top: 2px; right: 6px; font-size: 10px; color: var(--muted); }
+.move-btn .move-cost + .move-key { display: none; }
+
+@media (max-width: 860px) {
+  .command { grid-template-columns: 1fr 1fr; }
+  .cmd-moves { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .command { grid-template-columns: 1fr; }
+  .cmd-cam { max-width: 260px; width: 100%; margin: 0 auto; }
+}
+
+/* Creature book: the three moves. */
+.book-moves { list-style: none; margin: 4px 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 3px; }
+.book-moves li { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 700; background: #efe6ff; border-radius: 6px; padding: 2px 8px; color: var(--brand-dark); }
+.book-moves li span { color: var(--muted); font-weight: 400; white-space: nowrap; }

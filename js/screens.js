@@ -329,8 +329,8 @@ showHooks.book = () => {
       creature.kind === "starter" ? "Your first friend" :
       creature.kind === "shop" ? "Sold in the Shop" :
       `${creature.kind === "boss" ? "Boss of" : "Lives in"} the ${zoneName(creature.zone)}`;
-    const move = creature.move;
-    const moveText = move ? `${move.icon} ${move.name} · ${move.cost}⚡ · ${{ attack: `${move.power}x hit`, shield: "Shield", heal: "Heal", stun: "Stun" }[move.type]}` : "";
+    const kind = (mv) => ({ attack: `${mv.power}x`, shield: "shield", heal: "heal", stun: "stun" })[mv.type];
+    const moveText = (creature.moves || []).map((mv) => `<li>${mv.icon} ${mv.name} <span>${mv.cost}⚡ · ${kind(mv)}</span></li>`).join("");
     const onTeam = progress.onTeam(creature.id);
     const card = document.createElement("div");
     card.className = `book-card${mine ? "" : " unknown"}${onTeam ? " buddy" : ""}`;
@@ -343,7 +343,7 @@ showHooks.book = () => {
         <div class="book-name">${creature.name}</div>
         <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""} · hits for ${BUDDY_DAMAGE(mine.level)}</div>
         <div class="xpbar" aria-hidden="true"><span style="width:${pct}%"></span></div>
-        <div class="book-move">${moveText}</div>
+        <ul class="book-moves">${moveText}</ul>
         <div class="small-text">${where}</div>`;
       // Your team: up to TEAM_SIZE buddies. Adding one when it's full swaps out the oldest.
       const button = document.createElement("button");

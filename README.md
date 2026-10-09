@@ -73,10 +73,16 @@ zone, before each boss, and after each boss.
 
 - Your hero's spells: ✨ Spark (free), 💥 Blast (3⚡, 2x damage), 🌟 Nova
   (6⚡, 3.5x damage).
-- Each buddy's special move, such as a big hit, a shield, a heal, or a stun.
-  Every creature has its own move and energy cost.
+- Your buddies' moves. Every creature has 3: a quick attack (2⚡), a helper
+  move (shield, heal, or stun), and a big signature attack (7⚡). Buddy attacks
+  get stronger as the buddy levels up. Wild creatures use their moves on you
+  too, including their signature move.
 - Energy ⚡ comes from signing: +1 for every letter, +1 more for signing fast
   without a hint. Spark is free, so you're never stuck.
+
+The battle screen has one command panel: your camera, the letter to sign
+(with 💡 Hint and a 🎒 Bag of potions), and a move picker with a tab for you
+and each buddy. Keys 1 to 3 pick a move, and the left and right arrows switch tabs.
 
 Your move can be a critical hit (more often if you signed fast). Then both
 buddies get a free hit, and the monster attacks back. Sometimes signing fast

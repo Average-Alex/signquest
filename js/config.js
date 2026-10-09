@@ -90,43 +90,50 @@ export const SHOP = [
 // the Shop. Breaking a creature's hex the first time makes it join your team.
 // Art: sprites.js.
 //
-// Every creature has a special `move` your team can use in battle (it costs
-// energy, see "Moves and energy" below). Move types:
-//   attack - hits for `power` x the creature's normal hit
+// Every creature has 3 `moves`, like your hero's spells: a quick attack, a
+// helper move, and a big signature attack. Your buddies' moves cost energy
+// (see "Moves and energy" below); wild creatures use theirs on you.
+// Move types:
+//   attack - hits for `power` x a normal signed hit (buddies hit harder as they level up)
 //   shield - blocks the monster's next hit
 //   heal   - heals you (HEAL_FRACTION of your max HP)
 //   stun   - the monster skips its next turn
 const m = (name, icon, type, cost, power = 1) => ({ name, icon, type, cost, power });
+const quick = (name, icon) => m(name, icon, "attack", 2, 1.5);
+const big = (name, icon, power = 4) => m(name, icon, "attack", 7, power);
+const shield = (name, icon) => m(name, icon, "shield", 3);
+const heal = (name, icon) => m(name, icon, "heal", 4);
+const stun = (name, icon, cost = 4) => m(name, icon, "stun", cost);
 export const CREATURES = [
-  { id: "pip", name: "Pip", zone: null, kind: "starter", move: m("Lantern Flash", "🏮", "stun", 2) },
-  { id: "slime", name: "Blobby", zone: "meadow", kind: "wild", move: m("Bubble Wall", "🫧", "shield", 3) },
-  { id: "bunny", name: "Hopper", zone: "meadow", kind: "wild", move: m("Hop Kick", "🦶", "attack", 3, 3) },
-  { id: "frog", name: "Croak King", zone: "meadow", kind: "boss", move: m("Tongue Lash", "👅", "attack", 4, 4) },
-  { id: "shroom", name: "Shroomy", zone: "forest", kind: "wild", move: m("Sleepy Spores", "🍄", "stun", 4) },
-  { id: "pup", name: "Pepper", zone: "forest", kind: "wild", move: m("Big Bark", "📢", "stun", 3) },
-  { id: "owl", name: "Professor Hoot", zone: "forest", kind: "boss", move: m("Wise Glow", "💚", "heal", 4) },
-  { id: "golem", name: "Rocky", zone: "caves", kind: "wild", move: m("Rock Slam", "🪨", "attack", 4, 4) },
-  { id: "gloop", name: "Gloop", zone: "caves", kind: "wild", move: m("Goo Shield", "🛡️", "shield", 3) },
-  { id: "bat", name: "Count Flap", zone: "caves", kind: "boss", move: m("Echo Screech", "🔊", "stun", 4) },
-  { id: "crab", name: "Snips", zone: "river", kind: "wild", move: m("Pinch Pinch", "🦀", "attack", 3, 3) },
-  { id: "splash", name: "Splash", zone: "river", kind: "wild", move: m("Splash Heal", "💧", "heal", 3) },
-  { id: "octopus", name: "Inkzilla", zone: "river", kind: "boss", move: m("Ink Cloud", "🌫️", "stun", 4) },
-  { id: "ghost", name: "Boo", zone: "castle", kind: "wild", move: m("Spooky Fade", "👻", "shield", 3) },
-  { id: "unicorn", name: "Sparkle", zone: "castle", kind: "wild", move: m("Rainbow Heal", "🌈", "heal", 4) },
-  { id: "dragon", name: "Blaze", zone: "castle", kind: "boss", move: m("Fire Breath", "🔥", "attack", 5, 5) },
-  { id: "frostling", name: "Frostling", zone: "spires", kind: "wild", move: m("Frost Armor", "❄️", "shield", 3) },
-  { id: "shardgolem", name: "Shard Golem", zone: "spires", kind: "wild", move: m("Crystal Crash", "💎", "attack", 4, 4) },
-  { id: "icewyrm", name: "Glacier Wyrm", zone: "spires", kind: "boss", move: m("Blizzard", "🌨️", "attack", 5, 5) },
-  { id: "puffcap", name: "Puffcap", zone: "clouds", kind: "wild", move: m("Dream Dust", "✨", "stun", 4) },
-  { id: "skyhop", name: "Sky Hopper", zone: "clouds", kind: "wild", move: m("Cloud Hop", "☁️", "heal", 3) },
-  { id: "stormowl", name: "Storm Owl", zone: "clouds", kind: "boss", move: m("Thunder Wing", "⚡", "attack", 5, 5) },
-  { id: "voidghost", name: "Wisp", zone: "void", kind: "wild", move: m("Fade Out", "🌑", "shield", 3) },
-  { id: "shadowbat", name: "Shadow Flap", zone: "void", kind: "wild", move: m("Night Screech", "🦇", "stun", 4) },
-  { id: "voidkraken", name: "Void Kraken", zone: "void", kind: "wild", move: m("Void Grip", "🐙", "attack", 5, 5) },
-  { id: "cat", name: "Whiskers", zone: null, kind: "shop", price: 60, move: m("Swipe", "🐾", "attack", 3, 3) },
-  { id: "drake", name: "Drake", zone: null, kind: "shop", price: 150, move: m("Ember Burst", "🔥", "attack", 4, 4) },
+  { id: "pip", name: "Pip", zone: null, kind: "starter", moves: [quick("Ember Nip", "🔥"), stun("Lantern Flash", "🏮", 3), big("Beacon Beam", "🌟")] },
+  { id: "slime", name: "Blobby", zone: "meadow", kind: "wild", moves: [quick("Bounce", "🟢"), shield("Bubble Wall", "🫧"), big("Slime Wave", "🌊")] },
+  { id: "bunny", name: "Hopper", zone: "meadow", kind: "wild", moves: [quick("Nibble", "🥕"), heal("Carrot Snack", "💚"), big("Hop Kick", "🦶")] },
+  { id: "frog", name: "Croak King", zone: "meadow", kind: "boss", moves: [quick("Splash", "💦"), stun("Croak Shout", "📢"), big("Tongue Lash", "👅", 5)] },
+  { id: "shroom", name: "Shroomy", zone: "forest", kind: "wild", moves: [quick("Cap Bonk", "🍄"), stun("Sleepy Spores", "💤"), big("Mushroom Rain", "🌧️")] },
+  { id: "pup", name: "Pepper", zone: "forest", kind: "wild", moves: [quick("Tail Whip", "🐕"), stun("Big Bark", "📢", 3), big("Zoomies", "💨")] },
+  { id: "owl", name: "Professor Hoot", zone: "forest", kind: "boss", moves: [quick("Peck", "🪶"), heal("Wise Glow", "💚"), big("Hoot Blast", "🦉", 5)] },
+  { id: "golem", name: "Rocky", zone: "caves", kind: "wild", moves: [quick("Pebble Toss", "🪨"), shield("Stone Skin", "🛡️"), big("Rock Slam", "💥")] },
+  { id: "gloop", name: "Gloop", zone: "caves", kind: "wild", moves: [quick("Goo Ball", "🟣"), shield("Goo Shield", "🛡️"), big("Gloop Flood", "🌊")] },
+  { id: "bat", name: "Count Flap", zone: "caves", kind: "boss", moves: [quick("Wing Flap", "🦇"), stun("Echo Screech", "🔊"), big("Night Dive", "🌙", 5)] },
+  { id: "crab", name: "Snips", zone: "river", kind: "wild", moves: [quick("Pinch", "🦀"), shield("Shell Up", "🛡️"), big("Crab Crush", "💥")] },
+  { id: "splash", name: "Splash", zone: "river", kind: "wild", moves: [quick("Bubble", "🫧"), heal("Splash Heal", "💧"), big("Tidal Leap", "🌊")] },
+  { id: "octopus", name: "Inkzilla", zone: "river", kind: "boss", moves: [quick("Tentacle Slap", "🐙"), stun("Ink Cloud", "🌫️"), big("Eight-Arm Spin", "🌀", 5)] },
+  { id: "ghost", name: "Boo", zone: "castle", kind: "wild", moves: [quick("Boo!", "👻"), shield("Spooky Fade", "🌫️"), big("Haunt", "🌙")] },
+  { id: "unicorn", name: "Sparkle", zone: "castle", kind: "wild", moves: [quick("Horn Poke", "🦄"), heal("Rainbow Heal", "🌈"), big("Star Gallop", "✨")] },
+  { id: "dragon", name: "Blaze", zone: "castle", kind: "boss", moves: [quick("Claw", "🐾"), stun("Smoke Screen", "🌫️"), big("Fire Breath", "🔥", 5)] },
+  { id: "frostling", name: "Frostling", zone: "spires", kind: "wild", moves: [quick("Snowball", "❄️"), shield("Frost Armor", "🛡️"), big("Avalanche", "🏔️")] },
+  { id: "shardgolem", name: "Shard Golem", zone: "spires", kind: "wild", moves: [quick("Shard Toss", "💎"), shield("Crystal Wall", "🛡️"), big("Crystal Crash", "💥")] },
+  { id: "icewyrm", name: "Glacier Wyrm", zone: "spires", kind: "boss", moves: [quick("Ice Fang", "🧊"), stun("Deep Freeze", "🥶"), big("Blizzard", "🌨️", 5)] },
+  { id: "puffcap", name: "Puffcap", zone: "clouds", kind: "wild", moves: [quick("Puff", "💨"), stun("Dream Dust", "✨"), big("Spore Storm", "🍄")] },
+  { id: "skyhop", name: "Sky Hopper", zone: "clouds", kind: "wild", moves: [quick("Cloud Kick", "☁️"), heal("Cloud Hop", "💚"), big("Sky Dive", "🌤️")] },
+  { id: "stormowl", name: "Storm Owl", zone: "clouds", kind: "boss", moves: [quick("Gust", "🌬️"), shield("Static Shield", "🛡️"), big("Thunder Wing", "⚡", 5)] },
+  { id: "voidghost", name: "Wisp", zone: "void", kind: "wild", moves: [quick("Shadow Tap", "🌑"), shield("Fade Out", "🛡️"), big("Void Wave", "🌀")] },
+  { id: "shadowbat", name: "Shadow Flap", zone: "void", kind: "wild", moves: [quick("Bite", "🦇"), stun("Night Screech", "🔊"), big("Eclipse", "🌑")] },
+  { id: "voidkraken", name: "Void Kraken", zone: "void", kind: "wild", moves: [quick("Grab", "🐙"), stun("Void Grip", "🌀"), big("Abyss Crush", "💥")] },
+  { id: "cat", name: "Whiskers", zone: null, kind: "shop", price: 60, moves: [quick("Swipe", "🐾"), heal("Catnap", "💚"), big("Pounce Storm", "⚡")] },
+  { id: "drake", name: "Drake", zone: null, kind: "shop", price: 150, moves: [quick("Ember", "🔥"), shield("Wing Guard", "🛡️"), big("Inferno", "🔥", 5)] },
   // The final boss. He can't join your team, and isn't in the creature book.
-  { id: "malgrath", name: "Malgrath the Hollow King", zone: "void", kind: "boss", catchable: false },
+  { id: "malgrath", name: "Malgrath the Hollow King", zone: "void", kind: "boss", catchable: false, moves: [quick("Hollow Bolt", "🌑"), heal("Dark Mend", "💜"), big("Shatter", "💥", 5)] },
 ];
 export const STARTER_CREATURE = "pip";
 export const TEAM_SIZE = 2; // buddies that fight beside you
@@ -154,6 +161,14 @@ export const HEX_HP_MULTIPLIER = 1.6;
 // move's power). Each buddy hits for BUDDY_DAMAGE every turn, free.
 export const SIGN_DAMAGE = 10;
 export const BUDDY_DAMAGE = (level) => 2 + level; // per turn
+// A buddy's attack moves hit like your signing, and get stronger as it levels up.
+export const buddyMoveBoost = (level) => 1 + (level - 1) * 0.08;
+// When a wild creature attacks, its quick move does a bit less than normal and
+// its signature move a lot more. It can only use its signature from turn 2.
+export const ENEMY_QUICK_DAMAGE = 0.9;
+export const ENEMY_BIG_DAMAGE = 1.6;
+export const ENEMY_BIG_CHANCE = 0.25;
+export const ENEMY_HEAL_FRACTION = 0.12;
 export const CRIT_CHANCE = 0.1; // normal chance of a critical hit
 export const CRIT_CHANCE_FAST = 0.35; // when you signed fast without a hint
 export const CRIT_MULTIPLIER = 1.5;

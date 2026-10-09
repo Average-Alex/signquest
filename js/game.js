@@ -22,7 +22,8 @@
 
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
-  battleLength, BOSS_EXTRA_DAMAGE, BUDDY_CRIT_CHANCE, BUDDY_DAMAGE, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
+  battleLength, BOSS_EXTRA_DAMAGE, BUDDY_CRIT_CHANCE, BUDDY_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
+  ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
   CRIT_CHANCE, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, LETTERS, LOOT_CHANCE,
   monsterDamage, playerMaxHp, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
@@ -91,6 +92,8 @@ export function startBattle(z, s, foeId, level, onFinish) {
     energy: ENERGY_START,
     move: HERO_MOVES[0], // the move picked for this turn
     mover: null, // which buddy's move it is (null = your hero's spell)
+    tab: 0, // which tab of the move picker is open (0 = you)
+    foeHealed: false, // a wild creature heals at most once a battle
     stunned: false, // the monster skips its next turn
     dizzyLastTurn: false, // a monster can't be dizzy two turns in a row
     shield: 0, // hits left to block
@@ -123,6 +126,7 @@ export function startBattle(z, s, foeId, level, onFinish) {
   $("monster").className = `monster hexed${stage.type === "boss" ? " boss" : ""}`;
   $("arena").dataset.zone = zone.id;
   document.querySelector(".player .avatar").className = "avatar";
+  toggleBag(false);
   updateHp();
   updateStatus();
   setTurn("you");
@@ -194,6 +198,7 @@ function showHint(auto) {
   progress.addMiss(letter);
   $("hint-tip").textContent = TIPS[letter];
   setHandImage($("hint-img"), letter);
+  toggleBag(false);
   $("hint").hidden = false;
   $("hint").classList.toggle("glow", auto);
   announce(`Hint for ${letter}: ${TIPS[letter]}`);
@@ -270,10 +275,13 @@ function fireMove(letters, fast) {
     if (el) restartAnimation(el, move.type === "attack" ? "pounce" : "boost");
     flashCamera("good");
     if (move.type === "attack") {
-      const damage = Math.round(BUDDY_DAMAGE(mover.level) * move.power * (1 + letters * 0.5));
-      hitMonster(damage, false, 250);
-      popText(`${move.icon} ${move.name}!`, true);
-      announce(`${pet.name} uses ${move.name}! ${damage} damage.`);
+      // Like your signing, scaled by the move's power and the buddy's level.
+      const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE);
+      const damage = Math.round(letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * (crit ? CRIT_MULTIPLIER : 1));
+      hitMonster(damage, crit, 250);
+      if (move.power >= 4) restartAnimation($("arena"), "shake");
+      popText(`${crit ? "CRITICAL! " : ""}${move.icon} ${move.name}!`, true);
+      announce(`${pet.name} uses ${move.name}!${crit ? " Critical hit!" : ""} ${damage} damage.`);
     } else if (move.type === "shield") {
       battle.shield += 1;
       popText(`${move.icon} ${move.name}!`);
@@ -344,35 +352,54 @@ function buddyHit(pet, n) {
 
 const buddyEl = (n) => document.querySelectorAll(".player .avatar .creature")[n];
 
-// The move buttons: your hero's spells, then each buddy's special move.
+// The move picker: a tab for you and each buddy, each with 3 moves. The move
+// you pick stays picked even if you look at another tab.
 function renderMoves() {
+  const p = progress.get();
+  const tabs = [{ who: "You", art: heroImg(p.look, p.equipped.hat, "tab-hero"), mover: null }].concat(
+    battle.team.map((pet) => ({ who: creature(pet.id).name, art: creatureImg(pet.id, "tab-art"), mover: pet })),
+  );
+  if (battle.tab >= tabs.length) battle.tab = 0;
+  $("move-tabs").innerHTML = "";
+  tabs.forEach((tab, n) => {
+    const button = document.createElement("button");
+    const open = n === battle.tab;
+    const hasPick = battle.mover === tab.mover;
+    button.className = `move-tab${open ? " open" : ""}${hasPick ? " has-pick" : ""}`;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(open));
+    button.innerHTML = `<span class="tab-face">${tab.art}</span><span class="tab-name">${tab.who}</span>`;
+    button.onclick = () => {
+      battle.tab = n;
+      renderMoves();
+    };
+    $("move-tabs").appendChild(button);
+  });
+
+  const tab = tabs[battle.tab];
+  const moves = tab.mover ? creature(tab.mover.id).moves : HERO_MOVES;
   const bar = $("battle-moves");
   bar.innerHTML = "";
-  const options = [
-    ...HERO_MOVES.map((move) => ({ move, mover: null, who: "You" })),
-    ...battle.team.filter((pet) => creature(pet.id).move).map((pet) => ({ move: creature(pet.id).move, mover: pet, who: creature(pet.id).name })),
-  ];
-  options.forEach(({ move, mover, who }, n) => {
-    const picked = battle.move === move && battle.mover === mover;
+  moves.forEach((move, n) => {
+    const picked = battle.move === move && battle.mover === tab.mover;
     const button = document.createElement("button");
-    button.className = `move-btn${picked ? " picked" : ""}${mover ? " buddy-move" : ""} type-${move.type || "attack"}`;
+    button.className = `move-btn${picked ? " picked" : ""} type-${move.type || "attack"}`;
     button.disabled = battle.busy || battle.done || move.cost > battle.energy;
     button.setAttribute("aria-pressed", String(picked));
     button.innerHTML = `
-      ${mover ? creatureImg(mover.id, "move-art") : `<span class="move-icon">${move.icon}</span>`}
-      <span class="move-name">${mover ? `${move.icon} ` : ""}${move.name}</span>
+      <span class="move-icon">${move.icon}</span>
+      <span class="move-text"><span class="move-name">${move.name}</span><span class="move-desc">${moveDescription(move)}</span></span>
       <span class="move-cost">${move.cost ? `${move.cost}⚡` : "Free"}</span>
       <span class="move-key" aria-hidden="true">${n + 1}</span>`;
-    button.title = `${who}: ${moveDescription(move)}`;
-    button.setAttribute("aria-label", `${who}: ${move.name}. ${moveDescription(move)}. Costs ${move.cost} energy.`);
-    button.onclick = () => pickMove(move, mover);
+    button.setAttribute("aria-label", `${tab.who}: ${move.name}. ${moveDescription(move)}. Costs ${move.cost} energy.`);
+    button.onclick = () => pickMove(move, tab.mover);
     bar.appendChild(button);
   });
 }
 
 function moveDescription(move) {
-  if (!move.type || move.type === "attack") return move.power > 1 ? `Hits ${move.power} times as hard` : "A basic hit";
-  return { shield: "Blocks the next hit", heal: "Heals you", stun: "The monster skips its next turn" }[move.type];
+  if (!move.type || move.type === "attack") return move.power > 1 ? `${move.power}x damage` : "Normal hit";
+  return { shield: "Blocks a hit", heal: "Heals you", stun: "Skips their turn" }[move.type];
 }
 
 function pickMove(move, mover) {
@@ -387,13 +414,28 @@ function renderEnergy() {
   const pips = Array.from({ length: ENERGY_MAX }, (_, n) => `<span class="pip${n < battle.energy ? " full" : ""}"></span>`).join("");
   $("energy").innerHTML = `<span class="energy-label">⚡ ${battle.energy}</span>${pips}`;
   $("energy").setAttribute("aria-label", `Energy ${battle.energy} of ${ENERGY_MAX}`);
+  $("move-energy").textContent = `⚡ ${battle.energy} / ${ENERGY_MAX}`;
 }
 
-// Number keys pick moves (1, 2, 3...). Letters are for signing in test mode.
+// Keys: 1-3 pick a move from the open tab; left/right arrows switch tabs.
+// (Letters are for signing in test mode.)
 addEventListener("keydown", (e) => {
-  if (!battle || !isShowing("battle") || !/^[1-9]$/.test(e.key)) return;
-  $("battle-moves").children[Number(e.key) - 1]?.click();
+  if (!battle || !isShowing("battle")) return;
+  if (/^[1-3]$/.test(e.key)) $("battle-moves").children[Number(e.key) - 1]?.click();
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    const tabs = $("move-tabs").children.length;
+    battle.tab = (battle.tab + (e.key === "ArrowRight" ? 1 : tabs - 1)) % tabs;
+    renderMoves();
+  }
 });
+
+// The bag of potions and power-ups opens like a little pocket.
+function toggleBag(open = $("bag").hidden) {
+  $("bag").hidden = !open;
+  $("bag-btn").setAttribute("aria-expanded", String(open));
+  if (open) $("hint").hidden = true;
+}
+$("bag-btn").onclick = () => toggleBag();
 
 // ---------- The monster's turn ----------
 
@@ -405,6 +447,12 @@ function monsterTurn(fast) {
   b.dizzyLastTurn = dazed;
   setTurn("monster");
   const name = b.foe.name;
+  // Which of its moves it uses: usually the quick one; sometimes (from turn 2)
+  // its big signature move; and once a battle, a heal if it's hurt and has one.
+  const [quickMove, , bigMove] = b.foe.moves;
+  const healMove = b.foe.moves.find((mv) => mv.type === "heal");
+  const healing = healMove && !b.foeHealed && b.hp < b.maxHp * 0.4 && Math.random() < 0.5;
+  const move = b.turn >= 2 && Math.random() < ENEMY_BIG_CHANCE ? bigMove : quickMove;
 
   if (b.stunned) {
     b.stunned = false;
@@ -415,24 +463,36 @@ function monsterTurn(fast) {
     restartAnimation($("monster"), "dizzy");
     popText("Dizzy! 💫");
     announce(`You signed so fast, ${name} is too dizzy to attack!`);
+  } else if (healing) {
+    b.foeHealed = true;
+    const amount = Math.round(b.maxHp * ENEMY_HEAL_FRACTION);
+    b.hp = Math.min(b.maxHp, b.hp + amount);
+    restartAnimation($("monster"), "boost");
+    popText(`${healMove.icon} ${healMove.name}!`);
+    floatText($("monster-dmg"), `+${amount}`, "good");
+    updateHp();
+    announce(`${name} uses ${healMove.name} and heals ${amount}!`);
   } else if (b.shield > 0) {
     b.shield--;
     updateStatus();
     restartAnimation($("monster"), "lunge");
-    popText("Blocked! 🛡️");
-    announce(`${name} attacks, but your shield blocks it!`);
+    popText(`${move.icon} ${move.name}... Blocked! 🛡️`);
+    announce(`${name} uses ${move.name}, but your shield blocks it!`);
   } else {
+    const big = move === bigMove;
     const base = monsterDamage(b.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
-    const damage = base + Math.floor(Math.random() * 5) - 2;
+    const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE)));
     b.playerHp = Math.max(0, b.playerHp - damage);
     restartAnimation($("monster"), "lunge");
+    if (big) restartAnimation($("arena"), "shake");
+    popText(`${move.icon} ${move.name}!`, big);
     setTimeout(() => {
       if (battle !== b) return;
       restartAnimation(document.querySelector(".player .avatar"), "hurt");
-      floatText($("player-dmg"), `-${damage}`, "bad");
+      floatText($("player-dmg"), `-${damage}`, big ? "crit" : "bad");
       updateHp();
     }, 250);
-    announce(`${name} attacks! You lose ${damage} HP.`);
+    announce(`${name} uses ${move.name}! You lose ${damage} HP.`);
     if (b.playerHp <= 0) return setTimeout(() => battle === b && finish(false), 700);
   }
 
@@ -498,6 +558,7 @@ function useItem(item) {
   restartAnimation(document.querySelector(".player .avatar"), "boost");
   updateStatus();
   renderItems();
+  toggleBag(false);
 }
 
 function updateStatus() {

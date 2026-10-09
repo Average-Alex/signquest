@@ -163,23 +163,36 @@
       </div>
       <div id="pop" class="pop" aria-hidden="true"></div>
     </div>
-    <div id="target" class="target" aria-live="polite"></div>
-    <div id="battle-moves" class="moves" role="group" aria-label="Pick a move, then sign to use it"></div>
-    <div class="battle-bottom">
-      <div class="camera-slot"></div>
-      <div class="battle-side">
-        <div class="hold" aria-hidden="true"><div id="battle-hold" class="hold-fill"></div></div>
+    <!-- One tidy command panel: camera | what to sign | your moves -->
+    <div class="command">
+      <div class="cmd-cam">
+        <div class="camera-slot"></div>
         <p id="seeing" class="seeing"></p>
-        <div id="hint" class="card hint" hidden>
+        <div class="hold" aria-hidden="true"><div id="battle-hold" class="hold-fill"></div></div>
+      </div>
+      <div class="cmd-sign">
+        <p class="cmd-label">Sign this</p>
+        <div id="target" class="target" aria-live="polite"></div>
+        <div class="cmd-tools">
+          <button id="hint-btn" class="btn small">💡 Hint</button>
+          <button id="bag-btn" class="btn small" aria-expanded="false" aria-controls="bag">🎒 Bag</button>
+          <button id="skip-btn" class="btn small" hidden>Skip ⏭</button>
+        </div>
+        <div id="hint" class="pop-card hint" hidden>
           <img id="hint-img" class="hand-img small" alt="" hidden>
           <p id="hint-tip" class="tip"></p>
         </div>
-        <div class="row">
-          <button id="hint-btn" class="btn small">💡 Hint</button>
-          <button id="skip-btn" class="btn small" hidden>Skip ⏭</button>
+        <div id="bag" class="pop-card bag" hidden>
+          <p class="pop-title">Potions &amp; power-ups</p>
+          <div id="battle-items" class="items-bar"></div>
         </div>
-        <p class="label">Potions &amp; power-ups</p>
-        <div id="battle-items" class="items-bar"></div>
+      </div>
+      <div class="cmd-moves">
+        <div class="cmd-moves-top">
+          <div id="move-tabs" class="move-tabs" role="tablist" aria-label="Whose moves"></div>
+          <span id="move-energy" class="move-energy"></span>
+        </div>
+        <div id="battle-moves" class="moves" role="group" aria-label="Pick a move, then sign to use it"></div>
       </div>
     </div>
   </section>
@@ -233,7 +246,7 @@
       <h2 tabindex="-1">📖 Creature book</h2>
       <span id="book-count" class="count"></span>
     </div>
-    <p class="book-help">Break a creature's hex to free it. Pick up to 2 buddies for your team: they fight beside you, each with its own special move, and level up after every battle.</p>
+    <p class="book-help">Break a creature's hex to free it. Pick up to 2 buddies for your team: they fight beside you with 3 moves each, and level up after every battle.</p>
     <div id="book-grid" class="book-grid"></div>
   </section>
 

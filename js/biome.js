@@ -561,8 +561,10 @@ function moveHero(biome, dt) {
   if (feetFree(biome, hero.x + dx * step, hero.y)) hero.x += dx * step;
   if (feetFree(biome, hero.x, hero.y + dy * step)) hero.y += dy * step;
   if (dx) hero.flip = dx < 0;
-  hero.trail.push({ x: hero.x, y: hero.y, flip: hero.flip });
-  if (hero.trail.length > 24) hero.trail.shift();
+  // Breadcrumbs every 2 pixels walked, so buddies follow at a steady distance.
+  const last = hero.trail[hero.trail.length - 1];
+  if (!last || Math.hypot(hero.x - last.x, hero.y - last.y) >= 2) hero.trail.push({ x: hero.x, y: hero.y, flip: hero.flip });
+  if (hero.trail.length > 40) hero.trail.shift();
 }
 
 const near = (a, b, dist) => Math.abs(a.x - b.x) < dist && b.y - a.y < 8 && a.y - b.y < dist + 6;
@@ -748,7 +750,7 @@ function draw(biome, now) {
   // Your buddies follow a few steps behind, one after the other.
   const hero = biome.hero;
   progress.team().forEach((pet, n) => {
-    const back = hero.trail.length - 1 - (n + 1) * 10;
+    const back = hero.trail.length - 1 - (n + 1) * 8; // about 16 pixels apart
     const spot = hero.trail[Math.max(0, back)] || { x: hero.x - 12 * (n + 1), y: hero.y, flip: hero.flip };
     things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id)), x: spot.x, flip: !spot.flip, shadow: true, small: true });
   });

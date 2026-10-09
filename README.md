@@ -193,6 +193,19 @@ slightly different angle than when you recorded it.
 
 ## Training the model
 
+The quickest way, in VS Code: **Terminal > Run Task...**
+
+1. **1. Record ASL signs (webcam)**: asks who's signing, then opens a camera
+   window (`training/record.py`). Press a letter key to pick a letter, SPACE
+   to record it for 3 seconds, TAB to step to the next letter automatically,
+   BACKSPACE to undo, ESC to quit. Each take is saved straight to
+   `training/data/<name>_<date>.csv`.
+2. Repeat with as many different people as you can (aim for 200+ samples per
+   letter each).
+3. **2. Train the model**: runs `training/train.py`.
+
+Or record in the browser instead:
+
 1. Open the game with `?dev`, go to Settings > Data recorder.
 2. Type who's signing, pick a letter, press Record (3 seconds). Move your hand
    around while recording: closer, farther, tilted, both hands.

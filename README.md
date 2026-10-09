@@ -37,11 +37,23 @@ around. Bump into one to battle it:
 
 - ⚔️ practice battle (letters)
 - 📜 word battle, once you've won a practice battle in that zone
-- 💤 a gate guard: a locked gate separates each area from the next. Its guard
-  wakes up after you beat 2 creatures in that area. Beat the guard to open
-  the gate.
 - 👑 the boss, by the zone's landmark at the very top. Once it's beaten, it's
   gone for good and the next zone opens.
+
+**Quests.** Each zone is a story chapter. A locked gate separates each area
+from the next, and a villager in that area holds the key. Walk up to anyone
+with a ❗ to get their quest, and come back when they show a ❓. Five kinds:
+
+- 🐾 Rescue: free some hexed creatures in the area.
+- 🔎 Find: a lost item is hidden in the area. Sign a letter to pick it up,
+  then bring it back.
+- 🧩 Riddle: answer by fingerspelling a word.
+- 📦 Delivery: carry something to another villager up the path.
+- ⚔️ Gate guard: beat the hexed guard (a word battle, which opens the boss).
+
+A tracker under the map says what to do next, and a compass arrow at the edge
+of the view points to the goal when it's off screen. The quests are written in
+`js/quests.js` (villagers, lines, riddle words).
 
 Also in each area:
 
@@ -166,6 +178,7 @@ If you change `toFeatures()` in `js/features.js`, change `to_features()` in
 | `js/biome.js` | The walkable area for each zone: map building, gates, chests, walking, roaming creatures |
 | `js/game.js` | Turn-based battles: moves and energy, crits, buddies, the monster's attack, potions, stars, loot, freeing creatures |
 | `js/story.js` | The story script and the dialogue box |
+| `js/quests.js` | Each zone's villagers and quests, area by area |
 | `js/screens.js` | Screen switching, map, learn cards, results, shop, hero maker, creature book, settings |
 | `js/progress.js` | XP, coins, stars, miss counts, hats, potions, creatures - saved in localStorage |
 | `js/samples.js`, `js/record.js` | Recorded samples and the Record page |

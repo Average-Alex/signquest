@@ -82,9 +82,10 @@
       <canvas id="biome-canvas" class="sprite biome-canvas" aria-label="The area you're exploring. Use the arrow keys, or tap where to walk."></canvas>
       <div id="biome-labels" class="biome-labels" aria-hidden="true"></div>
       <div id="biome-toast" class="biome-toast" role="status" hidden></div>
+      <div id="biome-compass" class="biome-compass" aria-hidden="true" hidden><span>➤</span></div>
       <!-- Sign-locked treasure chest -->
       <div id="chest-panel" class="card chest-panel" hidden>
-        <p class="chest-title">🔐 Sign <b id="chest-letter"></b> to open the chest!</p>
+        <p id="sign-title" class="chest-title"></p>
         <div class="chest-row">
           <div class="camera-slot"></div>
           <div class="chest-help">
@@ -99,7 +100,7 @@
       </div>
     </div>
     <div id="biome-goals" class="biome-goals"></div>
-    <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Bump into a creature to battle it! ⚔️ letters · 📜 words · 👑 boss · 💤 sleeping gate guard · 🔐 chest · 🪧 sign</p>
+    <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Talk to anyone with a ❗ to get a quest. Bump into a creature to battle it! ⚔️ letters · 📜 words · 👑 boss · 🔐 chest · 🪧 sign</p>
   </section>
 
   <!-- 3. Learn card -->

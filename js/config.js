@@ -178,11 +178,11 @@ export const buddyXpToLevel = (level) => 40 + level * 20; // XP needed to go fro
 
 // ---------- Exploring a zone (biome.js) ----------
 // Each zone is a tall area, several screens high, explored bottom to top. A
-// locked gate separates each area from the next. Its guard sleeps until you
-// beat some creatures in that area; beat the guard to open the gate. The boss
-// waits at the very top and is gone for good once beaten.
+// locked gate separates each area from the next; finishing the villager's
+// quest there opens it (quests.js). The boss waits at the very top and is
+// gone for good once beaten.
 export const BIOME_AREAS = 6;
-export const WINS_TO_WAKE_GUARD = 2;
+export const QUEST_COINS = 15; // for finishing a villager's quest
 export const WILD_PER_AREA = 3; // creatures roaming each area at once
 
 // Things to find while exploring, per area.

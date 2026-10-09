@@ -281,6 +281,20 @@ export function trail(zoneIndex) {
   return t;
 }
 
+// One villager quest per area (quests.js). State: { accepted, count, have, done }.
+export function questState(zoneIndex, area) {
+  const t = trail(zoneIndex);
+  t.quests ||= {};
+  // Gates you opened before quests existed count as done.
+  t.quests[area] ||= { accepted: area < t.gates, count: 0, have: false, done: area < t.gates };
+  return t.quests[area];
+}
+
+export function updateQuest(zoneIndex, area, changes) {
+  Object.assign(questState(zoneIndex, area), changes);
+  save();
+}
+
 export function openChest(zoneIndex, chestId) {
   const t = trail(zoneIndex);
   if (!t.chests.includes(chestId)) t.chests.push(chestId);

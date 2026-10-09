@@ -2,9 +2,8 @@
 //
 // A zone is BIOME_AREAS screens tall and wider than the screen; you explore
 // it bottom to top along a snaking path, and the view scrolls with you. A
-// locked gate separates each area from the next. Each gate's guard is asleep
-// 💤 until you've beaten WINS_TO_WAKE_GUARD creatures in that area - then
-// beat the guard to open the gate. The boss waits by the zone's landmark at
+// locked gate separates each area from the next, and a villager's quest
+// opens it (see below). The boss waits by the zone's landmark at
 // the very top, and is gone for good once beaten. Monsters get stronger
 // (higher level) the further up you go.
 //
@@ -17,6 +16,11 @@
 //   📜  word battle - shows up once you've won a practice battle here
 //   👑  the boss
 //
+// Each area also has a villager with a quest (quests.js): rescue, find,
+// riddle, deliver, or gate guard. Finishing it opens that area's gate. A
+// tracker under the map says what to do next, and a compass arrow at the
+// edge points the way when it's off screen.
+//
 // The area is generated from the zone id, so it's the same every visit. The
 // ground is painted once onto a canvas; trees, rocks, creatures, and the hero
 // are drawn on top every frame, sorted by how far down they stand, so you can
@@ -25,12 +29,13 @@
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, CHEST_COINS, CHESTS_PER_AREA, COINS_PER_AREA, CONSUMABLES, creatureLevel, CREATURES,
-  GUARD_EXTRA_LEVELS, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, WILD_PER_AREA, WINS_TO_WAKE_GUARD, ZONES,
+  GUARD_EXTRA_LEVELS, QUEST_COINS, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, WILD_PER_AREA, ZONES,
 } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
-import { creatureSrc, decorSrc, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
-import { playScene } from "./story.js";
+import { QUESTS } from "./quests.js";
+import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
+import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
 
 const $ = (id) => document.getElementById(id);
@@ -220,7 +225,9 @@ function build(z) {
     safeUntil: 0,
     nextSpawn: 0,
     fighting: null,
-    chest: null, // the chest you're opening right now
+    chest: null, // the sign panel that's open (a chest, an item, or a riddle)
+    npcs: [], // villagers (quests.js)
+    items: [], // lost things to find for quests
     dust: [], // little puffs from footsteps
     atSign: null,
   };
@@ -228,10 +235,12 @@ function build(z) {
   // Chests, signposts, and coins go on open ground you can reach once every
   // gate is open (so they can be past gates you haven't opened yet).
   const everywhere = floodFrom(biome, tileOf(hero.x), tileOf(hero.y - 1), true);
-  const spot = (a, salt, nearPath) => {
+  // `half`: "low" = near where you come into the area, "high" = near its gate.
+  const spot = (a, salt, nearPath, half = null) => {
+    const rows = half === "low" ? [SH / 2, SH - 4] : half === "high" ? [6, SH / 2] : [4, SH - 4];
     for (let i = 0; i < 300; i++) {
       const tx = 2 + Math.floor(hash(i, salt, seed + a) * (TW - 4));
-      const ty = areaTop(a) + 4 + Math.floor(hash(salt, i, seed + a) * (SH - 8));
+      const ty = areaTop(a) + rows[0] + Math.floor(hash(salt, i, seed + a) * (rows[1] - rows[0]));
       const n = at(tx, ty);
       if (!everywhere[n] || kind[n] !== GROUND || blocked[n]) continue;
       const fromPath = Math.abs(tx - pathX(ty));
@@ -257,6 +266,23 @@ function build(z) {
     }
   }
 
+  // Villagers: the quest giver near where you come in; whoever you deliver to,
+  // and anything you need to find, up near the gate.
+  const story = QUESTS[zone.id];
+  story?.steps.forEach((step, a) => {
+    const giver = spot(a, 400, true, step.type === "guard" ? "high" : "low");
+    if (giver) biome.npcs.push({ ...story.npcs[step.npc], id: step.npc, area: a, role: "giver", ...giver });
+    if (step.type === "deliver") {
+      const p = spot(a, 450, true, "high");
+      if (p) biome.npcs.push({ ...story.npcs[step.to], id: step.to, area: a, role: "receiver", ...p });
+    }
+    if (step.type === "find") {
+      const p = spot(a, 500, false, "high");
+      const letters = zone.letters;
+      if (p) biome.items.push({ area: a, name: step.item, letter: letters[Math.floor(hash(a, 3, seed + 60) * letters.length)], ...p });
+    }
+  });
+
   for (const gate of gates) if (!gate.open) for (const i of gate.tiles) blocked[i] = 1;
   placeOnOpenGround(biome, hero);
   biome.reachable = floodFrom(biome, tileOf(hero.x), tileOf(hero.y - 1));
@@ -269,7 +295,7 @@ function build(z) {
     biome.creatures.push({ id: boss.id, stage: 2, boss: true, area: BIOME_AREAS - 1, level, x: W / 2 + landmark.w / 2 + 22, y: landmark.y + 3 * T, home: true });
   }
   for (const gate of gates) {
-    if (gate.open) continue;
+    if (gate.open || story?.steps[gate.area]?.type !== "guard") continue; // only guard quests have a guard
     const row = areaTop(gate.area) + 6;
     biome.creatures.push({
       id: wild[gate.area % wild.length].id,
@@ -542,7 +568,7 @@ function moveCreatures(biome, dt, now) {
 // `msPerFrame` sets the pace; `offset` keeps everyone from stepping in sync.
 const walkFrame = (moving, now, msPerFrame, offset = 0) => (moving ? Math.floor(now / msPerFrame + offset) % 4 : 0);
 
-const guardAwake = (biome, c) => progress.trail(biome.z).wins[c.guard] >= WINS_TO_WAKE_GUARD;
+const guardAwake = (biome, c) => progress.questState(biome.z, c.guard).accepted;
 
 // ---------- The hero ----------
 
@@ -601,6 +627,14 @@ function checkTouch(biome, now) {
   if (chest && now > biome.safeUntil) return openChestPanel(biome, chest);
 
   if (now < biome.safeUntil) return;
+
+  // 💬 Villagers: walk up to talk.
+  const villager = biome.npcs.find((v) => near(v, hero, 12));
+  if (villager) return talkTo(biome, villager);
+
+  // ✨ Lost things, once someone has asked you to find them.
+  const item = biome.items.find((it) => !it.taken && !progress.questState(biome.z, it.area).have && progress.questState(biome.z, it.area).accepted && near(it, hero, 10));
+  if (item) return pickUpItem(biome, item);
   for (const c of biome.creatures) {
     if (c.freed) continue; // healed creatures are friends now
     // Touching = close sideways, and the creature's feet anywhere from a bit
@@ -612,8 +646,8 @@ function checkTouch(biome, now) {
 
     let blockedBy = null;
     if (c.guard !== undefined && !guardAwake(biome, c)) {
-      const need = WINS_TO_WAKE_GUARD - progress.trail(biome.z).wins[c.guard];
-      blockedBy = `💤 This gate guard is asleep. Beat ${need} more creature${need === 1 ? "" : "s"} in this area to wake it up!`;
+      const giver = biome.npcs.find((v) => v.area === c.guard && v.role === "giver");
+      blockedBy = `💤 This gate guard is asleep. Talk to ${giver?.name || "the villager"} nearby first!`;
     } else if (!progress.stageUnlocked(biome.z, c.stage)) {
       blockedBy = c.stage === 2 ? "🔒 Win a 📜 word battle first, then come back for the boss!" : "🔒 Win a ⚔️ battle here first!";
     }
@@ -664,48 +698,206 @@ export function biomeBattleOver(z, won) {
   if (c.boss) {
     pendingToast = `🏆 You beat ${CREATURES.find((x) => x.id === c.id).name}! The ${biome.zone.name} is safe.`;
   } else if (c.guard !== undefined) {
-    progress.openGate(z, c.guard);
-    const gate = biome.gates[c.guard];
-    gate.open = true;
-    for (const i of gate.tiles) biome.blocked[i] = 0;
-    biome.reachable = floodFrom(biome, tileOf(biome.hero.x), tileOf(biome.hero.y - 1));
-    pendingToast = "🚪 The gate is open! Head up the path.";
+    // The guard quest is done: the villager thanks you, and the gate opens.
+    const step = QUESTS[biome.zone.id].steps[c.guard];
+    pendingLines = { lines: step.done, after: () => completeQuest(biome, c.guard) };
   } else {
-    const before = progress.trail(z).wins[c.area];
     progress.addAreaWin(z, c.area);
-    const guard = biome.creatures.find((x) => x.guard === c.area);
-    if (guard && before < WINS_TO_WAKE_GUARD && before + 1 >= WINS_TO_WAKE_GUARD) pendingToast = "❗ The gate guard woke up! Go beat it to open the gate.";
+    // A rescue quest here? Count it.
+    const step = QUESTS[biome.zone.id]?.steps[c.area];
+    const state = progress.questState(z, c.area);
+    if (step?.type === "free" && state.accepted && !state.done) {
+      progress.updateQuest(z, c.area, { count: state.count + 1 });
+      const giver = biome.npcs.find((v) => v.area === c.area && v.role === "giver");
+      pendingToast = state.count >= step.count ? `❓ That's ${step.count}! Go back to ${giver.name}.` : `🐾 Freed ${state.count} of ${step.count}!`;
+    }
   }
 }
 
-// ---------- 🔐 Sign-locked chests ----------
+// ---------- Quests ----------
 
-function openChestPanel(biome, chest) {
-  biome.chest = { ...chest, ref: chest, hold: new HoldTimer() };
-  biome.hero.path = [];
-  keys.clear();
-  $("chest-letter").textContent = chest.letter;
-  $("chest-big").textContent = chest.letter;
-  $("chest-tip").textContent = TIPS[chest.letter];
-  setHandImage($("chest-img"), chest.letter);
-  $("chest-hold").style.width = "0%";
-  $("chest-status").textContent = "";
-  $("chest-panel").hidden = false;
-  $("camera-video").play().catch(() => {});
-  announce(`A locked chest! Sign ${chest.letter} to open it. ${TIPS[chest.letter]}`);
+const questFor = (biome, area) => QUESTS[biome.zone.id]?.steps[area];
+let pendingLines = null; // villager lines to play when you come back from a battle
+
+// Turn quest lines into speakers the story box understands.
+function speak(biome, lines) {
+  const people = QUESTS[biome.zone.id].npcs;
+  return lines.map(([who, text]) => {
+    const v = people[who];
+    return [v ? { name: v.name, art: () => heroImg(v.look, v.hat, "", false) } : who, text];
+  });
 }
 
-function chestTick(biome, now) {
-  const chest = biome.chest;
-  if (chest.done) return;
-  const held = chest.hold.update(chest.letter, getPrediction(), now);
+// Pause and play some lines, then carry on.
+function say(biome, lines, after) {
+  keys.clear();
+  biome.hero.path = [];
+  playLines(speak(biome, lines), () => {
+    bumpBack(biome, performance.now());
+    after?.();
+  });
+}
+
+function talkTo(biome, v) {
+  const step = questFor(biome, v.area);
+  const state = progress.questState(biome.z, v.area);
+  const giver = biome.npcs.find((n) => n.area === v.area && n.role === "giver");
+  const receiver = biome.npcs.find((n) => n.area === v.area && n.role === "receiver");
+
+  if (state.done) return say(biome, [[v.id, "Thanks again, Signkeeper! Good luck out there."]]);
+
+  if (v.role === "receiver") {
+    if (state.have) return say(biome, step.done, () => completeQuest(biome, v.area));
+    return say(biome, [[v.id, `Oh, hello! I'm ${v.name}. I'm stuck up here until the hex is gone.`]]);
+  }
+
+  if (!state.accepted) {
+    return say(biome, step.start, () => {
+      progress.updateQuest(biome.z, v.area, { accepted: true, have: step.type === "deliver" });
+      toast(`📜 New quest: ${step.title}`);
+      if (step.type === "deliver") toast(`🎒 You got ${step.item}! Bring it to ${receiver.name}.`, 4000);
+      if (step.type === "riddle") askRiddle(biome, v.area);
+    });
+  }
+
+  // Already on this quest.
+  if (step.type === "riddle") return askRiddle(biome, v.area);
+  const ready = (step.type === "free" && state.count >= step.count) || (step.type === "find" && state.have);
+  if (ready) return say(biome, step.done, () => completeQuest(biome, v.area));
+  const reminders = {
+    free: `Only ${step.count - state.count} more to free! They're wandering around here somewhere.`,
+    find: `Have you found ${step.item} yet? It's somewhere in this area. Follow the arrow!`,
+    deliver: `Please hurry! ${receiver?.name} is waiting just up the path.`,
+    guard: "The guard is right by the gate. You can do it!",
+  };
+  return say(biome, [[giver.id, reminders[step.type]]]);
+}
+
+// Riddles are answered by fingerspelling the word.
+function askRiddle(biome, area) {
+  const step = questFor(biome, area);
+  openSignPanel(biome, {
+    title: `🧩 Sign the answer: <b>${step.word.split("").map(() => "_").join(" ")}</b>`,
+    word: step.word,
+    reveal: true,
+    onDone: () => say(biome, step.done, () => completeQuest(biome, area)),
+  });
+}
+
+function pickUpItem(biome, item) {
+  const giver = biome.npcs.find((v) => v.area === item.area && v.role === "giver");
+  openSignPanel(biome, {
+    title: `✨ You found ${item.name}! It's stuck. Sign <b>${item.letter}</b> to pull it free.`,
+    word: item.letter,
+    onDone: () => {
+      item.taken = true;
+      progress.updateQuest(biome.z, item.area, { have: true });
+      toast(`🎒 Got ${item.name}! Bring it back to ${giver.name}.`, 4000);
+    },
+  });
+}
+
+function completeQuest(biome, area) {
+  const step = questFor(biome, area);
+  progress.updateQuest(biome.z, area, { done: true });
+  progress.addCoins(QUEST_COINS);
+  renderCoins();
+  openGateNow(biome, area);
+  toast(`✅ Quest complete: ${step.title}! +${QUEST_COINS} 🪙 The gate is open!`, 4500);
+  announce(`Quest complete! The gate is open.`);
+}
+
+function openGateNow(biome, area) {
+  progress.openGate(biome.z, area);
+  const gate = biome.gates[area];
+  if (!gate || gate.open) return;
+  gate.open = true;
+  for (const i of gate.tiles) biome.blocked[i] = 0;
+  biome.reachable = floodFrom(biome, tileOf(biome.hero.x), tileOf(biome.hero.y - 1));
+}
+
+// Where the current quest wants you to go (for the compass arrow).
+function questTarget(biome) {
+  const trail = progress.trail(biome.z);
+  const area = Math.min(trail.gates, BIOME_AREAS - 1);
+  const boss = biome.creatures.find((c) => c.boss && !c.freed);
+  const step = questFor(biome, area);
+  if (!step) return boss || null;
+  const state = progress.questState(biome.z, area);
+  const giver = biome.npcs.find((v) => v.area === area && v.role === "giver");
+  if (!state.accepted) return giver;
+  if (step.type === "deliver") return biome.npcs.find((v) => v.area === area && v.role === "receiver");
+  if (step.type === "find") return state.have ? giver : biome.items.find((it) => it.area === area);
+  if (step.type === "guard") return biome.creatures.find((c) => c.guard === area);
+  if (step.type === "free" && state.count < step.count) {
+    const h = biome.hero;
+    const wild = biome.creatures.filter((c) => c.area === area && !c.home && !c.freed);
+    return wild.sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0] || giver;
+  }
+  return giver;
+}
+
+// ---------- ✋ The sign panel: chests, lost things, and riddles ----------
+
+// Sign `word` (one letter or several, in order) to finish. `reveal`: letters
+// show up as you sign them (for riddles); otherwise they're shown from the start.
+function openSignPanel(biome, { title, word, reveal = false, onDone }) {
+  biome.chest = { word, i: 0, reveal, onDone, hold: new HoldTimer(), done: false };
+  biome.hero.path = [];
+  keys.clear();
+  $("sign-title").innerHTML = title;
+  $("chest-hold").style.width = "0%";
+  $("chest-status").textContent = "";
+  $("chest-status").className = "status";
+  $("chest-panel").hidden = false;
+  $("camera-video").play().catch(() => {});
+  showSignLetter(biome);
+  announce(`${title.replace(/<[^>]+>/g, "")} ${reveal ? "" : `Sign ${word.split("").join(" ")}.`}`);
+}
+
+function showSignLetter(biome) {
+  const { word, i, reveal } = biome.chest;
+  const letter = word[i];
+  $("chest-big").innerHTML = word
+    .split("")
+    .map((l, n) => `<span class="sign-slot${n < i ? " done" : n === i ? " now" : ""}">${n < i || !reveal || n === i ? l : "?"}</span>`)
+    .join("");
+  $("chest-tip").textContent = TIPS[letter];
+  setHandImage($("chest-img"), letter);
+}
+
+function signTick(biome, now) {
+  const task = biome.chest;
+  if (task.done) return;
+  const held = task.hold.update(task.word[task.i], getPrediction(), now);
   $("chest-hold").style.width = `${held * 100}%`;
   if (held < 1) return;
-
-  chest.done = true;
-  chest.ref.open = true;
-  progress.openChest(biome.z, chest.id);
   flashCamera("good");
+  task.i++;
+  task.hold.reset();
+  $("chest-hold").style.width = "0%";
+  if (task.i < task.word.length) return showSignLetter(biome);
+  task.done = true;
+  showSignLetter(biome);
+  $("chest-status").textContent = task.word.length > 1 ? "That's right! 🎉" : "Got it! 🎉";
+  $("chest-status").className = "status good";
+  setTimeout(() => {
+    closeChestPanel(biome);
+    task.onDone();
+  }, 900);
+}
+
+function openChestPanel(biome, chest) {
+  openSignPanel(biome, {
+    title: `🔐 Sign <b>${chest.letter}</b> to open the chest!`,
+    word: chest.letter,
+    onDone: () => openChest(biome, chest),
+  });
+}
+
+function openChest(biome, chest) {
+  chest.open = true;
+  progress.openChest(biome.z, chest.id);
   // Usually coins; sometimes a potion or power-up.
   let reward;
   if (Math.random() < 0.3) {
@@ -718,10 +910,8 @@ function chestTick(biome, now) {
     renderCoins();
     reward = `${coins} coins`;
   }
-  $("chest-status").textContent = `Opened! You got ${reward}! 🎉`;
-  $("chest-status").className = "status good";
+  toast(`🔓 You opened the chest and got ${reward}! 🎉`);
   announce(`You opened the chest and got ${reward}!`);
-  setTimeout(() => closeChestPanel(biome), 1400);
 }
 
 function closeChestPanel(biome) {
@@ -770,6 +960,11 @@ function draw(biome, now) {
     const frame = walkFrame(hero.moving, now, 110, n * 2 + 1);
     things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame)), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
   });
+  // Villagers face you and breathe gently.
+  for (const v of biome.npcs) {
+    const lift = Math.floor(now / 500 + v.x) % 2;
+    things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, false)), x: v.x, flip: hero.x < v.x, lift, shadow: true });
+  }
   const frame = walkFrame(hero.moving, now, 110);
   // A little puff of dust behind you on each step.
   if (frame !== hero.lastFrame && frame % 2) biome.dust.push({ x: hero.x + (hero.flip ? 4 : -4), y: hero.y, born: now });
@@ -824,6 +1019,12 @@ function draw(biome, now) {
       return { x: c.x, y: c.y - h - 2, html: `${icon}<small>Lv ${c.level}</small>`, cls: c.boss ? " boss" : "" };
     }),
     ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - 14, html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
+    // ❗ has a quest for you, ❓ come back (it's done), 💬 just chatting.
+    ...biome.npcs.map((v) => ({ x: v.x, y: v.y - 31, html: `<span class="npc-icon">${npcIcon(biome, v)}</span><small>${v.name}</small>`, cls: " npc" })),
+    // Lost things sparkle once someone has asked you to find them.
+    ...biome.items
+      .filter((it) => !it.taken && progress.questState(biome.z, it.area).accepted && !progress.questState(biome.z, it.area).have)
+      .map((it) => ({ x: it.x, y: it.y, html: "✨", cls: " item" })),
   ];
   const labels = $("biome-labels");
   if (labels.children.length !== markers.length) labels.innerHTML = markers.map(() => `<span class="biome-label"></span>`).join("");
@@ -837,6 +1038,32 @@ function draw(biome, now) {
     el.style.left = `${(left / VIEW_W) * 100}%`;
     el.style.top = `${(top / VIEW_H) * 100}%`;
   });
+
+  // Compass: an arrow at the edge pointing to the current goal when it's off screen.
+  const goal = questTarget(biome);
+  const compass = $("biome-compass");
+  const gx = goal ? goal.x - camX : 0, gy = goal ? goal.y - 12 - camY : 0;
+  const offScreen = goal && (gx < 0 || gx > VIEW_W || gy < 0 || gy > VIEW_H);
+  compass.hidden = !offScreen;
+  if (offScreen) {
+    const cx = VIEW_W / 2, cy = VIEW_H / 2;
+    const angle = Math.atan2(gy - cy, gx - cx);
+    // Slide along from the middle toward the goal until hitting the edge (with a margin).
+    const scale = Math.min(Math.abs((VIEW_W / 2 - 18) / Math.cos(angle) || Infinity), Math.abs((VIEW_H / 2 - 18) / Math.sin(angle) || Infinity));
+    compass.style.left = `${((cx + Math.cos(angle) * scale) / VIEW_W) * 100}%`;
+    compass.style.top = `${((cy + Math.sin(angle) * scale) / VIEW_H) * 100}%`;
+    compass.style.setProperty("--angle", `${angle}rad`);
+  }
+}
+
+function npcIcon(biome, v) {
+  const step = questFor(biome, v.area);
+  const state = progress.questState(biome.z, v.area);
+  if (state.done) return "💬";
+  if (v.role === "receiver") return state.have ? "❓" : "💬";
+  if (!state.accepted) return progress.trail(biome.z).gates >= v.area ? "❗" : "💬";
+  const ready = (step.type === "free" && state.count >= step.count) || (step.type === "find" && state.have) || step.type === "riddle";
+  return ready ? "❓" : "💬";
 }
 
 // The status line under the map: where you are and what's next.
@@ -845,10 +1072,15 @@ function renderHud(biome) {
   const trail = progress.trail(z);
   const frontier = Math.min(trail.gates, BIOME_AREAS - 1);
   let next;
+  const step = questFor(biome, frontier);
+  const state = step && progress.questState(z, frontier);
+  const giver = biome.npcs.find((v) => v.area === frontier && v.role === "giver");
   if (progress.bossBeaten(z)) next = "🏆 Boss beaten! Explore, open chests, and catch creatures.";
-  else if (frontier === BIOME_AREAS - 1) next = "👑 The boss is waiting at the top!";
-  else if (trail.wins[frontier] < WINS_TO_WAKE_GUARD) next = `💤 Beat creatures to wake the gate guard: ${trail.wins[frontier]} / ${WINS_TO_WAKE_GUARD}`;
-  else next = "❗ The gate guard is awake. Beat it to open the gate!";
+  else if (!step) next = "👑 The boss is waiting at the top!";
+  else if (!state.accepted) next = `❗ Talk to ${giver?.name}`;
+  else if (step.type === "free") next = state.count >= step.count ? `❓ Go back to ${giver.name}` : `📜 ${step.title}: freed ${state.count} / ${step.count}`;
+  else if (step.type === "find") next = state.have ? `❓ Bring ${step.item} back to ${giver.name}` : `📜 ${step.title}`;
+  else next = `📜 ${step.title}`;
   const opened = biome.chests.filter((c) => c.open).length;
   const html = `<span class="goal">📍 Area ${frontier + 1} of ${BIOME_AREAS}</span><span class="goal">${next}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span>`;
   if ($("biome-goals").innerHTML !== html) $("biome-goals").innerHTML = html;
@@ -882,9 +1114,10 @@ function frame(now) {
   const biome = current;
   const dt = Math.min(0.05, (now - (biome.last || now)) / 1000);
   biome.last = now;
+  const talking = isStoryPlaying();
   if (biome.chest) {
-    chestTick(biome, now);
-  } else {
+    signTick(biome, now);
+  } else if (!talking) {
     moveHero(biome, dt);
     moveCreatures(biome, dt, now);
   }
@@ -903,7 +1136,7 @@ function frame(now) {
   }
   biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
-  if (!biome.chest) checkTouch(biome, now);
+  if (!biome.chest && !talking) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);
 }
 
@@ -933,6 +1166,11 @@ export function enterBiome(z) {
     if (pendingToast) {
       toast(pendingToast);
       pendingToast = null;
+    }
+    if (pendingLines) {
+      const { lines, after } = pendingLines;
+      pendingLines = null;
+      say(biome, lines, after);
     }
     requestAnimationFrame(frame);
   });

@@ -39,7 +39,7 @@ const SCENES = {
   // The first time you walk into each zone.
   "zone-meadow": [
     ["pip", "This is the Meadow. See the creatures glowing purple? That's the hex. Bump into one and sign to break it!"],
-    ["pip", "Locked gates block the path. Free some creatures and the gate guard wakes up. Beat it, and the gate opens."],
+    ["pip", "Locked gates block the path. The people who live here can open them. Look for anyone with a ❗ over their head and help them out!"],
     ["pip", "At the very top, the Croak King is guarding our first Beacon Shard."],
   ],
   "zone-forest": [
@@ -145,12 +145,21 @@ export function playScene(id, onDone = () => {}, { replay = false } = {}) {
 
 export const sceneIds = () => Object.keys(SCENES);
 
+// Plays any lines, any time (villagers talking, for example). A speaker can
+// be a SPEAKERS key or an object { name, art: () => html }.
+export function playLines(lines, onDone = () => {}) {
+  playing = { lines, index: 0, onDone };
+  $("story").hidden = false;
+  showLine();
+  $("story-next").focus();
+}
+
 function showLine() {
   const [who, text] = playing.lines[playing.index];
-  const speaker = SPEAKERS[who];
+  const speaker = typeof who === "string" ? SPEAKERS[who] : who;
   const name = typeof speaker.name === "function" ? speaker.name() : speaker.name;
   $("story-portrait").innerHTML = speaker.art();
-  $("story-portrait").className = `story-portrait ${who}`;
+  $("story-portrait").className = `story-portrait ${typeof who === "string" ? who : "npc"}`;
   $("story-name").textContent = name;
   $("story-name").hidden = !name;
   $("story-text").textContent = text.replaceAll("{name}", progress.get().name || "Signkeeper");

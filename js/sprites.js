@@ -1331,17 +1331,17 @@ export function decorSrc(id) {
 
 const img = (src, cls, alt = "") => `<img class="sprite ${cls}" src="${src}" alt="${alt}" draggable="false">`;
 
-// `frame`: a walking frame (see liftFoot).
-export function heroSrc(look, hatId = null, frame = 0) {
+// `frame`: a walking frame (see liftFoot). `wand`: villagers don't carry one.
+export function heroSrc(look, hatId = null, frame = 0, wand = true) {
   look = normalizeLook(look);
-  return draw(`hero:${JSON.stringify(look)}:${hatId}:${frame}`, 20, 30, (ctx) => {
+  return draw(`hero:${JSON.stringify(look)}:${hatId}:${frame}:${wand}`, 20, 30, (ctx) => {
     const colors = { ...HERO_BASE };
     for (const part of ["hair", "skin", "eyes", "outfit"]) Object.assign(colors, LOOK_OPTIONS[part].choices[look[part]]);
     paint(ctx, HEAD, colors, 2, 6);
     paint(ctx, OUTFIT_ROWS[look.outfitStyle], colors, 2, 6 + HEAD.length);
     paint(ctx, HAIR_ROWS[look.hairStyle], colors, 2, 6);
     paint(ctx, GLASSES_ROWS[look.glasses], colors, 2, 6);
-    paint(ctx, WAND, colors, 15, 12);
+    if (wand) paint(ctx, WAND, colors, 15, 12);
     const hat = HATS[hatId];
     if (hat) paint(ctx, hat.rows, hat.colors, 2, hat.top);
     liftFoot(ctx, 20, 30, frame);
@@ -1361,5 +1361,5 @@ export function itemSrc(itemId) {
   return draw(`item:${itemId}`, art.rows[0].length, art.rows.length, (ctx) => paint(ctx, art.rows, art.colors));
 }
 
-export const heroImg = (look, hatId, cls = "") => img(heroSrc(look, hatId), `hero ${cls}`, "your hero");
+export const heroImg = (look, hatId, cls = "", wand = true) => img(heroSrc(look, hatId, 0, wand), `hero ${cls}`, wand ? "your hero" : "");
 export const itemImg = (itemId) => img(itemSrc(itemId), HATS[itemId] ? "item hat-item" : "item use-item");

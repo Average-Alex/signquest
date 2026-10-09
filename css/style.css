@@ -687,3 +687,28 @@ input[type=text], select {
 .book-moves { list-style: none; margin: 4px 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 3px; }
 .book-moves li { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 700; background: #efe6ff; border-radius: 6px; padding: 2px 8px; color: var(--brand-dark); }
 .book-moves li span { color: var(--muted); font-weight: 400; white-space: nowrap; }
+
+/* ---------- Quests in zones ---------- */
+/* Villagers: a quest icon over a name tag. */
+.biome-label.npc { animation: none; }
+.biome-label.npc .npc-icon { font-size: clamp(16px, 2.6vw, 26px); animation: bob 0.8s steps(2) infinite; }
+.biome-label.npc small { background: #2a3f73; font-size: clamp(9px, 1.15vw, 13px); padding: 1px 6px; white-space: nowrap; }
+/* Lost things sparkle. */
+.biome-label.item { font-size: clamp(16px, 2.4vw, 24px); animation: item-sparkle 0.9s ease-in-out infinite alternate; }
+@keyframes item-sparkle { from { transform: translate(-50%, -100%) scale(0.85); opacity: 0.7; } to { transform: translate(-50%, -110%) scale(1.15); opacity: 1; } }
+/* The compass arrow at the edge of the view. */
+.biome-compass {
+  position: absolute; z-index: 4; width: 42px; height: 42px; margin: -21px 0 0 -21px; pointer-events: none;
+  display: grid; place-items: center; border-radius: 50%; background: var(--gold); border: 3px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink); animation: compass 0.8s ease-in-out infinite alternate;
+}
+.biome-compass span { display: block; font-size: 22px; line-height: 1; color: var(--ink); transform: rotate(var(--angle)); }
+@keyframes compass { to { scale: 1.12; } }
+/* Sign panel letters (riddles fill in as you sign). */
+.sign-slot { display: inline-block; min-width: 0.9em; margin: 0 0.06em; padding: 0 0.08em; border-bottom: 4px solid var(--line); color: #c8b896; }
+.sign-slot.now { color: var(--brand); border-color: var(--gold); }
+.sign-slot.done { color: var(--go-dark); border-color: var(--go); }
+.chest-help .big-letter { font-size: 72px; }
+.chest-title b { letter-spacing: 4px; }
+.story-portrait.npc { background: radial-gradient(circle at 35% 30%, #d9f7cf, #3faa3a); }
+.story-portrait.npc .hero { position: absolute; width: 150px; left: 50%; top: -42px; transform: translateX(-50%); }

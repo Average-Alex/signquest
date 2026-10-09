@@ -158,9 +158,8 @@ export const HEAL_FRACTION = 0.3;
 export const HEX_HP_MULTIPLIER = 1.6;
 
 // Damage is in HP points. Each letter you sign deals SIGN_DAMAGE (times your
-// move's power). Each buddy hits for BUDDY_DAMAGE every turn, free.
+// move's power). Only one character acts each turn: the one whose move you pick.
 export const SIGN_DAMAGE = 10;
-export const BUDDY_DAMAGE = (level) => 2 + level; // per turn
 // A buddy's attack moves hit like your signing, and get stronger as it levels up.
 export const buddyMoveBoost = (level) => 1 + (level - 1) * 0.08;
 // When a wild creature attacks, its quick move does a bit less than normal and
@@ -172,7 +171,6 @@ export const ENEMY_HEAL_FRACTION = 0.12;
 export const CRIT_CHANCE = 0.1; // normal chance of a critical hit
 export const CRIT_CHANCE_FAST = 0.35; // when you signed fast without a hint
 export const CRIT_MULTIPLIER = 1.5;
-export const BUDDY_CRIT_CHANCE = 0.1;
 export const BUDDY_MAX_LEVEL = 10;
 export const BUDDY_XP_WIN = 25;
 export const BUDDY_XP_LOSS = 10;

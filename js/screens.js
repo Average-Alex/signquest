@@ -4,7 +4,7 @@
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
 import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
 import {
-  BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_DAMAGE, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, CREATURES,
+  BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, CREATURES,
   DIMENSIONS, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
@@ -341,7 +341,7 @@ showHooks.book = () => {
       card.innerHTML = `
         <div class="book-art">${creatureImg(creature.id)}</div>
         <div class="book-name">${creature.name}</div>
-        <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""} · hits for ${BUDDY_DAMAGE(mine.level)}</div>
+        <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""}</div>
         <div class="xpbar" aria-hidden="true"><span style="width:${pct}%"></span></div>
         <ul class="book-moves">${moveText}</ul>
         <div class="small-text">${where}</div>`;

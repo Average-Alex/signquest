@@ -352,7 +352,9 @@ export function battleBackdropSrc(zoneId) {
   const image = gctx.createImageData(FIELD_W, FIELD_H);
   const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const blob = (x, y, cx, cy, rx, ry, wobble) => Math.hypot((x - cx) / rx, (y - cy) / ry) + (noise(x, y, 7, seed + wobble) - 0.5) * 0.45;
-  const pads = [[80, 132, 50, 20], [240, 128, 54, 22], [14, 96, 24, 14], [306, 84, 22, 12], [160, 160, 30, 10]];
+  // Where fighters stand (see .buddy-slot / .hero-slot / .monster-side in style.css):
+  // your team in a column on the left, the monster on the right.
+  const pads = [[58, 73, 24, 9], [77, 124, 30, 11], [58, 155, 24, 9], [240, 121, 54, 22], [306, 70, 20, 10], [170, 168, 30, 9]];
   const pond = theme.water ? { cx: 172, cy: 12, rx: 52, ry: 30 } : null;
   for (let y = 0; y < FIELD_H; y++) {
     for (let x = 0; x < FIELD_W; x++) {
@@ -402,7 +404,7 @@ export function battleBackdropSrc(zoneId) {
   }
   // Big scenery in front, along the bottom, partly cut off.
   for (let x = 10; x < FIELD_W; x += 34) {
-    if (Math.abs(x - 80) < 26 || Math.abs(x - 240) < 26) continue; // keep the fighters in view
+    if (x < 110 || Math.abs(x - 240) < 30) continue; // keep the fighters in view
     items.push({ type: pick(x, 11), x: x + hash(x, 12, seed) * 10, y: FIELD_H + 10, scale: 2 });
   }
   items.sort((a, b) => a.y - b.y);

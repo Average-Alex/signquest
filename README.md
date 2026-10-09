@@ -87,8 +87,10 @@ The battle screen has one command panel: your camera, the letter to sign
 (with 💡 Hint and a 🎒 Bag of potions), and a move picker with a tab for you
 and each buddy. Keys 1 to 3 pick a move, and the left and right arrows switch tabs.
 
-Your move can be a critical hit (more often if you signed fast). Then both
-buddies get a free hit, and the monster attacks back. Sometimes signing fast
+Only one character acts each turn: whoever's move you picked (a gold ring
+shows who). Your team stands in a column on the left, a buddy above you and
+one below, like in Prodigy. The move can be a critical hit (more often if you
+signed fast). Then the monster attacks back. Sometimes signing fast
 leaves it too dizzy to attack, and a stun always does. The battle lasts until
 the hex bar is empty. Potions and power-ups don't use up your turn. They come
 from the Shop, chests, and loot after wins. Run out of HP and you're knocked

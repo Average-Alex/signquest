@@ -152,10 +152,13 @@
         </div>
       </div>
       <div id="turn" class="turn-banner" aria-hidden="true"></div>
-      <div class="fighter player">
-        <span class="avatar" data-avatar></span>
+      <!-- Your team stands in a column on the left: a buddy, you, a buddy. -->
+      <div id="buddy-slot-0" class="fighter buddy-slot top"></div>
+      <div id="hero-slot" class="fighter hero-slot">
+        <span id="hero-sprite" class="hero-sprite"></span>
         <div id="player-dmg" class="dmg" aria-hidden="true"></div>
       </div>
+      <div id="buddy-slot-1" class="fighter buddy-slot bottom"></div>
       <div id="spell" class="spell" aria-hidden="true">✨</div>
       <div class="fighter monster-side">
         <div id="monster" class="monster"></div>

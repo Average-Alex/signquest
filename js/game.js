@@ -6,7 +6,7 @@
 //   2. Sign the target (one letter, or a whole word one letter at a time).
 //      Every letter you sign charges energy, so signing powers everything.
 //   3. Your move fires - sometimes a critical hit, more often when you sign
-//      fast - and each buddy also gets a free little hit.
+//      fast. Only that one character acts each turn.
 // Then it's the monster's turn and it attacks back. If you signed fast
 // without a hint there's a chance it's too dizzy to attack (never two turns
 // in a row); a stun move always stops it. Potions and power-ups can be used
@@ -22,7 +22,7 @@
 
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
-  battleLength, BOSS_EXTRA_DAMAGE, BUDDY_CRIT_CHANCE, BUDDY_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
+  battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
   CRIT_CHANCE, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, LETTERS, LOOT_CHANCE,
@@ -35,7 +35,6 @@ import { creatureImg, heroImg, itemImg } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
 const PAUSE_AFTER_HIT_MS = 700; // so one held sign can't count twice
-const BUDDY_HIT_GAP_MS = 350;
 const MONSTER_TURN_MS = 1200;
 
 const creature = (id) => CREATURES.find((c) => c.id === id);
@@ -77,7 +76,7 @@ export function startBattle(z, s, foeId, level, onFinish) {
   // Room for your signing (with bigger moves), plus your buddies' free hits,
   // so leveled-up buddies only cut the battle a little short.
   const letters = targets.reduce((sum, t) => sum + t.length, 0);
-  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER + targets.length * team.length * BUDDY_DAMAGE(1));
+  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER);
   if (foe.catchable !== false) progress.markSeen(foe.id);
   const playerMax = playerMaxHp(progress.level());
   battle = {
@@ -127,7 +126,14 @@ export function startBattle(z, s, foeId, level, onFinish) {
   $("hud-you-portrait").innerHTML = heroImg(p.look, p.equipped.hat);
   $("monster").className = `monster${stage.type === "boss" ? " boss" : ""}`;
   $("arena").dataset.zone = zone.id;
-  document.querySelector(".player .avatar").className = "avatar";
+  // Your team: you in the middle, a buddy above and below.
+  $("hero-sprite").className = "hero-sprite";
+  $("hero-sprite").innerHTML = heroImg(p.look, p.equipped.hat);
+  [0, 1].forEach((n) => {
+    const pet = team[n];
+    $(`buddy-slot-${n}`).hidden = !pet;
+    $(`buddy-slot-${n}`).innerHTML = pet ? creatureImg(pet.id, "buddy") : "";
+  });
   toggleBag(false);
   updateHp();
   updateStatus();
@@ -239,19 +245,12 @@ function letterDone(now, skipped) {
   renderItems();
   if (battle.hp <= 0) return finish(true);
 
-  // Each buddy gets a free hit, then it's the monster's turn.
+  // Only the one character you picked acts. Then it's the monster's turn.
   const b = battle;
-  b.team.forEach((pet, n) => {
-    setTimeout(() => {
-      if (battle !== b || b.done) return;
-      buddyHit(pet, n);
-      if (b.hp <= 0) finish(true);
-    }, 600 + n * BUDDY_HIT_GAP_MS);
-  });
   setTimeout(() => {
     if (battle !== b || b.done) return;
     monsterTurn(fast);
-  }, 600 + b.team.length * BUDDY_HIT_GAP_MS + 200);
+  }, 900);
 }
 
 // ---------- Moves and energy ----------
@@ -319,7 +318,8 @@ function heroAttack(damage, move, fast) {
     updateStatus();
   }
   damage = Math.round(damage);
-  hitMonster(damage, crit, 0);
+  restartAnimation($("hero-slot"), "pounce");
+  hitMonster(damage, crit, 200);
   flashCamera("good");
 
   const spell = $("spell");
@@ -343,18 +343,7 @@ function hitMonster(damage, crit, delay) {
   }, delay);
 }
 
-// A buddy's free hit at the end of your turn.
-function buddyHit(pet, n) {
-  const crit = Math.random() < BUDDY_CRIT_CHANCE;
-  let damage = BUDDY_DAMAGE(pet.level);
-  if (crit) damage = Math.round(damage * CRIT_MULTIPLIER);
-  const el = buddyEl(n);
-  if (el) restartAnimation(el, "pounce");
-  hitMonster(damage, crit, 250);
-  announce(`${creature(pet.id).name} attacks${crit ? " with a critical hit" : ""}! ${damage} damage.`);
-}
-
-const buddyEl = (n) => document.querySelectorAll(".player .avatar .creature")[n];
+const buddyEl = (n) => $(`buddy-slot-${n}`);
 
 // The move picker: a tab for you and each buddy, each with 3 moves. The move
 // you pick stays picked even if you look at another tab.
@@ -379,6 +368,9 @@ function renderMoves() {
     };
     $("move-tabs").appendChild(button);
   });
+
+  const actor = battle.mover ? buddyEl(battle.team.indexOf(battle.mover)) : $("hero-slot");
+  for (const el of document.querySelectorAll(".arena .fighter")) el.classList.toggle("acting", el === actor && !battle.busy);
 
   const tab = tabs[battle.tab];
   const moves = tab.mover ? creature(tab.mover.id).moves : HERO_MOVES;
@@ -492,7 +484,7 @@ function monsterTurn(fast) {
     popText(`${move.icon} ${move.name}!`, big);
     setTimeout(() => {
       if (battle !== b) return;
-      restartAnimation(document.querySelector(".player .avatar"), "hurt");
+      restartAnimation($("hero-sprite"), "hurt");
       floatText($("player-dmg"), `-${damage}`, big ? "crit" : "bad");
       updateHp();
     }, 250);
@@ -559,7 +551,7 @@ function useItem(item) {
     battle.power = true;
     announce("Powered up! Your next attack hits twice as hard.");
   }
-  restartAnimation(document.querySelector(".player .avatar"), "boost");
+  restartAnimation($("hero-sprite"), "boost");
   updateStatus();
   renderItems();
   toggleBag(false);
@@ -678,7 +670,7 @@ function finish(won) {
       caught: battle.foe.catchable !== false && progress.catchCreature(battle.foe.id) ? battle.foe : null,
     };
   } else {
-    document.querySelector(".player .avatar").classList.add("knocked");
+    $("hero-sprite").classList.add("knocked");
     // Every sign still counts as practice.
     result = { won: false, stars: 0, xp: letters * 5, coins: 0, practice: [...battle.practice], boss, loot: null, caught: null };
   }

@@ -330,15 +330,25 @@ input[type=text], select {
 
 /* Fighters stand on the dirt patches. */
 .fighter { position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: center; }
-.fighter.player { left: 25%; bottom: 16%; transform: translateX(-50%); }
-.fighter.monster-side { left: 75%; bottom: 18%; transform: translateX(-50%); }
+/* Your team: an evenly spaced column on the left (buddy, you, buddy), each on
+   its own dirt patch. The monster stands on the right, level with you.
+   `bottom` is where each one's feet are. */
+/* (Spaced so the gaps between them are equal, below the name panel.) */
+.fighter.buddy-slot.top { left: 18%; bottom: 59.5%; transform: translateX(-50%); }
+.fighter.hero-slot { left: 24%; bottom: 31%; transform: translateX(-50%); }
+.fighter.buddy-slot.bottom { left: 18%; bottom: 14%; transform: translateX(-50%); }
+.fighter.monster-side { left: 75%; bottom: 33%; transform: translateX(-50%); }
 .fighter::after { content: ""; position: absolute; bottom: -1.2cqw; left: 50%; width: 70%; height: 2.4cqw; transform: translateX(-50%); background: rgba(0, 0, 0, 0.25); border-radius: 50%; z-index: -1; }
-.player .avatar { align-items: flex-end; gap: 0.5cqw; }
-.player .avatar .hero { width: 10cqw; animation: bob 1.2s steps(2) infinite; }
-.player .avatar .pet { width: 5cqw; animation: bob 1.2s steps(2) 0.6s infinite; }
-.player .avatar .pet:not(.small) { width: 7cqw; }
-.player .avatar .pet.pounce { animation: pounce 0.5s ease-in-out; }
-@keyframes pounce { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(18cqw, -3cqw) scale(1.1); } }
+/* Whoever's move is picked stands on a gold ring. */
+.fighter.acting::after { background: radial-gradient(ellipse, rgba(255, 201, 60, 0.55) 40%, transparent 41%), rgba(0, 0, 0, 0.2); box-shadow: 0 0 0 0.35cqw var(--gold); animation: acting 1s ease-in-out infinite alternate; }
+@keyframes acting { to { box-shadow: 0 0 0 0.6cqw rgba(255, 201, 60, 0.6); } }
+.hero-sprite { display: block; line-height: 0; }
+.hero-sprite .hero { width: 8.5cqw; animation: bob 1.2s steps(2) infinite; }
+.buddy-slot .buddy { width: 5.5cqw; animation: bob 1.2s steps(2) 0.6s infinite; }
+.buddy-slot .buddy:not(.small) { width: 7cqw; }
+/* The one acting steps out toward the monster and back. */
+.fighter.pounce { animation: pounce 0.55s ease-in-out; }
+@keyframes pounce { 0%, 100% { translate: 0 0; } 45% { translate: 16cqw 0; scale: 1.1; } }
 .monster { line-height: 0; transition: opacity 0.6s, transform 0.6s, filter 0.6s; animation: bob 1.4s steps(2) infinite; }
 .monster .sprite { width: 15cqw; }
 .monster .sprite.small { width: 10cqw; }
@@ -421,11 +431,11 @@ input[type=text], select {
 @keyframes lunge { 0%, 100% { transform: translateX(0); } 40% { transform: translateX(-90px) scale(1.08); } }
 .monster.dizzy { animation: dizzy 1s ease-in-out; }
 @keyframes dizzy { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-6deg); } }
-.player .avatar.hurt { animation: hurt 0.5s; }
+.hero-sprite.hurt { animation: hurt 0.5s; }
 @keyframes hurt { 0%, 100% { transform: translateX(0); filter: none; } 20% { transform: translateX(-14px); filter: brightness(0.6) sepia(1) saturate(6) hue-rotate(-30deg); } 50% { transform: translateX(10px); } 75% { transform: translateX(-5px); } }
-.player .avatar.boost { animation: boost 0.6s; }
+.hero-sprite.boost, .buddy-slot.boost { animation: boost 0.6s; }
 @keyframes boost { 50% { transform: translateY(-16px); filter: brightness(1.5) drop-shadow(0 0 8px var(--gold)); } }
-.player .avatar.knocked { transition: transform 0.6s, opacity 0.6s; transform: rotate(-80deg) translateX(-20px); opacity: 0.6; }
+.hero-sprite.knocked { transition: transform 0.6s, opacity 0.6s; transform: rotate(-80deg) translateX(-20px); opacity: 0.6; }
 
 /* Potion / power-up buttons in battle. */
 .items-bar { display: flex; gap: 8px; flex-wrap: wrap; }

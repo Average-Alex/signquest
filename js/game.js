@@ -24,13 +24,14 @@ import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
-  CRIT_CHANCE, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
+  COMBO_BONUS, COMBO_MAX, CRIT_CHANCE, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, LETTERS, LOOT_CHANCE,
   monsterDamage, playerMaxHp, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } from "./screens.js";
 import { battleBackdropSrc } from "./biome.js";
+import * as fx from "./fx.js";
 import { QUESTS } from "./quests.js";
 import { playLines } from "./story.js";
 import { creatureImg, heroImg, itemImg } from "./sprites.js";
@@ -85,6 +86,7 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   battle = {
     z, s, zone, stage, foe, level, team, targets, onFinish, opts,
     charging: null, // a big move the monster is winding up (it lands next turn)
+    combo: 0, // targets signed fast in a row, without hints: each adds damage
     phase2Done: false, // bosses surge with power at half health
     surge: false,
     t: 0, // which target
@@ -126,6 +128,7 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   $("monster-name").textContent = opts.owner ? `${opts.owner}'s ${foe.name}` : foe.name;
   $("hud-foe-sub").textContent = `${opts.owner ? "Rival battle" : foe.catchable === false ? "Hollow King" : "Hexbound"} · Lv ${level}`;
   $("arena").classList.remove("surge");
+  renderCombo();
   $("battle-warning").hidden = true;
   $("hud-foe-portrait").innerHTML = creatureImg(foe.id, "", hexed);
   const p = progress.get();
@@ -246,6 +249,8 @@ function letterDone(now, skipped) {
   const perLetter = (now - battle.targetStart) / target.length;
   const fast = !battle.targetSlow && perLetter < FAST_SIGN_MS;
   if (fast) gainEnergy(ENERGY_FAST_BONUS);
+  battle.combo = fast ? battle.combo + 1 : 0;
+  renderCombo();
   battle.busy = true;
   fireMove(target.length, fast);
   renderTarget();
@@ -260,7 +265,7 @@ function letterDone(now, skipped) {
     if (battle !== b || b.done) return;
     if (b.stage.type === "boss" && !b.phase2Done && b.hp <= b.maxHp / 2) phase2(b, () => monsterTurn(fast));
     else monsterTurn(fast);
-  }, 900);
+  }, ATTACK_FX_MS + 700);
 }
 
 // Phase 2: Malgrath's voice cuts in, and the boss heals a little and hits harder.
@@ -270,6 +275,10 @@ function phase2(b, next) {
   b.hp = Math.min(b.maxHp, b.hp + Math.round(b.maxHp * 0.1));
   updateHp(b);
   $("arena").classList.add("surge");
+  fx.flash("#5a1f8a", 500, 0.6);
+  fx.burst(at.foe(), "hex", { count: 70, speed: 2.4, life: 900 });
+  fx.ring(at.foe(), "hex", { maxR: 50, life: 600, width: 3 });
+  fx.shake(8, 500);
   $("hud-foe-sub").textContent = `⚡ Powered up! · Lv ${b.level}`;
   popText("⚡ PHASE 2!", true);
   announce(`${b.foe.name} surges with dark power!`);
@@ -284,51 +293,114 @@ function gainEnergy(n) {
   renderEnergy();
 }
 
+// Where things are on the field, for effects.
+const at = {
+  hero: () => fx.centerOf($("hero-sprite"), 0.45),
+  buddy: (n) => fx.centerOf(buddyEl(n), 0.5),
+  foe: () => fx.centerOf($("monster"), 0.5),
+};
+
+// How long an attack takes from wind-up to impact (the hit lands at the end).
+const ATTACK_FX_MS = 560;
+
 // Fires the move picked for this turn. `letters` is how many letters you just signed.
 function fireMove(letters, fast) {
   const { move, mover } = battle;
   battle.energy -= move.cost;
   renderEnergy();
+  // A streak of fast signs makes every attack hit harder.
+  const comboBoost = 1 + Math.min(battle.combo, COMBO_MAX) * COMBO_BONUS;
 
   if (!mover) {
     // One of your hero's spells: more letters signed and stronger spells hit harder.
-    heroAttack(letters * SIGN_DAMAGE * move.power, move, fast);
+    heroAttack(letters * SIGN_DAMAGE * move.power * comboBoost, move, fast);
   } else {
-    // A buddy's special move.
+    // A buddy's move.
     const pet = creature(mover.id);
-    const el = buddyEl(battle.team.indexOf(mover));
-    if (el) restartAnimation(el, move.type === "attack" ? "pounce" : "boost");
+    const n = battle.team.indexOf(mover);
+    const el = buddyEl(n);
     flashCamera("good");
     if (move.type === "attack") {
       // Like your signing, scaled by the move's power and the buddy's level.
       const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE);
-      const damage = Math.round(letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * (crit ? CRIT_MULTIPLIER : 1));
-      hitMonster(damage, crit, 250);
-      if (move.power >= 4) restartAnimation($("arena"), "shake");
-      popText(`${crit ? "CRITICAL! " : ""}${move.icon} ${move.name}!`, true);
+      const damage = Math.round(letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * comboBoost * (crit ? CRIT_MULTIPLIER : 1));
+      attackFx({ from: at.buddy(n), attacker: el, move, crit });
+      hitMonster(damage, crit, ATTACK_FX_MS);
+      popText(`${move.icon} ${move.name}!`, true);
+      if (crit) setTimeout(() => popText("CRITICAL HIT!", true), ATTACK_FX_MS);
       announce(`${pet.name} uses ${move.name}!${crit ? " Critical hit!" : ""} ${damage} damage.`);
-    } else if (move.type === "shield") {
-      battle.shield += 1;
-      popText(`${move.icon} ${move.name}!`);
-      announce(`${pet.name} uses ${move.name}! It will block the next hit.`);
-    } else if (move.type === "heal") {
-      const before = battle.playerHp;
-      battle.playerHp = Math.min(battle.playerMax, before + Math.round(battle.playerMax * HEAL_FRACTION));
-      floatText($("player-dmg"), `+${battle.playerHp - before}`, "good");
-      popText(`${move.icon} ${move.name}!`);
-      announce(`${pet.name} uses ${move.name}! You heal ${battle.playerHp - before} HP.`);
-    } else if (move.type === "stun") {
-      battle.stunned = true;
-      popText(`${move.icon} ${move.name}!`);
-      announce(`${pet.name} uses ${move.name}! ${battle.foe.name} is stunned.`);
+    } else {
+      restartAnimation(el, "boost");
+      fx.gather(at.buddy(n), fx.elementOf(move), { ms: 260 });
+      if (move.type === "shield") {
+        battle.shield += 1;
+        setTimeout(() => {
+          fx.ring(at.hero(), "shield", { maxR: 26, life: 700, width: 3, squash: 1 });
+          fx.ring(at.hero(), "shield", { maxR: 16, life: 600, width: 2, squash: 1 });
+          fx.burst(at.hero(), "shield", { count: 18, speed: 0.8, gravity: 0 });
+        }, 260);
+        popText(`${move.icon} ${move.name}!`);
+        announce(`${pet.name} uses ${move.name}! It will block the next hit.`);
+      } else if (move.type === "heal") {
+        const before = battle.playerHp;
+        battle.playerHp = Math.min(battle.playerMax, before + Math.round(battle.playerMax * HEAL_FRACTION));
+        const healed = battle.playerHp - before;
+        setTimeout(() => {
+          fx.rise(at.hero(), "heal", { count: 30 });
+          fx.number(at.hero(), `+${healed}`, "good");
+        }, 260);
+        popText(`${move.icon} ${move.name}!`);
+        announce(`${pet.name} uses ${move.name}! You heal ${healed} HP.`);
+      } else if (move.type === "stun") {
+        battle.stunned = true;
+        fx.projectile(at.buddy(n), at.foe(), fx.elementOf(move), { ms: 300, size: 2 }).then(() => {
+          fx.burst(at.foe(), fx.elementOf(move), { count: 26, speed: 1.4 });
+          fx.ring(at.foe(), fx.elementOf(move), { maxR: 26 });
+          fx.orbit(fx.centerOf($("monster"), 0.15), { ms: 1600 });
+          restartAnimation($("monster"), "dizzy");
+        });
+        popText(`${move.icon} ${move.name}!`);
+        announce(`${pet.name} uses ${move.name}! ${battle.foe.name} is stunned.`);
+      }
+      setTimeout(() => {
+        updateHp();
+        updateStatus();
+      }, 300);
     }
-    updateHp();
-    updateStatus();
   }
 
   // Back to the free spell for next turn, so nobody gets stuck.
   battle.move = HERO_MOVES[0];
   battle.mover = null;
+}
+
+// The look of an attack, from wind-up to impact. Elemental moves fire a
+// projectile; physical ones dash in. Bigger moves and crits hit harder.
+function attackFx({ from, attacker, move, crit }) {
+  const element = fx.elementOf(move);
+  const power = move.power || 1;
+  const scale = Math.min(2.4, 0.7 + power * 0.35) * (crit ? 1.35 : 1);
+  const big = power >= 3.5;
+  restartAnimation(attacker, fx.isPhysical(move) ? "pounce" : "cast");
+  fx.gather(from, element, { ms: 220, count: Math.round(10 * scale) });
+  const impact = () => {
+    const target = at.foe();
+    if (crit || big) fx.hitStop(crit ? 140 : 90);
+    if (crit) {
+      fx.zoom(target, 1.08);
+      fx.rays(target, "light");
+    }
+    if (big) fx.flash("#ffffff", 260, 0.55);
+    restartAnimation($("monster"), "hit");
+    fx.burst(target, element, { count: Math.round(22 * scale), speed: 1.3 * scale, life: 700 });
+    fx.burst(target, "impact", { count: Math.round(8 * scale), speed: 0.8 * scale, life: 300 });
+    fx.ring(target, element, { maxR: 16 * scale, life: 420, width: 2 + scale });
+    fx.shake(3 * scale, 260 + scale * 80);
+  };
+  setTimeout(() => {
+    if (fx.isPhysical(move)) setTimeout(impact, ATTACK_FX_MS - 220 - 40);
+    else fx.projectile(from, at.foe(), element, { ms: ATTACK_FX_MS - 220, size: Math.round(2 + scale * 1.5), arc: -10 - 8 * scale }).then(impact);
+  }, 220);
 }
 
 function heroAttack(damage, move, fast) {
@@ -342,17 +414,12 @@ function heroAttack(damage, move, fast) {
     updateStatus();
   }
   damage = Math.round(damage);
-  restartAnimation($("hero-slot"), "pounce");
-  hitMonster(damage, crit, 200);
+  attackFx({ from: at.hero(), attacker: $("hero-slot"), move, crit });
+  hitMonster(damage, crit, ATTACK_FX_MS);
   flashCamera("good");
-
-  const spell = $("spell");
-  spell.textContent = move.id === "nova" ? "🌟💥🌟" : move.id === "blast" ? "💥" : crit ? "🌟" : "✨";
-  spell.className = `spell cast${big || crit ? " big" : ""}`;
-  if (crit || move.id === "nova") restartAnimation($("arena"), "shake");
-  popText(crit ? "CRITICAL HIT!" : big ? `${move.icon} ${move.name.toUpperCase()}!` : "Hit!", crit || big);
+  if (big) popText(`${move.icon} ${move.name.toUpperCase()}!`, true);
+  setTimeout(() => popText(crit ? "CRITICAL HIT!" : big ? `${move.icon} ${move.name.toUpperCase()}!` : "Hit!", crit || big), ATTACK_FX_MS);
   announce(`${crit ? "Critical hit! " : ""}${move.name}! ${damage} damage.`);
-  setTimeout(() => (spell.className = "spell"), 600);
 }
 
 function hitMonster(damage, crit, delay) {
@@ -361,10 +428,21 @@ function hitMonster(damage, crit, delay) {
   setTimeout(() => {
     // Still show it if this hit just won the battle (the battle may already be wrapping up).
     if (battle && battle !== b) return;
-    restartAnimation($("monster"), "hit");
-    floatText($("monster-dmg"), `-${damage}`, crit ? "crit" : "bad");
+    fx.number(at.foe(), `-${damage}${crit ? "!" : ""}`, crit ? "crit" : "bad");
     updateHp(b);
   }, delay);
+}
+
+// 🔥 Combo: shows once you've signed 2 or more targets fast in a row.
+function renderCombo() {
+  const el = $("combo");
+  const n = battle.combo;
+  el.hidden = n < 2;
+  if (n < 2) return;
+  el.textContent = `🔥 ×${n} combo${n >= COMBO_MAX ? " MAX!" : ""}`;
+  el.classList.remove("pop");
+  void el.offsetWidth;
+  el.classList.add("pop");
 }
 
 const buddyEl = (n) => $(`buddy-slot-${n}`);
@@ -483,15 +561,19 @@ function monsterTurn(fast) {
   if (b.stunned) {
     b.stunned = false;
     restartAnimation($("monster"), "dizzy");
+    fx.orbit(fx.centerOf($("monster"), 0.15), { ms: 1200 });
     popText(unleashing ? "Stunned! The charge fizzled! 💫" : "Stunned! 💫");
     announce(`${name} is stunned and can't attack!`);
   } else if (dazed) {
     restartAnimation($("monster"), "dizzy");
+    fx.orbit(fx.centerOf($("monster"), 0.15), { ms: 1200 });
     popText(unleashing ? "Dizzy! The charge fizzled! 💫" : "Dizzy! 💫");
     announce(`You signed so fast, ${name} is too dizzy to attack!`);
   } else if (startCharge) {
     b.charging = bigMove;
     restartAnimation($("monster"), "charging");
+    fx.gather(at.foe(), "danger", { ms: 900, count: 40, radius: 40 });
+    fx.gather(at.foe(), fx.elementOf(bigMove), { ms: 700, count: 20, radius: 30 });
     popText(`⚠️ Charging ${bigMove.name}!`, true);
     $("battle-warning").textContent = `⚠️ ${name} is charging up ${bigMove.icon} ${bigMove.name}! Shield, heal, or stun it now!`;
     $("battle-warning").hidden = false;
@@ -501,14 +583,20 @@ function monsterTurn(fast) {
     const amount = Math.round(b.maxHp * ENEMY_HEAL_FRACTION);
     b.hp = Math.min(b.maxHp, b.hp + amount);
     restartAnimation($("monster"), "boost");
+    fx.rise(at.foe(), "heal", { count: 26, width: 30 });
     popText(`${healMove.icon} ${healMove.name}!`);
-    floatText($("monster-dmg"), `+${amount}`, "good");
+    fx.number(at.foe(), `+${amount}`, "good");
     updateHp();
     announce(`${name} uses ${healMove.name} and heals ${amount}!`);
   } else if (b.shield > 0) {
     b.shield--;
     updateStatus();
     restartAnimation($("monster"), "lunge");
+    setTimeout(() => {
+      fx.ring(at.hero(), "shield", { maxR: 24, life: 500, width: 3, squash: 1 });
+      fx.burst(at.hero(), "shield", { count: 20, speed: 1.4, angle: Math.PI, spread: 1.6 });
+      fx.shake(3, 200);
+    }, 260);
     popText(`${move.icon} ${move.name}... Blocked! 🛡️`);
     announce(`${name} uses ${move.name}, but your shield blocks it!`);
   } else {
@@ -516,17 +604,32 @@ function monsterTurn(fast) {
     const base = monsterDamage(b.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
     const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE) * (b.surge ? 1.3 : 1)));
     b.playerHp = Math.max(0, b.playerHp - damage);
-    restartAnimation($("monster"), "lunge");
-    if (big) restartAnimation($("arena"), "shake");
+    const element = fx.elementOf(move);
     popText(`${move.icon} ${move.name}!`, big);
-    setTimeout(() => {
+    // The monster's attack: a lunge, or a projectile at you, then the hit.
+    const landed = () => {
       if (battle !== b) return;
       restartAnimation($("hero-sprite"), "hurt");
-      floatText($("player-dmg"), `-${damage}`, big ? "crit" : "bad");
+      fx.burst(at.hero(), element, { count: big ? 40 : 20, speed: big ? 2 : 1.2 });
+      fx.burst(at.hero(), "danger", { count: 8, speed: 0.8, life: 300 });
+      fx.ring(at.hero(), element, { maxR: big ? 30 : 16 });
+      fx.shake(big ? 10 : 4, big ? 500 : 280);
+      if (big) {
+        fx.hitStop(120);
+        fx.flash("#e8413b", 300, 0.45);
+      }
+      fx.number(at.hero(), `-${damage}`, big ? "crit" : "bad");
       updateHp();
-    }, 250);
+    };
+    if (fx.isPhysical(move)) {
+      restartAnimation($("monster"), "lunge");
+      setTimeout(landed, 260);
+    } else {
+      restartAnimation($("monster"), "charging");
+      fx.projectile(at.foe(), at.hero(), element, { ms: 300, size: big ? 5 : 3, arc: -14 }).then(landed);
+    }
     announce(`${name} uses ${move.name}! You lose ${damage} HP.`);
-    if (b.playerHp <= 0) return setTimeout(() => battle === b && finish(false), 700);
+    if (b.playerHp <= 0) return setTimeout(() => battle === b && finish(false), 900);
   }
 
   setTimeout(() => {
@@ -578,14 +681,17 @@ function useItem(item) {
   if (item.id === "potion" || item.id === "bigpotion") {
     const before = battle.playerHp;
     battle.playerHp = item.id === "potion" ? Math.min(battle.playerMax, before + POTION_HEAL) : battle.playerMax;
-    floatText($("player-dmg"), `+${battle.playerHp - before}`, "good");
+    fx.rise(at.hero(), "heal", { count: 30 });
+    fx.number(at.hero(), `+${battle.playerHp - before}`, "good");
     updateHp();
     announce(`You drink a ${item.name.toLowerCase()}. +${battle.playerHp - before} HP.`);
   } else if (item.id === "shield") {
     battle.shield += SHIELD_BLOCKS;
+    fx.ring(at.hero(), "shield", { maxR: 28, life: 700, width: 3, squash: 1 });
     announce(`Shield up! It blocks the next ${SHIELD_BLOCKS} hits.`);
   } else if (item.id === "power") {
     battle.power = true;
+    fx.gather(at.hero(), "fire", { ms: 500, count: 30 });
     announce("Powered up! Your next attack hits twice as hard.");
   }
   restartAnimation($("hero-sprite"), "boost");
@@ -613,7 +719,7 @@ function updateHp(b = battle) {
 }
 
 function restartAnimation(el, cls) {
-  el.classList.remove("hit", "lunge", "dizzy", "hurt", "boost", "pounce", "shake", "charging");
+  el.classList.remove("hit", "lunge", "dizzy", "hurt", "boost", "pounce", "shake", "charging", "cast");
   void el.offsetWidth;
   el.classList.add(cls);
 }
@@ -626,28 +732,6 @@ function popText(text, crit = false) {
   pop.className = `pop show${crit ? " crit" : ""}`;
   clearTimeout(pop.timer);
   pop.timer = setTimeout(() => (pop.className = "pop"), 900);
-}
-
-function floatText(el, text, kind) {
-  el.textContent = text;
-  el.className = "dmg";
-  void el.offsetWidth;
-  el.className = `dmg show ${kind}`;
-}
-
-// Sparkles fly out from the monster when its hex breaks.
-function sparkleBurst() {
-  const side = document.querySelector(".fighter.monster-side");
-  for (let n = 0; n < 10; n++) {
-    const el = document.createElement("span");
-    el.className = "sparkle";
-    el.textContent = n % 3 ? "✨" : "💚";
-    const angle = (n / 10) * Math.PI * 2;
-    el.style.setProperty("--dx", `${Math.cos(angle) * 9}cqw`);
-    el.style.setProperty("--dy", `${Math.sin(angle) * 7 - 4}cqw`);
-    side.appendChild(el);
-    setTimeout(() => el.remove(), 1200);
-  }
 }
 
 function rollLoot(boss) {
@@ -677,6 +761,11 @@ function finish(won) {
       // The hex shatters: a flash, then the creature's real colors come back.
       popText("HEX BROKEN!", true);
       $("monster").classList.add("healing");
+      fx.hitStop(160);
+      fx.flash("#ffffff", 400, 0.8);
+      fx.burst(at.foe(), "hex", { count: 90, speed: 2.6, life: 1000, gravity: 0.05 });
+      fx.ring(at.foe(), "hex", { maxR: 60, life: 700, width: 4 });
+      fx.shake(9, 450);
       const foeId = battle.foe.id;
       setTimeout(() => {
         $("monster").innerHTML = creatureImg(foeId);
@@ -684,7 +773,8 @@ function finish(won) {
         $("hud-foe-sub").textContent = "Freed!";
         $("monster").classList.remove("healing");
         $("monster").classList.add("healed");
-        sparkleBurst();
+        fx.rise(at.foe(), "light", { count: 40, width: 40 });
+        fx.burst(at.foe(), "heal", { count: 30, speed: 1.2, gravity: -0.01 });
         popText("Healed! 💚");
         announce("The hex is broken! It's healed.");
       }, 450);

@@ -241,6 +241,9 @@ export const DEFAULT_SETTINGS = {
 // which leaves it too dizzy to attack. Damage and HP scale with levels above.
 export const BOSS_EXTRA_DAMAGE = 4;
 export const FAST_SIGN_MS = 3000; // per letter, to count as "fast"
+// 🔥 Combo: each target in a row signed fast (no hint) adds damage, up to a max.
+export const COMBO_BONUS = 0.1;
+export const COMBO_MAX = 5;
 // Signing fast gives a CHANCE to daze the monster (never two turns in a
 // row), and tougher monsters shake it off more often.
 export const dizzyChance = (level) => Math.max(0.15, 0.45 - level * 0.012);

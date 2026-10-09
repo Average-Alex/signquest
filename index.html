@@ -134,13 +134,15 @@
     </div>
     <div id="arena" class="arena">
       <img id="arena-bg" class="sprite arena-bg" alt="">
+      <canvas id="fx" class="fx-canvas" aria-hidden="true"></canvas>
+      <div id="fx-flash" class="fx-flash" aria-hidden="true"></div>
       <!-- Name / HP panels -->
       <div class="hud hud-you">
         <div id="hud-you-portrait" class="hud-portrait" aria-hidden="true"></div>
         <div class="hud-info">
           <div id="hud-you-name" class="hud-name"></div>
           <div class="hp player-hp" aria-hidden="true"><div id="player-hp" class="hp-fill"></div><span id="player-hp-text" class="hp-text"></span></div>
-          <div class="hud-sub"><span id="hud-you-level"></span><div id="energy" class="energy" role="img"></div></div>
+          <div class="hud-sub"><span id="hud-you-level"></span><div id="energy" class="energy" role="img"></div><span id="combo" class="combo" hidden></span></div>
           <div id="player-status" class="status-icons" aria-hidden="true"></div>
         </div>
       </div>

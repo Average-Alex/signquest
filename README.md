@@ -62,6 +62,16 @@ really is. Rook's arc runs from rival to partner as you learn Malgrath is
 holding his little sister Robin. Everything (villagers, quests, riddle words,
 events, and the bosses' phase-2 lines) is written in `js/quests.js`.
 
+**Battle effects.** Every attack winds up, flies (or dashes) across the field,
+and lands with a hit-freeze, screen shake, a particle burst in the move's
+element (fire, water, ice, lightning, nature, rock, dark, light), and a big
+bouncy damage number. Crits punch in with gold rays; signature moves flash the
+screen; breaking a hex shatters purple shards everywhere. Effects live in
+`js/fx.js` (chunky pixel particles on a canvas over the field).
+
+**🔥 Combo.** Sign targets fast, without hints, to build a combo. Each one in a
+row adds 10% damage, up to +50%. A slow sign or a hint resets it.
+
 **Tougher battles.** Before a creature's big signature move, it spends a turn
 charging up ("⚠️ charging Tongue Lash!"). Shield, heal, or stun it before it
 lands. At half health, bosses hit phase 2: Malgrath's voice cuts in, and the
@@ -188,6 +198,7 @@ If you change `toFeatures()` in `js/features.js`, change `to_features()` in
 | `js/features.js` | Hand points → 63 normalized numbers |
 | `js/classifier.js` | `getPrediction()`, smoothing, hold timer, model/kNN/keyboard |
 | `js/biome.js` | The walkable area for each zone: map building, gates, chests, walking, roaming creatures |
+| `js/fx.js` | Battle effects: particles, projectiles, shake, flashes, damage numbers |
 | `js/game.js` | Turn-based battles: moves and energy, crits, buddies, the monster's attack, potions, stars, loot, freeing creatures |
 | `js/story.js` | The story script and the dialogue box |
 | `js/quests.js` | Each zone's chapter: villagers, quests, story events, boss phase-2 lines |

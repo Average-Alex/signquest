@@ -712,3 +712,20 @@ input[type=text], select {
 .chest-title b { letter-spacing: 4px; }
 .story-portrait.npc { background: radial-gradient(circle at 35% 30%, #d9f7cf, #3faa3a); }
 .story-portrait.npc .hero { position: absolute; width: 150px; left: 50%; top: -42px; transform: translateX(-50%); }
+
+/* ---------- Story events and tougher battles ---------- */
+/* Malgrath appears in a burst of purple fog. */
+.biome-wrap.hexflash .biome-canvas { animation: hexflash 0.9s ease-out; }
+@keyframes hexflash { 0% { filter: none; } 15% { filter: brightness(0.5) sepia(1) hue-rotate(220deg) saturate(4); } 100% { filter: none; } }
+/* A monster winding up its big move. */
+.monster.charging { animation: charging 0.9s ease-in-out; }
+@keyframes charging { 0%, 100% { transform: scale(1); filter: none; } 30%, 70% { transform: scale(1.12); filter: brightness(1.6) drop-shadow(0 0 1.5cqw #ff3355); } 50% { transform: scale(1.08) translateX(-0.5cqw); } }
+.battle-warning {
+  margin: 0; padding: 6px 12px; text-align: center; font-weight: 700; font-size: 15px; color: #fff;
+  background: #d6453d; border: 2px solid var(--ink); border-radius: 10px; box-shadow: 0 3px 0 var(--ink);
+  animation: warning 0.7s ease-in-out infinite alternate;
+}
+@keyframes warning { to { background: #ff6b5e; } }
+/* Boss phase 2: the field darkens with a purple tint. */
+.arena.surge .arena-bg { filter: brightness(0.75) sepia(0.4) hue-rotate(220deg) saturate(1.6); transition: filter 0.8s; }
+.arena.surge .monster { filter: drop-shadow(0 0 1.2cqw #b04ae8); }

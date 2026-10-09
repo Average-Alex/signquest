@@ -13,6 +13,7 @@
 // Pip's memories coming back). `{name}` is replaced with the player's name.
 
 import * as progress from "./progress.js";
+import { ROOK } from "./quests.js";
 import { creatureImg, heroImg } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
@@ -21,6 +22,7 @@ const SPEAKERS = {
   narrator: { name: "", art: () => `<span class="story-scroll" aria-hidden="true">📜</span>` },
   pip: { name: "Pip", art: () => creatureImg("pip") },
   malgrath: { name: "Malgrath", art: () => creatureImg("malgrath") },
+  rook: { name: "Rook", art: () => heroImg(ROOK.look, ROOK.hat) },
   you: { name: () => progress.get().name || "You", art: () => heroImg(progress.get().look, progress.get().equipped.hat) },
 };
 
@@ -114,16 +116,17 @@ const SCENES = {
     ["pip", "I remember falling. A tiny piece of light, falling through the night sky..."],
   ],
   "shard-castle": [
-    ["pip", "Shard 5... wait. Wait! I remember everything now."],
-    ["pip", "I didn't come FROM the Beacon. I AM a piece of the Beacon. I'm its spirit! That's why my antennae glow when you sign."],
-    ["pip", "And the last 3 shards flew through a portal. Look at the map, {name}. We have to follow them!"],
+    ["pip", "Shard 5! Blaze is free, and the Academy is ours again!"],
+    ["pip", "I remember Malgrath now. He was a Signkeeper here, long ago. He wanted all the Signlight for himself."],
+    ["rook", "And the last 3 shards flew through a portal. Robin is somewhere on the other side. Look at the map!"],
   ],
-  "shard-spires": [["pip", "Shard 6! I feel stronger with every one. The Beacon is waking up!"]],
-  "shard-clouds": [["pip", "Shard 7! Only one left, and Malgrath has it. He's waiting at the top of the Void Rift."]],
+  "shard-spires": [["pip", "Shard 6! Now that I remember who I am, I can feel the last shards calling me."], ["rook", "Two more. Hang on, Robin."]],
+  "shard-clouds": [["pip", "Shard 7! Only one left, and Malgrath has it. He's waiting at the top of the Void Rift."], ["rook", "With Robin. Let's go."]],
   "shard-void": [
     ["narrator", "With your last sign, the hex around Malgrath shatters. He shrinks into a shadow and is sealed away."],
     ["pip", "All 8 shards! Hold them up, {name}!"],
     ["narrator", "The shards fly together. The Great Beacon shines again, and Signlight flows across both worlds."],
+    ["rook", "ROBIN! The hex is gone! She's okay, {name}! She's okay!"],
     ["pip", "You did it, Signkeeper. Every creature is free, because you learned to sign."],
     ["narrator", "But far across the stars, one tiny light flickers on..."],
     ["narrator", "To be continued?"],

@@ -31,6 +31,8 @@ import {
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } from "./screens.js";
 import { battleBackdropSrc } from "./biome.js";
+import { QUESTS } from "./quests.js";
+import { playLines } from "./story.js";
 import { creatureImg, heroImg, itemImg } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
@@ -67,7 +69,8 @@ function nextTarget(z, type, previous) {
 // ---------- Starting a battle ----------
 
 // `foeId` is the creature you're fighting (see CREATURES in config.js), at `level`.
-export function startBattle(z, s, foeId, level, onFinish) {
+// `opts.owner`: a rival's name, when it's their creature.
+export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const zone = ZONES[z];
   const stage = STAGES[s];
   const foe = creature(foeId);
@@ -80,7 +83,10 @@ export function startBattle(z, s, foeId, level, onFinish) {
   if (foe.catchable !== false) progress.markSeen(foe.id);
   const playerMax = playerMaxHp(progress.level());
   battle = {
-    z, s, zone, stage, foe, level, team, targets, onFinish,
+    z, s, zone, stage, foe, level, team, targets, onFinish, opts,
+    charging: null, // a big move the monster is winding up (it lands next turn)
+    phase2Done: false, // bosses surge with power at half health
+    surge: false,
     t: 0, // which target
     i: 0, // which letter in the target
     turn: 1,
@@ -117,8 +123,10 @@ export function startBattle(z, s, foeId, level, onFinish) {
   // Hexbound creatures look corrupted until you break the hex. (Malgrath is just like that.)
   const hexed = foe.catchable !== false;
   $("monster").innerHTML = creatureImg(foe.id, "", hexed);
-  $("monster-name").textContent = foe.name;
-  $("hud-foe-sub").textContent = `${foe.catchable === false ? "Hollow King" : "Hexbound"} · Lv ${level}`;
+  $("monster-name").textContent = opts.owner ? `${opts.owner}'s ${foe.name}` : foe.name;
+  $("hud-foe-sub").textContent = `${opts.owner ? "Rival battle" : foe.catchable === false ? "Hollow King" : "Hexbound"} · Lv ${level}`;
+  $("arena").classList.remove("surge");
+  $("battle-warning").hidden = true;
   $("hud-foe-portrait").innerHTML = creatureImg(foe.id, "", hexed);
   const p = progress.get();
   $("hud-you-name").textContent = p.name || "Hero";
@@ -246,11 +254,27 @@ function letterDone(now, skipped) {
   if (battle.hp <= 0) return finish(true);
 
   // Only the one character you picked acts. Then it's the monster's turn.
+  // (At half health, a boss first surges with dark power: phase 2.)
   const b = battle;
   setTimeout(() => {
     if (battle !== b || b.done) return;
-    monsterTurn(fast);
+    if (b.stage.type === "boss" && !b.phase2Done && b.hp <= b.maxHp / 2) phase2(b, () => monsterTurn(fast));
+    else monsterTurn(fast);
   }, 900);
+}
+
+// Phase 2: Malgrath's voice cuts in, and the boss heals a little and hits harder.
+function phase2(b, next) {
+  b.phase2Done = true;
+  b.surge = true;
+  b.hp = Math.min(b.maxHp, b.hp + Math.round(b.maxHp * 0.1));
+  updateHp(b);
+  $("arena").classList.add("surge");
+  $("hud-foe-sub").textContent = `⚡ Powered up! · Lv ${b.level}`;
+  popText("⚡ PHASE 2!", true);
+  announce(`${b.foe.name} surges with dark power!`);
+  const lines = QUESTS[b.zone.id]?.phase2 || [];
+  setTimeout(() => (lines.length ? playLines(lines, next) : next()), 900);
 }
 
 // ---------- Moves and energy ----------
@@ -447,18 +471,31 @@ function monsterTurn(fast) {
   // its big signature move; and once a battle, a heal if it's hurt and has one.
   const [quickMove, , bigMove] = b.foe.moves;
   const healMove = b.foe.moves.find((mv) => mv.type === "heal");
-  const healing = healMove && !b.foeHealed && b.hp < b.maxHp * 0.4 && Math.random() < 0.5;
-  const move = b.turn >= 2 && Math.random() < ENEMY_BIG_CHANCE ? bigMove : quickMove;
+  // Big signature moves are telegraphed: it spends a turn charging up, and
+  // the hit lands next turn, unless you stun it, it gets dizzy, or you shield.
+  const unleashing = b.charging;
+  b.charging = null;
+  $("battle-warning").hidden = true;
+  const healing = !unleashing && healMove && !b.foeHealed && b.hp < b.maxHp * 0.4 && Math.random() < 0.5;
+  const startCharge = !unleashing && !healing && b.turn >= 2 && Math.random() < ENEMY_BIG_CHANCE;
+  const move = unleashing || quickMove;
 
   if (b.stunned) {
     b.stunned = false;
     restartAnimation($("monster"), "dizzy");
-    popText("Stunned! 💫");
+    popText(unleashing ? "Stunned! The charge fizzled! 💫" : "Stunned! 💫");
     announce(`${name} is stunned and can't attack!`);
   } else if (dazed) {
     restartAnimation($("monster"), "dizzy");
-    popText("Dizzy! 💫");
+    popText(unleashing ? "Dizzy! The charge fizzled! 💫" : "Dizzy! 💫");
     announce(`You signed so fast, ${name} is too dizzy to attack!`);
+  } else if (startCharge) {
+    b.charging = bigMove;
+    restartAnimation($("monster"), "charging");
+    popText(`⚠️ Charging ${bigMove.name}!`, true);
+    $("battle-warning").textContent = `⚠️ ${name} is charging up ${bigMove.icon} ${bigMove.name}! Shield, heal, or stun it now!`;
+    $("battle-warning").hidden = false;
+    announce(`Watch out! ${name} is charging ${bigMove.name}. Next turn it hits hard, unless you shield, heal, or stun it.`);
   } else if (healing) {
     b.foeHealed = true;
     const amount = Math.round(b.maxHp * ENEMY_HEAL_FRACTION);
@@ -477,7 +514,7 @@ function monsterTurn(fast) {
   } else {
     const big = move === bigMove;
     const base = monsterDamage(b.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
-    const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE)));
+    const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE) * (b.surge ? 1.3 : 1)));
     b.playerHp = Math.max(0, b.playerHp - damage);
     restartAnimation($("monster"), "lunge");
     if (big) restartAnimation($("arena"), "shake");
@@ -576,7 +613,7 @@ function updateHp(b = battle) {
 }
 
 function restartAnimation(el, cls) {
-  el.classList.remove("hit", "lunge", "dizzy", "hurt", "boost", "pounce", "shake");
+  el.classList.remove("hit", "lunge", "dizzy", "hurt", "boost", "pounce", "shake", "charging");
   void el.offsetWidth;
   el.classList.add(cls);
 }
@@ -667,7 +704,7 @@ function finish(won) {
       practice: [...battle.practice],
       boss,
       loot: rollLoot(boss),
-      caught: battle.foe.catchable !== false && progress.catchCreature(battle.foe.id) ? battle.foe : null,
+      caught: battle.foe.catchable !== false && !battle.opts.owner && progress.catchCreature(battle.foe.id) ? battle.foe : null,
     };
   } else {
     $("hero-sprite").classList.add("knocked");
@@ -676,6 +713,7 @@ function finish(won) {
   }
   result.foe = battle.foe;
   result.level = battle.level;
+  result.opts = battle.opts;
   result.zone = battle.zone;
   const leveled = progress.addTeamXp(won ? BUDDY_XP_WIN : BUDDY_XP_LOSS);
   result.buddyLevels = leveled.map((id) => ({ ...creature(id), level: progress.get().creatures[id].level }));

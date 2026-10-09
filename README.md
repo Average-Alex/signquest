@@ -52,8 +52,20 @@ with a ❗ to get their quest, and come back when they show a ❓. Five kinds:
 - ⚔️ Gate guard: beat the hexed guard (a word battle, which opens the boss).
 
 A tracker under the map says what to do next, and a compass arrow at the edge
-of the view points to the goal when it's off screen. The quests are written in
-`js/quests.js` (villagers, lines, riddle words).
+of the view points to the goal when it's off screen.
+
+**Story events.** Each zone's quests lead toward its shard, and things happen
+as you walk into new areas: Malgrath appears in a burst of purple fog and
+sends hexed creatures to ambush you, Rook (a rival collecting shards for
+Malgrath) challenges you to rival battles, and Pip starts to remember who it
+really is. Rook's arc runs from rival to partner as you learn Malgrath is
+holding his little sister Robin. Everything (villagers, quests, riddle words,
+events, and the bosses' phase-2 lines) is written in `js/quests.js`.
+
+**Tougher battles.** Before a creature's big signature move, it spends a turn
+charging up ("⚠️ charging Tongue Lash!"). Shield, heal, or stun it before it
+lands. At half health, bosses hit phase 2: Malgrath's voice cuts in, and the
+boss surges with dark power and hits harder.
 
 Also in each area:
 
@@ -178,7 +190,7 @@ If you change `toFeatures()` in `js/features.js`, change `to_features()` in
 | `js/biome.js` | The walkable area for each zone: map building, gates, chests, walking, roaming creatures |
 | `js/game.js` | Turn-based battles: moves and energy, crits, buddies, the monster's attack, potions, stars, loot, freeing creatures |
 | `js/story.js` | The story script and the dialogue box |
-| `js/quests.js` | Each zone's villagers and quests, area by area |
+| `js/quests.js` | Each zone's chapter: villagers, quests, story events, boss phase-2 lines |
 | `js/screens.js` | Screen switching, map, learn cards, results, shop, hero maker, creature book, settings |
 | `js/progress.js` | XP, coins, stars, miss counts, hats, potions, creatures - saved in localStorage |
 | `js/samples.js`, `js/record.js` | Recorded samples and the Record page |

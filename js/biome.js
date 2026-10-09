@@ -33,7 +33,7 @@ import {
 } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
-import { QUESTS } from "./quests.js";
+import { QUESTS, ROOK } from "./quests.js";
 import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
@@ -60,6 +60,7 @@ const GROUND = 0, PATH = 1, WATER_TILE = 2, BRIDGE_TILE = 3, GATE = 4;
 
 // Area 0 is the bottom (entrance); the last area is the top (boss).
 const areaTop = (a) => (BIOME_AREAS - 1 - a) * SH; // first tile row of an area
+const areaOf = (py) => Math.min(BIOME_AREAS - 1, Math.max(0, BIOME_AREAS - 1 - Math.floor(py / (SH * T))));
 
 const THEMES = {
   meadow: {
@@ -227,6 +228,7 @@ function build(z) {
     fighting: null,
     chest: null, // the sign panel that's open (a chest, an item, or a riddle)
     npcs: [], // villagers (quests.js)
+    actors: [], // Malgrath or Rook, while a story event plays
     items: [], // lost things to find for quests
     dust: [], // little puffs from footsteps
     atSign: null,
@@ -675,7 +677,7 @@ function startEncounter(biome, creature) {
   $("biome-wrap").classList.add("encounter");
   setTimeout(() => {
     $("biome-wrap").classList.remove("encounter");
-    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level);
+    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner });
     if (creature.boss) playScene(`boss-${creature.id}`, fight);
     else fight();
   }, 600);
@@ -689,6 +691,12 @@ export function biomeBattleOver(z, won) {
   biome.fighting = null;
   biome.safeUntil = performance.now() + SAFE_MS;
   biome.nextSpawn = performance.now() + RESPAWN_MS;
+  if (c.event) {
+    biome.actors = [];
+    const lost = c.event.type === "rook" ? [["rook", "Too slow, apprentice! See you around."]] : [["pip", "We'll get stronger. Malgrath won't win!"]];
+    pendingLines = { lines: won ? c.event.after || [] : lost };
+    return;
+  }
   if (!won) return;
 
   // Freed creatures stay for a while, healed and happy (no more battles), then wander off.
@@ -724,7 +732,7 @@ function speak(biome, lines) {
   const people = QUESTS[biome.zone.id].npcs;
   return lines.map(([who, text]) => {
     const v = people[who];
-    return [v ? { name: v.name, art: () => heroImg(v.look, v.hat, "", false) } : who, text];
+    return [v ? { name: v.name, art: () => heroImg(v.look, v.hat, "", Boolean(v.wand)) } : who, text];
   });
 }
 
@@ -814,6 +822,56 @@ function openGateNow(biome, area) {
   gate.open = true;
   for (const i of gate.tiles) biome.blocked[i] = 0;
   biome.reachable = floodFrom(biome, tileOf(biome.hero.x), tileOf(biome.hero.y - 1));
+}
+
+// ---------- Story events ----------
+// The first time you walk into an area, its event (quests.js) plays:
+// Malgrath appears and sends a hexed creature at you, Rook challenges you, or
+// there's just a scene.
+
+const eventId = (biome, ev) => `event-${biome.zone.id}-${ev.area}`;
+
+function checkEvents(biome) {
+  const area = areaOf(biome.hero.y);
+  const ev = (QUESTS[biome.zone.id]?.events || []).find((e) => e.area === area && !progress.storySeen(eventId(biome, e)));
+  if (ev) runEvent(biome, ev);
+}
+
+function runEvent(biome, ev) {
+  progress.markStorySeen(eventId(biome, ev));
+  const hero = biome.hero;
+  keys.clear();
+  hero.path = [];
+  // Whoever speaks shows up a few steps away, on either side of you.
+  const speakers = new Set([...ev.lines.map(([who]) => who), ev.type]);
+  const side = hero.x < W / 2 ? 1 : -1;
+  biome.actors = [];
+  if (speakers.has("malgrath")) {
+    biome.actors.push({ kind: "malgrath", x: hero.x + side * 34, y: hero.y - 16 });
+    $("biome-wrap").classList.remove("hexflash");
+    void $("biome-wrap").offsetWidth;
+    $("biome-wrap").classList.add("hexflash");
+  }
+  if (speakers.has("rook")) biome.actors.push({ kind: "rook", x: hero.x - side * 30, y: hero.y - 6 });
+
+  say(biome, ev.lines, () => {
+    if (!ev.creature) {
+      biome.actors = [];
+      if (ev.after) say(biome, ev.after);
+      return;
+    }
+    // Malgrath vanishes as his creature attacks; Rook stays to watch his.
+    if (ev.type === "malgrath") biome.actors = [];
+    const z = biome.z;
+    const rival = ev.type === "rook";
+    startEncounter(biome, {
+      id: ev.creature,
+      stage: rival && progress.stageUnlocked(z, 1) ? 1 : 0,
+      level: creatureLevel(z, ev.area) + (rival ? 2 : 1),
+      owner: rival ? "Rook" : null,
+      event: ev,
+    });
+  });
 }
 
 // Where the current quest wants you to go (for the compass arrow).
@@ -963,7 +1021,12 @@ function draw(biome, now) {
   // Villagers face you and breathe gently.
   for (const v of biome.npcs) {
     const lift = Math.floor(now / 500 + v.x) % 2;
-    things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, false)), x: v.x, flip: hero.x < v.x, lift, shadow: true });
+    things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, Boolean(v.wand))), x: v.x, flip: hero.x < v.x, lift, shadow: true });
+  }
+  // Malgrath or Rook, during a story event.
+  for (const a of biome.actors) {
+    const img = a.kind === "malgrath" ? creatureSrc("malgrath") : heroSrc(ROOK.look, null, 0, true);
+    things.push({ y: a.y, img: spriteCanvas(img), x: a.x, flip: hero.x < a.x, lift: Math.floor(now / 350) % 2, shadow: true, hex: a.kind === "malgrath" });
   }
   const frame = walkFrame(hero.moving, now, 110);
   // A little puff of dust behind you on each step.
@@ -1136,7 +1199,8 @@ function frame(now) {
   }
   biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
-  if (!biome.chest && !talking) checkTouch(biome, now);
+  if (!biome.chest && !talking && current === biome) checkEvents(biome);
+  if (!biome.chest && !isStoryPlaying() && current === biome) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);
 }
 

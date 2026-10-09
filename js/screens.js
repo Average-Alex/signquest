@@ -142,10 +142,11 @@ showHooks.map = () => {
 let mapDimension = null; // which dimension's map is showing
 
 // Learn any new letters first, then fight `foeId` (a creature id) at `level`.
-export function playStage(z, s, foeId, level) {
+// `opts.owner`: whose creature it is, for rival battles (it can't be caught).
+export function playStage(z, s, foeId, level, opts = {}) {
   const unlearned = ZONES[z].letters.filter((l) => !progress.get().learned.includes(l));
-  if (s === 0 && unlearned.length) startLearn(unlearned, () => playStage(z, s, foeId, level));
-  else startBattle(z, s, foeId, level, (result) => showResults(z, s, result));
+  if (s === 0 && unlearned.length) startLearn(unlearned, () => playStage(z, s, foeId, level, opts));
+  else startBattle(z, s, foeId, level, (result) => showResults(z, s, result), opts);
 }
 
 // ---------- Learn card ----------
@@ -250,7 +251,7 @@ function showResults(z, s, result) {
   if (shard) playScene(`shard-${result.zone.id}`);
 
   $("results-again").textContent = won ? "🔁 Again" : "🔁 Try again";
-  $("results-again").onclick = () => playStage(z, s, result.foe.id, result.level);
+  $("results-again").onclick = () => playStage(z, s, result.foe.id, result.level, result.opts);
   $("results-next").onclick = () => enterBiome(z);
 }
 

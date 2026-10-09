@@ -1265,14 +1265,56 @@ function hexCracks(ctx, w, h, id) {
   ctx.putImageData(image, 0, 0);
 }
 
-// `hexed`: draw the corrupted Hexbound version.
-export function creatureSrc(id, hexed = false) {
+// ---------- Walking ----------
+// A 4-frame walk cycle, made from any sprite: 0 feet down, 1 left foot up,
+// 2 feet down, 3 right foot up. Lifting a foot moves the bottom few rows on
+// one side of the sprite up a pixel. (The biome also bobs the body on steps.)
+export const WALK_FRAMES = 4;
+
+function liftFoot(ctx, w, h, frame) {
+  if (frame % 2 === 0) return;
+  // Bigger sprites lift their foot 2 pixels, so the step shows at game size.
+  for (let i = 0; i < (h >= 24 ? 2 : 1); i++) liftFootOnce(ctx, w, h, frame);
+}
+
+function liftFootOnce(ctx, w, h, frame) {
+  const legRows = h >= 24 ? 3 : 2;
+  const top = h - legRows - 1; // includes one row above the feet
+  const image = ctx.getImageData(0, top, w, legRows + 1);
+  const d = image.data;
+  const alpha = (x, r) => d[(r * w + x) * 4 + 3];
+  // Find the middle of the feet, then lift the left or right half.
+  let minX = w, maxX = -1;
+  for (let r = 1; r <= legRows; r++) for (let x = 0; x < w; x++) if (alpha(x, r)) (minX = Math.min(minX, x)), (maxX = Math.max(maxX, x));
+  if (maxX < 0) return;
+  const mid = (minX + maxX + 1) / 2;
+  const onSide = (x) => (frame === 1 ? x < mid : x >= mid);
+  for (let r = 0; r < legRows; r++) {
+    for (let x = 0; x < w; x++) {
+      if (!onSide(x)) continue;
+      const from = ((r + 1) * w + x) * 4, to = (r * w + x) * 4;
+      if (r === 0 && !d[from + 3]) continue; // keep the body above where there's no foot
+      for (let k = 0; k < 4; k++) d[to + k] = d[from + k];
+    }
+  }
+  for (let x = 0; x < w; x++) if (onSide(x)) d.fill(0, (legRows * w + x) * 4, (legRows * w + x) * 4 + 4);
+  ctx.putImageData(image, 0, top);
+}
+
+// `hexed`: draw the corrupted Hexbound version. `frame`: a walking frame.
+export function creatureSrc(id, hexed = false, frame = 0) {
   const art = CREATURE_ART[id];
   const w = art.rows[0].length, h = art.rows.length;
-  if (!hexed) return draw(`creature:${id}`, w, h, (ctx) => paint(ctx, art.rows, art.colors));
-  return draw(`creature:${id}:hexed`, w, h, (ctx) => {
+  if (!hexed) {
+    return draw(`creature:${id}:${frame}`, w, h, (ctx) => {
+      paint(ctx, art.rows, art.colors);
+      liftFoot(ctx, w, h, frame);
+    });
+  }
+  return draw(`creature:${id}:hexed:${frame}`, w, h, (ctx) => {
     paint(ctx, art.rows, hexedColors(art));
     hexCracks(ctx, w, h, id);
+    liftFoot(ctx, w, h, frame);
   });
 }
 
@@ -1289,9 +1331,10 @@ export function decorSrc(id) {
 
 const img = (src, cls, alt = "") => `<img class="sprite ${cls}" src="${src}" alt="${alt}" draggable="false">`;
 
-export function heroSrc(look, hatId = null) {
+// `frame`: a walking frame (see liftFoot).
+export function heroSrc(look, hatId = null, frame = 0) {
   look = normalizeLook(look);
-  return draw(`hero:${JSON.stringify(look)}:${hatId}`, 20, 30, (ctx) => {
+  return draw(`hero:${JSON.stringify(look)}:${hatId}:${frame}`, 20, 30, (ctx) => {
     const colors = { ...HERO_BASE };
     for (const part of ["hair", "skin", "eyes", "outfit"]) Object.assign(colors, LOOK_OPTIONS[part].choices[look[part]]);
     paint(ctx, HEAD, colors, 2, 6);
@@ -1301,6 +1344,7 @@ export function heroSrc(look, hatId = null) {
     paint(ctx, WAND, colors, 15, 12);
     const hat = HATS[hatId];
     if (hat) paint(ctx, hat.rows, hat.colors, 2, hat.top);
+    liftFoot(ctx, 20, 30, frame);
   });
 }
 

@@ -221,6 +221,7 @@ function build(z) {
     nextSpawn: 0,
     fighting: null,
     chest: null, // the chest you're opening right now
+    dust: [], // little puffs from footsteps
     atSign: null,
   };
 
@@ -518,6 +519,7 @@ function spawnWild(biome, area) {
 
 function moveCreatures(biome, dt, now) {
   for (const c of biome.creatures) {
+    c.moving = false;
     if (c.home) continue; // guards and the boss stay put
     if (now > c.turnAt) {
       c.dir = Math.random() < 0.3 ? null : Math.random() * Math.PI * 2; // sometimes stand still
@@ -531,9 +533,14 @@ function moveCreatures(biome, dt, now) {
       c.x = nx;
       c.y = ny;
       c.flip = Math.cos(c.dir) > 0;
+      c.moving = true;
     } else c.turnAt = 0;
   }
 }
+
+// Which walk-cycle frame to show: cycles while moving, feet down when still.
+// `msPerFrame` sets the pace; `offset` keeps everyone from stepping in sync.
+const walkFrame = (moving, now, msPerFrame, offset = 0) => (moving ? Math.floor(now / msPerFrame + offset) % 4 : 0);
 
 const guardAwake = (biome, c) => progress.trail(biome.z).wins[c.guard] >= WINS_TO_WAKE_GUARD;
 
@@ -750,18 +757,33 @@ function draw(biome, now) {
   things.push({ y: biome.landmark.y, img: spriteCanvas(landmarkSrc(biome.zone.id)), x: biome.landmark.x, scale: 2 });
   for (const c of biome.creatures) {
     const asleep = c.guard !== undefined && !guardAwake(biome, c);
-    const bob = asleep ? 0 : Math.floor(now / 400 + c.x) % 2;
-    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift: bob, shadow: true, hex: !c.freed });
+    // Walking: step through the walk cycle. Standing: a slow breathing bob.
+    const frame = walkFrame(c.moving, now, 170, c.x);
+    const lift = c.moving ? frame % 2 : asleep ? 0 : Math.floor(now / 400 + c.x) % 2;
+    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift, shadow: true, hex: !c.freed });
   }
-  // Your buddies follow a few steps behind, one after the other.
+  // Your buddies follow a few steps behind, one after the other, in step with you.
   const hero = biome.hero;
   progress.team().forEach((pet, n) => {
     const back = hero.trail.length - 1 - (n + 1) * 8; // about 16 pixels apart
     const spot = hero.trail[Math.max(0, back)] || { x: hero.x - 12 * (n + 1), y: hero.y, flip: hero.flip };
-    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id)), x: spot.x, flip: !spot.flip, shadow: true, small: true });
+    const frame = walkFrame(hero.moving, now, 110, n * 2 + 1);
+    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame)), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
   });
-  const step = hero.moving ? Math.floor(now / 150) % 2 : 0;
-  things.push({ y: hero.y, img: spriteCanvas(heroSrc(progress.get().look, progress.get().equipped.hat)), x: hero.x, flip: hero.flip, lift: step, shadow: true });
+  const frame = walkFrame(hero.moving, now, 110);
+  // A little puff of dust behind you on each step.
+  if (frame !== hero.lastFrame && frame % 2) biome.dust.push({ x: hero.x + (hero.flip ? 4 : -4), y: hero.y, born: now });
+  hero.lastFrame = frame;
+  things.push({ y: hero.y, img: spriteCanvas(heroSrc(progress.get().look, progress.get().equipped.hat, frame)), x: hero.x, flip: hero.flip, lift: frame % 2, shadow: true });
+
+  biome.dust = biome.dust.filter((p) => now - p.born < 350);
+  for (const p of biome.dust) {
+    const age = (now - p.born) / 350;
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.55 * (1 - age)})`;
+    ctx.beginPath();
+    ctx.ellipse(p.x - camX + (hero.flip ? age * 3 : -age * 3), p.y - 1 - camY - age * 2, 1.5 + age * 2, 1 + age, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   things.sort((a, b) => a.y - b.y);
   for (const t of things) {

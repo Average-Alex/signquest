@@ -361,7 +361,12 @@
     <div class="record">
       <div>
         <div class="camera-slot"></div>
+        <button id="record-start-camera" class="btn big" hidden>📷 Turn on camera</button>
         <p id="record-live" class="seeing"></p>
+        <div class="record-example">
+          <img id="record-img" class="hand-img" alt="" hidden>
+          <p id="record-tip" class="tip"></p>
+        </div>
       </div>
       <div class="card">
         <label class="setting"><span>Who is signing?</span>
@@ -369,9 +374,10 @@
         </label>
         <p class="label">Letter</p>
         <div id="record-letters" class="record-grid"></div>
-        <button id="record-go" class="btn big">⏺ Record 3 seconds</button>
+        <button id="record-go" class="btn big">⏺ Record 3 seconds <small>(Space)</small></button>
+        <label class="record-auto"><input id="record-auto" type="checkbox"> Go to the next letter after each take</label>
         <p id="record-status" class="status" aria-live="polite"></p>
-        <p class="small-text">Move your hand around while recording: closer, farther, tilted. Swap hands sometimes.</p>
+        <p class="small-text">Move your hand around while recording: closer, farther, tilted. Swap hands sometimes. It saves the 21 hand points, not photos, so nobody's face is stored.</p>
         <div class="row">
           <button id="record-download" class="btn small">⬇ Download CSV</button>
           <button id="record-clear-letter" class="btn small">Clear this letter</button>

@@ -11,6 +11,7 @@ import { playScene } from "./story.js";
 
 const $ = (id) => document.getElementById(id);
 const DEV = new URLSearchParams(location.search).has("dev");
+const RECORD = new URLSearchParams(location.search).has("record");
 
 // Any button with data-go="screen" switches to that screen.
 document.addEventListener("click", (e) => {
@@ -20,7 +21,7 @@ document.addEventListener("click", (e) => {
 
 await initClassifier();
 initRecordPage();
-$("open-record").hidden = !DEV;
+$("open-record").hidden = !DEV && !RECORD;
 
 // ---------- Title / setup ----------
 
@@ -78,4 +79,5 @@ $("keyboard-play").onclick = startAdventure;
 
 // Builders can skip the camera entirely with ?dev.
 $("keyboard-play").hidden = !DEV;
-show("title");
+// ?record opens the data recorder straight away, for collecting training data.
+show(RECORD ? "record" : "title");

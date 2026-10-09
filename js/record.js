@@ -1,12 +1,14 @@
 // Record page: hold a sign, capture landmark samples, download as CSV for
-// training. Open it with ?dev in the URL (Settings > Data recorder).
+// training. Open it straight away with ?record in the URL, or with ?dev
+// (Settings > Data recorder).
 
+import { isRunning, startCamera } from "./camera.js";
 import { getLastHand, getPrediction } from "./classifier.js";
-import { LETTERS } from "./config.js";
+import { LETTERS, TIPS } from "./config.js";
 import { flatten, handInView, resolveHand } from "./features.js";
 import * as progress from "./progress.js";
 import { addSamples, clearSamples, countsByLetter, getSamples, onSamplesChanged, toCSV } from "./samples.js";
-import { isShowing } from "./screens.js";
+import { isShowing, setHandImage, show } from "./screens.js";
 
 const $ = (id) => document.getElementById(id);
 const RECORD_MS = 3000;
@@ -30,6 +32,23 @@ export function initRecordPage() {
     }
   };
   $("record-go").onclick = record;
+  $("record-start-camera").onclick = async () => {
+    $("record-start-camera").disabled = true;
+    try {
+      await startCamera($("camera-video"), $("camera-canvas"));
+      $("record-start-camera").hidden = true;
+      show("record"); // move the camera view into this screen
+    } catch {
+      $("record-status").textContent = "The camera didn't start. Allow it in the address bar, then try again.";
+    }
+    $("record-start-camera").disabled = false;
+  };
+  // Space records, so you can keep your signing hand up.
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Space" || !isShowing("record") || e.target.tagName === "INPUT") return;
+    e.preventDefault();
+    record();
+  });
   $("record-download").onclick = download;
   $("record-clear-letter").onclick = () => clearSamples(selected);
   $("record-clear-all").onclick = () => ($("record-clear-confirm").hidden = false);
@@ -44,6 +63,8 @@ export function initRecordPage() {
 
 function renderCounts() {
   const counts = countsByLetter();
+  setHandImage($("record-img"), selected);
+  $("record-tip").textContent = `${selected}: ${TIPS[selected]}`;
   const grid = $("record-letters");
   grid.innerHTML = "";
   for (const letter of LETTERS) {
@@ -65,6 +86,7 @@ function renderCounts() {
 function livePreview() {
   requestAnimationFrame(livePreview);
   if (!isShowing("record")) return;
+  $("record-start-camera").hidden = isRunning();
   const hand = getLastHand();
   const prediction = getPrediction();
   if (!hand) $("record-live").textContent = "No hand in view";
@@ -119,7 +141,13 @@ async function record() {
 
   if (!captured.length) $("record-status").textContent = "No hand seen. Try again with your hand in view.";
   else if (!addSamples(captured)) $("record-status").textContent = "Storage is full. Download the CSV, then clear.";
-  else $("record-status").textContent = `Saved ${captured.length} samples of ${selected}.`;
+  else {
+    $("record-status").textContent = `Saved ${captured.length} samples of ${selected}.`;
+    if ($("record-auto").checked) {
+      selected = LETTERS[(LETTERS.indexOf(selected) + 1) % LETTERS.length];
+      renderCounts();
+    }
+  }
   recording = false;
   $("record-go").disabled = false;
 }

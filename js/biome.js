@@ -593,6 +593,7 @@ function checkTouch(biome, now) {
 
   if (now < biome.safeUntil) return;
   for (const c of biome.creatures) {
+    if (c.freed) continue; // healed creatures are friends now
     // Touching = close sideways, and the creature's feet anywhere from a bit
     // below the hero's feet up to about the hero's chest.
     const extra = c.boss ? 12 : 0;
@@ -647,7 +648,10 @@ export function biomeBattleOver(z, won) {
   biome.nextSpawn = performance.now() + RESPAWN_MS;
   if (!won) return;
 
-  biome.creatures = biome.creatures.filter((x) => x !== c);
+  // Freed creatures stay for a while, healed and happy (no more battles), then wander off.
+  c.freed = true;
+  c.freedUntil = performance.now() + 25000;
+  if (!c.boss) c.home = false;
   if (c.boss) {
     pendingToast = `🏆 You beat ${CREATURES.find((x) => x.id === c.id).name}! The ${biome.zone.name} is safe.`;
   } else if (c.guard !== undefined) {
@@ -745,7 +749,7 @@ function draw(biome, now) {
   for (const c of biome.creatures) {
     const asleep = c.guard !== undefined && !guardAwake(biome, c);
     const bob = asleep ? 0 : Math.floor(now / 400 + c.x) % 2;
-    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift: bob, shadow: true, hex: true });
+    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift: bob, shadow: true, hex: !c.freed });
   }
   // Your buddies follow a few steps behind, one after the other.
   const hero = biome.hero;
@@ -766,9 +770,10 @@ function draw(biome, now) {
     const x = Math.round(t.x - w / 2) - camX, y = Math.round(t.y - h - (t.lift || 0)) - camY;
     if (t.shadow) {
       // Hexbound creatures stand in a purple glow instead of a plain shadow.
-      ctx.fillStyle = t.hex ? (Math.floor(now / 300) % 2 ? "rgba(176,106,255,0.55)" : "rgba(176,106,255,0.35)") : "rgba(0,0,0,0.22)";
+      // Hexbound creatures cast a darker, murky shadow.
+      ctx.fillStyle = t.hex ? "rgba(30,6,40,0.45)" : "rgba(0,0,0,0.22)";
       ctx.beginPath();
-      ctx.ellipse(t.x - camX, t.y - 1 - camY, w / 2.6, t.hex ? 3 : 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(t.x - camX, t.y - 1 - camY, w / 2.6, t.hex ? 2.5 : 2, 0, 0, Math.PI * 2);
       ctx.fill();
     }
     if (t.flip) {
@@ -785,6 +790,10 @@ function draw(biome, now) {
   const markers = [
     ...biome.creatures.map((c) => {
       let icon = STAGES[c.stage].icon;
+      if (c.freed) {
+        const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
+        return { x: c.x, y: c.y - h - 2, html: "💚", cls: " freed" };
+      }
       if (c.guard !== undefined && !guardAwake(biome, c)) icon = "💤";
       else if (!progress.stageUnlocked(biome.z, c.stage)) icon = "🔒";
       const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
@@ -861,13 +870,14 @@ function frame(now) {
 
   if (now > biome.nextSpawn) {
     for (let a = 0; a < BIOME_AREAS; a++) {
-      if (biome.creatures.filter((c) => c.area === a && !c.home).length < WILD_PER_AREA) {
+      if (biome.creatures.filter((c) => c.area === a && !c.home && !c.freed).length < WILD_PER_AREA) {
         spawnWild(biome, a);
         break;
       }
     }
     biome.nextSpawn = now + RESPAWN_MS;
   }
+  biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
   if (!biome.chest) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);

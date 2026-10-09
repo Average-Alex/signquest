@@ -60,7 +60,10 @@ fist letters A, E, M, N, S, T), Cloud Kingdom, and the Void Rift (the whole
 alphabet).
 
 **The story.** Malgrath the Hollow King shattered the Great Beacon into 8
-Beacon Shards, and creatures everywhere became Hexbound. You're the last
+Beacon Shards, and creatures everywhere became Hexbound: dark, drained of
+color, with glowing red eyes and hex cracks (`creatureSrc(id, true)` in
+`js/sprites.js` makes this look from each creature's normal art). Win a
+battle and the hex shatters: the creature is healed back to its real colors. You're the last
 apprentice of the Signkeeper Academy, with Pip the fox-moth at your side.
 Each zone's boss guards a shard. Each shard brings back one of Pip's
 memories, building to the twist that Pip is the Beacon's own spirit.

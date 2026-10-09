@@ -115,15 +115,17 @@ export function startBattle(z, s, foeId, level, onFinish) {
   renderAvatars();
   $("battle-title").textContent = `${zone.icon} ${zone.name} · ${stage.name}`;
   $("arena-bg").src = battleBackdropSrc(zone.id);
-  $("monster").innerHTML = creatureImg(foe.id);
+  // Hexbound creatures look corrupted until you break the hex. (Malgrath is just like that.)
+  const hexed = foe.catchable !== false;
+  $("monster").innerHTML = creatureImg(foe.id, "", hexed);
   $("monster-name").textContent = foe.name;
   $("hud-foe-sub").textContent = `${foe.catchable === false ? "Hollow King" : "Hexbound"} · Lv ${level}`;
-  $("hud-foe-portrait").innerHTML = creatureImg(foe.id);
+  $("hud-foe-portrait").innerHTML = creatureImg(foe.id, "", hexed);
   const p = progress.get();
   $("hud-you-name").textContent = p.name || "Hero";
   $("hud-you-level").textContent = `Lv ${progress.level()}`;
   $("hud-you-portrait").innerHTML = heroImg(p.look, p.equipped.hat);
-  $("monster").className = `monster hexed${stage.type === "boss" ? " boss" : ""}`;
+  $("monster").className = `monster${stage.type === "boss" ? " boss" : ""}`;
   $("arena").dataset.zone = zone.id;
   document.querySelector(".player .avatar").className = "avatar";
   toggleBag(false);
@@ -330,12 +332,14 @@ function heroAttack(damage, move, fast) {
 }
 
 function hitMonster(damage, crit, delay) {
-  battle.hp = Math.max(0, battle.hp - damage);
+  const b = battle;
+  b.hp = Math.max(0, b.hp - damage);
   setTimeout(() => {
-    if (!battle) return;
+    // Still show it if this hit just won the battle (the battle may already be wrapping up).
+    if (battle && battle !== b) return;
     restartAnimation($("monster"), "hit");
     floatText($("monster-dmg"), `-${damage}`, crit ? "crit" : "bad");
-    updateHp();
+    updateHp(b);
   }, delay);
 }
 
@@ -410,11 +414,11 @@ function pickMove(move, mover) {
   announce(`${move.name} ready. Sign to use it!`);
 }
 
-function renderEnergy() {
-  const pips = Array.from({ length: ENERGY_MAX }, (_, n) => `<span class="pip${n < battle.energy ? " full" : ""}"></span>`).join("");
-  $("energy").innerHTML = `<span class="energy-label">⚡ ${battle.energy}</span>${pips}`;
-  $("energy").setAttribute("aria-label", `Energy ${battle.energy} of ${ENERGY_MAX}`);
-  $("move-energy").textContent = `⚡ ${battle.energy} / ${ENERGY_MAX}`;
+function renderEnergy(b = battle) {
+  const pips = Array.from({ length: ENERGY_MAX }, (_, n) => `<span class="pip${n < b.energy ? " full" : ""}"></span>`).join("");
+  $("energy").innerHTML = `<span class="energy-label">⚡ ${b.energy}</span>${pips}`;
+  $("energy").setAttribute("aria-label", `Energy ${b.energy} of ${ENERGY_MAX}`);
+  $("move-energy").textContent = `⚡ ${b.energy} / ${ENERGY_MAX}`;
 }
 
 // Keys: 1-3 pick a move from the open tab; left/right arrows switch tabs.
@@ -570,13 +574,13 @@ function updateStatus() {
 
 // ---------- Bits ----------
 
-function updateHp() {
-  $("monster-hp").style.width = `${(battle.hp / battle.maxHp) * 100}%`;
-  $("monster-hp-text").textContent = `${battle.hp} / ${battle.maxHp}`;
-  $("player-hp").style.width = `${(battle.playerHp / battle.playerMax) * 100}%`;
-  $("player-hp").classList.toggle("low", battle.playerHp <= battle.playerMax * 0.3);
-  $("player-hp-text").textContent = `${battle.playerHp} / ${battle.playerMax}`;
-  renderEnergy();
+function updateHp(b = battle) {
+  $("monster-hp").style.width = `${(b.hp / b.maxHp) * 100}%`;
+  $("monster-hp-text").textContent = `${b.hp} / ${b.maxHp}`;
+  $("player-hp").style.width = `${(b.playerHp / b.playerMax) * 100}%`;
+  $("player-hp").classList.toggle("low", b.playerHp <= b.playerMax * 0.3);
+  $("player-hp-text").textContent = `${b.playerHp} / ${b.playerMax}`;
+  renderEnergy(b);
 }
 
 function restartAnimation(el, cls) {
@@ -602,6 +606,21 @@ function floatText(el, text, kind) {
   el.className = `dmg show ${kind}`;
 }
 
+// Sparkles fly out from the monster when its hex breaks.
+function sparkleBurst() {
+  const side = document.querySelector(".fighter.monster-side");
+  for (let n = 0; n < 10; n++) {
+    const el = document.createElement("span");
+    el.className = "sparkle";
+    el.textContent = n % 3 ? "✨" : "💚";
+    const angle = (n / 10) * Math.PI * 2;
+    el.style.setProperty("--dx", `${Math.cos(angle) * 9}cqw`);
+    el.style.setProperty("--dy", `${Math.sin(angle) * 7 - 4}cqw`);
+    side.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  }
+}
+
 function rollLoot(boss) {
   if (!boss && Math.random() >= LOOT_CHANCE) return null;
   const table = ["potion", "potion", "potion", "potion", "potion", "shield", "shield", "power", "power", "bigpotion"];
@@ -621,10 +640,26 @@ function finish(won) {
   let result;
 
   if (won) {
-    // The hex shatters and the creature's true colors come back.
-    $("monster").classList.remove("hexed");
-    $("monster").classList.add("freed");
-    popText(battle.foe.catchable === false ? "SEALED AWAY!" : "HEX BROKEN!", true);
+    if (battle.foe.catchable === false) {
+      // Malgrath isn't hexed - he's sealed away.
+      $("monster").classList.add("sealed");
+      popText("SEALED AWAY!", true);
+    } else {
+      // The hex shatters: a flash, then the creature's real colors come back.
+      popText("HEX BROKEN!", true);
+      $("monster").classList.add("healing");
+      const foeId = battle.foe.id;
+      setTimeout(() => {
+        $("monster").innerHTML = creatureImg(foeId);
+        $("hud-foe-portrait").innerHTML = creatureImg(foeId);
+        $("hud-foe-sub").textContent = "Freed!";
+        $("monster").classList.remove("healing");
+        $("monster").classList.add("healed");
+        sparkleBurst();
+        popText("Healed! 💚");
+        announce("The hex is broken! It's healed.");
+      }, 450);
+    }
     const avgSeconds = battle.times.reduce((a, b) => a + b, 0) / letters / 1000;
     // Stars: 3 for a fast, hint-free battle. Hints and slow signing each cost one.
     let stars = 3;
@@ -655,7 +690,7 @@ function finish(won) {
 
   progress.recordStage(battle.z, battle.s, result);
   const { onFinish } = battle;
-  setTimeout(() => onFinish(result), 1400);
+  setTimeout(() => onFinish(result), won ? 2200 : 1400);
 }
 
 $("hint-btn").onclick = () => battle && !battle.done && !battle.busy && showHint(false);

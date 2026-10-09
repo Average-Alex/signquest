@@ -1199,15 +1199,87 @@ CREATURE_ART.malgrath = {
   ]), 24),
 };
 
-export function creatureSrc(id) {
+// Hexbound creatures: the same sprite, corrupted by Malgrath's hex. Their
+// colors are drained and darkened toward a sickly purple, small bright spots
+// (their eyes) glow red, and jagged hex cracks run across the body. Breaking
+// the hex brings back the real colors.
+const HEX_OUTLINE = "#14091c";
+const HEX_EYES = "#ff3355";
+const HEX_CRACK = "#b04ae8";
+const HEX_TINT = [58, 26, 84];
+
+const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const toHex = (rgb) => "#" + rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+
+function hexedColors(art) {
+  // How much of the creature each color covers: small bright bits are eyes.
+  const counts = {};
+  let total = 0;
+  for (const row of art.rows) for (const ch of row) if (ch !== ".") (counts[ch] = (counts[ch] || 0) + 1), total++;
+  const out = { K: HEX_OUTLINE };
+  for (const [ch, color] of Object.entries(art.colors)) {
+    const [r, g, b] = rgbOf(color);
+    const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    if (light > 0.7 && (counts[ch] || 0) / total < 0.1) {
+      out[ch] = HEX_EYES;
+      continue;
+    }
+    const grey = (r + g + b) / 3;
+    out[ch] = toHex([r, g, b].map((v, i) => (v * 0.35 + grey * 0.65) * 0.55 * 0.85 + HEX_TINT[i] * 0.45 * 0.85));
+  }
+  return out;
+}
+
+// Two jagged cracks, running down from the upper half of the body.
+function hexCracks(ctx, w, h, id) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const [or, og, ob] = rgbOf(HEX_OUTLINE);
+  const [er, eg, eb] = rgbOf(HEX_EYES);
+  const [cr, cg, cb] = rgbOf(HEX_CRACK);
+  const at = (x, y) => (y * w + x) * 4;
+  const body = (x, y) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return false;
+    const i = at(x, y);
+    if (!d[i + 3]) return false;
+    if (d[i] === or && d[i + 1] === og && d[i + 2] === ob) return false;
+    return !(d[i] === er && d[i + 1] === eg && d[i + 2] === eb);
+  };
+  let seed = [...id].reduce((n, ch) => n * 31 + ch.charCodeAt(0), 7);
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  for (let crack = 0; crack < 2; crack++) {
+    let x = 0, y = 0, found = false;
+    for (let tries = 0; tries < 60 && !found; tries++) {
+      x = Math.floor(rand() * w);
+      y = Math.floor(h * 0.3 + rand() * h * 0.3);
+      found = body(x, y);
+    }
+    for (let step = 0; found && step < 4 + Math.floor(rand() * 5); step++) {
+      const i = at(x, y);
+      d.set([cr, cg, cb], i);
+      y++;
+      x += Math.floor(rand() * 3) - 1;
+      if (!body(x, y)) break;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
+// `hexed`: draw the corrupted Hexbound version.
+export function creatureSrc(id, hexed = false) {
   const art = CREATURE_ART[id];
-  return draw(`creature:${id}`, art.rows[0].length, art.rows.length, (ctx) => paint(ctx, art.rows, art.colors));
+  const w = art.rows[0].length, h = art.rows.length;
+  if (!hexed) return draw(`creature:${id}`, w, h, (ctx) => paint(ctx, art.rows, art.colors));
+  return draw(`creature:${id}:hexed`, w, h, (ctx) => {
+    paint(ctx, art.rows, hexedColors(art));
+    hexCracks(ctx, w, h, id);
+  });
 }
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.
-export function creatureImg(id, cls = "") {
+export function creatureImg(id, cls = "", hexed = false) {
   const small = CREATURE_ART[id].rows.length <= 12;
-  return img(creatureSrc(id), `creature ${small ? "small" : ""} ${cls}`, id);
+  return img(creatureSrc(id, hexed), `creature ${small ? "small" : ""} ${cls}`, id);
 }
 
 export function decorSrc(id) {

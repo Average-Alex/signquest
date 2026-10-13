@@ -2,9 +2,8 @@
 // canvas and scaled up. There's one map per dimension (config.js
 // DIMENSIONS): the green Overworld island, and the starry floating islands
 // of the Starfall Realm. Each zone gets its own kind of ground around its
-// spot on the map (config.js `map`), and a dotted path joins the zones in
-// order. Landmarks, labels, and the hero are HTML on top of it (screens.js),
-// so they stay clickable.
+// spot on the map (config.js `map`). Landmarks, labels, and the hero are
+// HTML on top of it (screens.js), so they stay clickable.
 
 import { ZONES } from "./config.js";
 
@@ -17,15 +16,16 @@ const GROUND = {
   caves: { base: "#a39ab0", dark: "#918aa0", specks: ["#6e6480", "#c4bcd0"], rate: 0.1 },
   river: { base: "#6cc24a", dark: "#5cb03e", specks: ["#9be07a"], rate: 0.04 },
   castle: { base: "#93c25a", dark: "#80ae4a", specks: ["#c9b277", "#ffe066"], rate: 0.04 },
+  keep: { base: "#b8d97a", dark: "#a6c86a", specks: ["#ffd23f", "#ffffff", "#d64f86"], rate: 0.06 },
   spires: { base: "#cfe3f2", dark: "#b8d4ea", specks: ["#ffffff", "#c58cf0"], rate: 0.08 },
   clouds: { base: "#f2f4ff", dark: "#dfe4f8", specks: ["#ffe9a8", "#c8d0f0"], rate: 0.05 },
   void: { base: "#3a2a5e", dark: "#30224f", specks: ["#c58cf0", "#ffffff", "#7fffd4"], rate: 0.08 },
 };
 
-// Sea, shore, and path colors for each dimension.
+// Sea and shore colors for each dimension.
 const PALETTES = [
-  { deep: "#2a7fc0", water: "#3a95d4", shallow: "#5cc4e8", wave: "#a8e0ff", sand: "#f2dc9a", cliff: "#3f7a34", path: "#f7e7b4", pathEdge: "#b9955a", islets: 2 },
-  { deep: "#120a24", water: "#1c1236", shallow: "#2e2052", wave: "#ffffff", sand: "#b8a8e8", cliff: "#5a3f8a", path: "#ffe9a8", pathEdge: "#8a6ad0", islets: 5 },
+  { deep: "#2a7fc0", water: "#3a95d4", shallow: "#5cc4e8", wave: "#a8e0ff", sand: "#f2dc9a", cliff: "#3f7a34", islets: 2 },
+  { deep: "#120a24", water: "#1c1236", shallow: "#2e2052", wave: "#ffffff", sand: "#b8a8e8", cliff: "#5a3f8a", islets: 5 },
 ];
 const RIVER = "#4fb3ff";
 
@@ -153,17 +153,6 @@ export function worldMapSrc(dimension = 0) {
       }
     }
   }
-
-  // Dotted path joining the zones in play order (a starlight bridge in the realm).
-  zones.slice(1).forEach((zone, i) => {
-    const a = zonePoint(zones[i]);
-    const b = zonePoint(zone);
-    curve(a, b, i % 2 ? 0.15 : -0.15, 1).forEach((p, j) => {
-      if (j % 4 > 1) return;
-      dot(p.x - 1, p.y, pal.pathEdge, 3, 2);
-      dot(p.x - 1, p.y, pal.path, 2, 1);
-    });
-  });
 
   cached[dimension] = canvas.toDataURL();
   return cached[dimension];

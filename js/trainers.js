@@ -21,6 +21,7 @@ const PEOPLE = {
   spires: [["Skater", "Ivo"], ["Crystal Sage", "Wren"], ["Climber", "Pax"], ["Ice Mage", "Bea"]],
   clouds: [["Sky Sailor", "Zed"], ["Weather Witch", "Nell"], ["Glider", "Bo"], ["Storm Chaser", "Ula"]],
   void: [["Star Gazer", "Orion"], ["Rift Walker", "Vex"], ["Moon Monk", "Sol"], ["Comet Rider", "Juno"]],
+  keep: [["Jester", "Lolo"], ["Knight", "Gwen"], ["Royal Archer", "Tamsin"], ["Duke", "Reginald"]],
 };
 
 const BEFORE = [

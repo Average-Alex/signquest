@@ -50,7 +50,14 @@ export const ZONES = [
   { id: "spires", name: "Crystal Spires", icon: "💎", dimension: 1, map: { x: 24, y: 64 }, letters: ["A", "E", "M", "N", "S", "T"], words: ["GEMS", "FROST", "SHINE", "STAR", "MIST"] },
   { id: "clouds", name: "Cloud Kingdom", icon: "☁️", dimension: 1, map: { x: 50, y: 28 }, letters: ["G", "H", "K", "P", "Q", "R", "U", "V"], words: ["CLOUD", "STORM", "RAIN", "WIND", "SKY"] },
   { id: "void", name: "Void Rift", icon: "🌀", dimension: 1, map: { x: 77, y: 62 }, letters: LETTERS, words: ["SPACE", "COMET", "ORBIT", "MAGIC", "QUEST"] },
+  // Crown Keep: Queen Amara's castle, in the middle of the island. Open any
+  // time; it has no shard (the Beacon stood on its tower), so `shard: false`.
+  // `tier` sets its creature levels like a zone at that spot in the list
+  // (see creatureLevel), since it's added at the end.
+  { id: "keep", name: "Crown Keep", icon: "👑", dimension: 0, tier: 3, shard: false, map: { x: 45, y: 66 }, letters: ["C", "R", "O", "W", "N"], words: ["CROWN", "CROW", "ROW", "WORN", "CORN"] },
 ];
+// The zones that hold a Beacon Shard.
+export const SHARD_ZONES = ZONES.filter((zone) => zone.shard !== false);
 
 export const DIMENSIONS = [
   { name: "Overworld", icon: "🏝️" },
@@ -157,6 +164,10 @@ export const CREATURES = [
   { id: "voidkraken", name: "Void Kraken", zone: "void", kind: "wild", element: "water", moves: [quick("Grab", "🐙"), stun("Void Grip", "🌀"), big("Abyss Crush", "💥")] },
   { id: "cat", name: "Whiskers", zone: null, kind: "shop", element: "lightning", price: 60, moves: [quick("Swipe", "🐾"), heal("Catnap", "💚"), big("Pounce Storm", "⚡")] },
   { id: "drake", name: "Drake", zone: null, kind: "shop", element: "fire", price: 150, moves: [quick("Ember", "🔥"), shield("Wing Guard", "🛡️"), big("Inferno", "🔥", 5)] },
+  // Crown Keep. Aurelion is Queen Amara's royal gryphon, hexed to guard her keep.
+  { id: "knightling", name: "Knightling", zone: "keep", kind: "wild", element: "rock", moves: [quick("Sword Poke", "🗡️"), shield("Royal Guard", "🛡️"), big("Valor Charge", "💥")] },
+  { id: "crownbug", name: "Crownbug", zone: "keep", kind: "wild", element: "light", moves: [quick("Crown Bonk", "👑"), heal("Royal Jelly", "💚"), big("Golden Shell", "✨")] },
+  { id: "gryphon", name: "Aurelion", zone: "keep", kind: "boss", element: "lightning", moves: [quick("Talon Swipe", "🦅"), stun("Royal Screech", "📢"), big("Sky Sovereign", "⚡", 5)] },
   // The final boss. He can't join your team, and isn't in the creature book.
   { id: "malgrath", name: "Malgrath the Hollow King", zone: "void", kind: "boss", element: "dark", catchable: false, moves: [quick("Hollow Bolt", "🌑"), heal("Dark Mend", "💜"), big("Shatter", "💥", 5)] },
 ];
@@ -174,6 +185,7 @@ export const EVOLUTIONS = {
   dragon: "Infernus", frostling: "Frostgiant", shardgolem: "Prism Golem", icewyrm: "Glacier King",
   puffcap: "Puffmaster", skyhop: "Thunder Hopper", stormowl: "Tempest Owl", voidghost: "Wraith",
   shadowbat: "Eclipse Wing", voidkraken: "Abyss Lord", cat: "Thunderpaws", drake: "Dragonlord",
+  knightling: "Paladin", crownbug: "Emperor Beetle", gryphon: "Sky Monarch",
 };
 export const isEvolved = (level) => level >= EVOLVE_LEVEL;
 // A buddy's name at a given level.
@@ -262,7 +274,7 @@ export const SIGNPOSTS_PER_AREA = 1;
 // Monsters have levels: higher in later areas of a zone, and higher again in
 // later zones. Meadow area 1 is level 1, the Castle boss level 32, and the
 // Void Rift boss level 50.
-export const creatureLevel = (zoneIndex, area) => 1 + zoneIndex * BIOME_AREAS + area;
+export const creatureLevel = (zoneIndex, area) => 1 + (ZONES[zoneIndex].tier ?? zoneIndex) * BIOME_AREAS + area;
 export const GUARD_EXTRA_LEVELS = 1;
 export const BOSS_EXTRA_LEVELS = 2;
 // Stronger monsters hit harder...

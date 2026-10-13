@@ -69,20 +69,22 @@ const areaOf = (py) => Math.min(BIOME_AREAS - 1, Math.max(0, BIOME_AREAS - 1 - M
 // between towns: each pair below is linked by a path off the side of both
 // maps. Zone A's right edge (in area 2) leads to zone B's left edge (in
 // area 3), and back. The world map is still there for fast travel.
-export const ROUTES = [
+// [a, b, area on a's side, area on b's side] (areas default to 2 and 3).
+// Crown Keep, in the middle, has roads from the Meadow and to the River.
+const ROUTES = [
   ["meadow", "forest"], ["forest", "caves"], ["caves", "river"], ["river", "castle"], ["castle", "meadow"],
+  ["meadow", "keep", 4, 1], ["keep", "river", 1, 1],
   ["spires", "clouds"], ["clouds", "void"],
 ];
-const EXIT_AREA = { right: 2, left: 3 };
-const exitRow = (side) => areaTop(EXIT_AREA[side]) + 9;
+const exitRow = (area) => areaTop(area) + 9;
 
 function exitsFor(zoneId) {
   const out = [];
-  for (const [a, b] of ROUTES) {
-    if (a === zoneId) out.push({ side: "right", to: ZONES.findIndex((zn) => zn.id === b) });
-    if (b === zoneId) out.push({ side: "left", to: ZONES.findIndex((zn) => zn.id === a) });
+  for (const [a, b, aArea = 2, bArea = 3] of ROUTES) {
+    if (a === zoneId) out.push({ side: "right", area: aArea, to: ZONES.findIndex((zn) => zn.id === b) });
+    if (b === zoneId) out.push({ side: "left", area: bArea, to: ZONES.findIndex((zn) => zn.id === a) });
   }
-  return out.map((e) => ({ ...e, y: exitRow(e.side) * T + T - 1 }));
+  return out.map((e) => ({ ...e, y: exitRow(e.area) * T + T - 1 }));
 }
 
 // ✨ Secrets: a hidden treasure in each area, out in the wilds away from the
@@ -110,6 +112,11 @@ const THEMES = {
   castle: {
     ground: ["#a89a8a", "#9a8c7c"], specks: ["#8a7e70", "#c4b8a8"], speckRate: 0.05,
     path: ["#c9b9a0", "#b8a890"], obstacles: ["wall", "bush"], wall: "wall", density: 0.71, water: null,
+  },
+  // Crown Keep: pale royal stone, a red carpet for a path, hedges, and moat ponds.
+  keep: {
+    ground: ["#c9bfdc", "#bdb2d2"], specks: ["#ffd23f", "#ffffff", "#a89cc4"], speckRate: 0.03,
+    path: ["#c8414b", "#b3343e"], obstacles: ["wall", "bush", "bush"], wall: "wall", density: 0.72, water: "pond",
   },
   spires: {
     ground: ["#cfe3f2", "#bcd6ec"], specks: ["#ffffff", "#c58cf0"], speckRate: 0.04,
@@ -167,7 +174,7 @@ function build(z) {
   // Side roads to the neighboring zones, right out to the edge of the map.
   const exits = exitsFor(zone.id);
   for (const e of exits) {
-    const row = exitRow(e.side);
+    const row = exitRow(e.area);
     for (let ty = row - 2; ty <= row + 1; ty++) {
       const [from, to] = e.side === "right" ? [pathX(ty) - 2, TW - 1] : [0, pathX(ty) + 1];
       for (let tx = from; tx <= to; tx++) kind[at(tx, ty)] = PATH;
@@ -783,7 +790,7 @@ function runSpot(biome, now, dt) {
 function takeRoute(biome, exit) {
   const to = ZONES[exit.to];
   if (!progress.zoneUnlocked(exit.to)) {
-    toast(`🔒 A wall of hex blocks the road to the ${to.name}. Beat the ${ZONES[exit.to - 1].name} boss first!`);
+    toast(`🔒 A wall of hex blocks the road to the ${to.name}. It isn't open yet!`);
     biome.hero.x += exit.side === "left" ? 2 * T : -2 * T;
     biome.hero.path = [];
     keys.clear();

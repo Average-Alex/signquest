@@ -141,7 +141,7 @@ export function zoneUnlocked(zoneIndex) {
   if (zone.dimension === 0) return true;
   const first = ZONES.findIndex((zn) => zn.dimension === zone.dimension);
   if (zoneIndex > first) return bossBeaten(zoneIndex - 1);
-  return ZONES.every((zn, z) => zn.dimension >= zone.dimension || bossBeaten(z));
+  return ZONES.every((zn, z) => zn.dimension >= zone.dimension || zn.shard === false || bossBeaten(z));
 }
 
 // Any battle in an open zone, in any order (bosses included).
@@ -272,7 +272,7 @@ export function markStorySeen(id) {
     save();
   }
 }
-export const shardCount = () => ZONES.filter((_, z) => bossBeaten(z)).length;
+export const shardCount = () => ZONES.filter((zone, z) => zone.shard !== false && bossBeaten(z)).length;
 
 // ---------- Exploring a zone: gates and wins per area ----------
 

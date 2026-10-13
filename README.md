@@ -45,8 +45,16 @@ Creatures roam around. Bump into one to battle it:
 **Roads between zones.** The zones are joined into one world: a road leads
 off the side of each zone's map into the next one (Meadow, Forest, Caves,
 River, Castle, and back to the Meadow), so you can walk all the way around the
-island. Road signs show where each leads, and the world map draws the roads as
-dotted trails. The map is still there for fast travel.
+island. Crown Keep, in the middle, has roads from the Meadow and to the River.
+Road signs show where each leads. The map is still there for fast travel.
+
+**Crown Keep.** The royal castle in the middle of the island, open any time.
+It belonged to Queen Amara: she was Deaf, and the very first Signkeeper. She
+discovered that Signlight flows through signing hands, and built the Great
+Beacon on top of her tower. Malgrath sealed her in the throne room and hexed
+her royal gryphon, Aurelion, to guard the keep. Free Aurelion (who then joins
+your team) and the Queen is free too. The keep has no shard, so it isn't
+needed for the portal.
 
 **Secrets.** Every area hides a ✨ secret stash out in the wilds, away from the
 path. It only glints when you get close, so you have to go looking. Stashes

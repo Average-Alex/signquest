@@ -13,7 +13,7 @@
 // Pip's memories coming back). `{name}` is replaced with the player's name.
 
 import * as progress from "./progress.js";
-import { ROOK } from "./quests.js";
+import { QUEEN, ROOK } from "./quests.js";
 import { creatureImg, heroImg } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
@@ -23,6 +23,7 @@ const SPEAKERS = {
   pip: { name: "Pip", art: () => creatureImg("pip") },
   malgrath: { name: "Malgrath", art: () => creatureImg("malgrath") },
   rook: { name: "Rook", art: () => heroImg(ROOK.look, ROOK.hat) },
+  amara: { name: "Queen Amara", art: () => heroImg(QUEEN.look, QUEEN.hat, "", false) },
   you: { name: () => progress.get().name || "You", art: () => heroImg(progress.get().look, progress.get().equipped.hat) },
 };
 
@@ -55,6 +56,11 @@ const SCENES = {
   "zone-river": [
     ["pip", "The River used to sparkle with Signlight. Now look at it, all dull and gray."],
     ["pip", "Inkzilla dragged a shard under the waterfall. We'll need a strong team for this one."],
+  ],
+  "zone-keep": [
+    ["pip", "Crown Keep! The heart of the whole island. This is Queen Amara's castle."],
+    ["pip", "She was Deaf, and she was the very first Signkeeper. She discovered that Signlight flows through signing hands, and she built the Great Beacon on top of her tower!"],
+    ["pip", "When Malgrath broke the Beacon, he sealed her in the throne room and hexed her royal gryphon, Aurelion, to guard the keep. Let's find out who's still inside."],
   ],
   "zone-castle": [
     ["pip", "The Signkeeper Academy... your old school. It's in ruins."],
@@ -89,6 +95,15 @@ const SCENES = {
   "boss-dragon": [
     ["malgrath", "The Academy is MINE now. And so is its dragon."],
     ["pip", "Blaze, please remember us!"],
+  ],
+  "boss-gryphon": [["pip", "Aurelion, the Queen's gryphon! He isn't evil, he's hexed. Let's break it and set them both free!"]],
+  // After beating a boss in a zone with no shard (Crown Keep).
+  "freed-keep": [
+    ["narrator", "Aurelion's hex shatters into purple dust. Up in the throne room, the hexed glass cracks... and Queen Amara steps out."],
+    ["amara", "Thank you, young Signkeeper. And thank you, Aurelion, my brave friend."],
+    ["amara", "Malgrath thinks Signlight belongs to whoever is strongest. But it belongs to everyone who signs: Deaf, hearing, young, and old."],
+    ["amara", "Aurelion wants to fly with you now. Find the rest of the shards, and bring the light home."],
+    ["pip", "We will, Your Majesty. We promise!"],
   ],
   "boss-icewyrm": [["pip", "The Glacier Wyrm! Stay warm and keep signing!"]],
   "boss-stormowl": [["malgrath", "Last warning. Turn back, or the storm takes you."]],

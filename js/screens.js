@@ -2,10 +2,10 @@
 // screens. The battle itself lives in game.js.
 
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
-import { biomeBattleOver, enterBiome, resetBiomes, ROUTES } from "./biome.js";
+import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
-  DIMENSIONS, ELEMENTS, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
+  DIMENSIONS, ELEMENTS, SHARD_ZONES, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
 import * as progress from "./progress.js";
@@ -75,11 +75,11 @@ showHooks.map = () => {
   $("map-level").textContent = progress.level();
   $("map-xp").style.width = `${progress.xpIntoLevel()}%`;
   $("map-coins").textContent = p.coins;
-  $("map-shards").textContent = `${progress.shardCount()} / ${ZONES.length}`;
+  $("map-shards").textContent = `${progress.shardCount()} / ${SHARD_ZONES.length}`;
 
   // The newest zone you can play, and which dimension's map to show.
   let newest = 0;
-  ZONES.forEach((_, z) => progress.zoneUnlocked(z) && (newest = z));
+  ZONES.forEach((zone, z) => zone.shard !== false && progress.zoneUnlocked(z) && (newest = z));
   // Show the newest dimension you've reached, and never one you can't get to yet.
   if (mapDimension === null || !ZONES.some((zone, z) => zone.dimension === mapDimension && progress.zoneUnlocked(z))) {
     mapDimension = ZONES[newest].dimension;
@@ -90,13 +90,6 @@ showHooks.map = () => {
   const world = $("zones");
   world.className = `world dim-${dim}`;
   world.innerHTML = `<img class="sprite world-bg" src="${worldMapSrc(dim)}" alt=""><span class="world-title">${DIMENSIONS[dim].icon} ${DIMENSIONS[dim].name}</span>`;
-  // Dotted trails for the roads you can walk between zones.
-  const zoneById = (id) => ZONES.find((zn) => zn.id === id);
-  const lines = ROUTES.map(([a, b]) => [zoneById(a), zoneById(b)])
-    .filter(([a]) => a.dimension === dim)
-    .map(([a, b]) => `<line x1="${a.map.x}" y1="${a.map.y}" x2="${b.map.x}" y2="${b.map.y}"/>`)
-    .join("");
-  world.insertAdjacentHTML("beforeend", `<svg class="routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>`);
   ZONES.forEach((zone, z) => {
     if (zone.dimension !== dim) return;
     const unlocked = progress.zoneUnlocked(z);
@@ -121,6 +114,7 @@ showHooks.map = () => {
   const other = dim === 0 ? 1 : 0;
   const realmStart = ZONES.findIndex((zone) => zone.dimension === 1);
   const portalOpen = progress.zoneUnlocked(realmStart);
+  const overworldShards = SHARD_ZONES.filter((zone) => zone.dimension === 0).length;
   const portal = document.createElement("button");
   portal.className = "zone-pin portal";
   portal.disabled = !portalOpen;
@@ -129,8 +123,8 @@ showHooks.map = () => {
   portal.innerHTML = `
     <img class="sprite landmark" src="${landmarkSrc("void")}" alt="">
     <span class="banner">${portalOpen ? "" : "🔒 "}${DIMENSIONS[other].icon} ${DIMENSIONS[other].name}</span>
-    <span class="zone-stars">${portalOpen ? "Step through the portal!" : `Collect all ${realmStart} shards here`}</span>`;
-  portal.setAttribute("aria-label", `Portal to the ${DIMENSIONS[other].name}${portalOpen ? "" : `, locked until you collect all ${realmStart} shards here`}`);
+    <span class="zone-stars">${portalOpen ? "Step through the portal!" : `Collect all ${overworldShards} shards here`}</span>`;
+  portal.setAttribute("aria-label", `Portal to the ${DIMENSIONS[other].name}${portalOpen ? "" : `, locked until you collect all ${overworldShards} shards here`}`);
   portal.onclick = () => {
     mapDimension = other;
     showHooks.map();
@@ -291,9 +285,9 @@ function showResults(z, s, result) {
   $("results-level").hidden = !levelUps.length;
   $("results-level").textContent = levelUps.map((c) => `⬆️ ${c.name} reached level ${c.level}!`).join(" ");
   // A boss guards a Beacon Shard.
-  const shard = won && result.boss;
+  const shard = won && result.boss && result.zone.shard !== false;
   $("results-shard").hidden = !shard;
-  if (shard) $("results-shard").textContent = `💎 You recovered a Beacon Shard! (${progress.shardCount()} of ${ZONES.length})`;
+  if (shard) $("results-shard").textContent = `💎 You recovered a Beacon Shard! (${progress.shardCount()} of ${SHARD_ZONES.length})`;
   biomeBattleOver(z, won);
   // Losing should point at what helps, not just say "you lost".
   $("results-tip").hidden = won;
@@ -309,6 +303,7 @@ function showResults(z, s, result) {
   );
   // After a boss: the shard, and a piece of the story.
   if (shard) playScene(`shard-${result.zone.id}`, () => result.zone.dimension === 0 && playScene(`memory-${progress.shardCount()}`));
+  else if (won && result.boss) playScene(`freed-${result.zone.id}`);
 
   $("results-again").textContent = won ? "🔁 Again" : "🔁 Try again";
   // A trainer only battles once (and a lost trainer battle restarts when they spot you again).

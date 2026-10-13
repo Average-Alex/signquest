@@ -39,6 +39,11 @@ const npc = (name, hairStyle, hair, skin, outfitStyle, outfit, extra = {}) => ({
 // Rook, the rival. He's drawn like a villager but carries a wand (he's a Signkeeper too).
 export const ROOK = { name: "Rook", look: { hairStyle: "spiky", hair: "black", skin: "s3", eyes: "gray", outfitStyle: "robe", outfit: "black", glasses: "none" }, hat: null, wand: true };
 
+// Queen Amara of Crown Keep: Deaf, and the very first Signkeeper. She found
+// that Signlight flows through signing hands, and built the Great Beacon on
+// her castle's tallest tower.
+export const QUEEN = npc("Queen Amara", "long", "black", "s5", "robe", "purple", { eyes: "brown", hat: "hat-crown" });
+
 export const QUESTS = {
   meadow: {
     npcs: {
@@ -440,5 +445,58 @@ export const QUESTS = {
       },
     ],
     phase2: [["malgrath", "ENOUGH! I will take EVERY last bit of Signlight myself!"], ["rook", "He's at full power! Give it everything you've got!"], ["pip", "Signlight is for everyone. That's what makes it strong!"]],
+  },
+
+  // Crown Keep, in the middle of the island. Malgrath sealed Queen Amara in
+  // her throne room behind hexed glass, and hexed her royal gryphon Aurelion
+  // to guard the keep. The Beacon used to shine from the top of its tower.
+  keep: {
+    npcs: {
+      pim: npc("Page Pim", "short", "ginger", "s2", "tunic", "blue"),
+      basil: npc("Cook Basil", "bald", "brown", "s4", "tunic", "silver", { hat: "hat-cap" }),
+      sage: npc("Royal Scribe Odette", "bun", "white", "s1", "robe", "teal", { glasses: "round" }),
+      iris: npc("Lady Iris", "long", "pink", "s3", "robe", "pink"),
+      otto: npc("Guard Otto", "spiky", "black", "s6", "tunic", "silver"),
+      hale: npc("Captain Hale", "short", "white", "s5", "tunic", "red", { hat: "hat-top" }),
+    },
+    steps: [
+      {
+        type: "free", npc: "pim", count: 2, title: "Clear the courtyard for Page Pim",
+        start: [["pim", "A visitor? Nobody's come to Crown Keep since the Beacon broke!"], ["pim", "Malgrath sealed the Queen in her throne room, and now hexed Knightlings march around the courtyard. Free 2 of them, please!"]],
+        done: [["pim", "You did it! The Queen always said a Signkeeper would come. Go see Cook Basil in the kitchens."]],
+      },
+      {
+        type: "find", npc: "basil", item: "the royal recipe book", title: "Find Cook Basil's recipe book",
+        start: [["basil", "Every night I cooked for Queen Amara. Now my recipe book is lost somewhere in the gardens!"], ["basil", "It has her favorite soup in it. I want it ready for when she's free."]],
+        done: [["basil", "My book! I'll start the soup right away. The Queen will be so happy."]],
+      },
+      {
+        type: "riddle", npc: "sage", word: "CROWN", title: "Solve Scribe Odette's royal riddle",
+        start: [["sage", "I write down the Queen's history. Did you know she was Deaf? She signed before anyone knew about Signlight."], ["sage", "She noticed her hands glowed when she signed. That's how Signlight was discovered!"], ["sage", "Now, a riddle: what does a queen wear on her head? Sign it!"]],
+        done: [["sage", "C-R-O-W-N! The Queen would be proud of your signing."]],
+      },
+      {
+        type: "deliver", npc: "iris", to: "otto", item: "the castle key", title: "Bring the castle key to Guard Otto",
+        start: [["iris", "Guard Otto is holding the tower door shut all by himself. He needs this key to lock the hexed knights out!"]],
+        done: [["otto", "The key! Now I can finally rest my arms. Captain Hale is up by the throne room."]],
+      },
+      {
+        type: "guard", npc: "hale", title: "Beat the throne room guard for Captain Hale",
+        start: [["hale", "The guard at the throne room door is hexed. Beyond it, Aurelion, the Queen's own gryphon, waits by the tower."], ["hale", "He's not evil. He's hexed. Free him, and the Queen's prison breaks with him."]],
+        done: [["hale", "Splendid! Aurelion is just ahead. Be gentle with him, Signkeeper."]],
+      },
+    ],
+    events: [
+      {
+        area: 1, type: "malgrath", creature: "knightling",
+        lines: [["malgrath", "Ah, the Queen's little castle. She thought waving her hands around could hold back the dark."], ["malgrath", "Knightlings! Show this apprentice how my castle treats guests!"]],
+        after: [["pip", "Waving her hands?! Signing is a real language. Queen Amara was Deaf, and she was the greatest Signkeeper ever!"]],
+      },
+      {
+        area: 3, type: "talk",
+        lines: [["pip", "{name}, look up! See the empty stand at the top of the tower? That's where the Great Beacon used to shine."], ["pip", "This place feels... familiar. Like I've been up that tower before."]],
+      },
+    ],
+    phase2: [["malgrath", "Aurelion! Remember who your master is NOW!"], ["pip", "Aurelion, it's us! Fight the hex! The Queen needs you!"]],
   },
 };

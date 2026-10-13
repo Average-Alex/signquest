@@ -16,6 +16,7 @@
 import { battleBackdropSrc } from "./biome.js";
 import { CREATURES, ZONES } from "./config.js";
 import * as progress from "./progress.js";
+import { pauseMusic, resumeMusic } from "./music.js";
 import { isMuted, narrationOn, rumble, setMuted, speak, startDrone, stopDrone, stopSpeaking } from "./narrator.js";
 import { QUEEN } from "./quests.js";
 import { creatureImg, heroImg, landmarkSrc, randomLook } from "./sprites.js";
@@ -202,6 +203,7 @@ export function playCutscene(id, onDone = () => {}, { replay = false } = {}) {
   $("cine").hidden = false;
   $("cine-skip").focus();
   renderMute();
+  pauseMusic();
   startDrone();
   showShot();
 }
@@ -295,6 +297,7 @@ function end() {
   clearInterval(playing.typing);
   stopSpeaking();
   stopDrone();
+  resumeMusic();
   const { onDone } = playing;
   playing = null;
   $("cine").hidden = true;

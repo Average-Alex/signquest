@@ -8,6 +8,7 @@ import {
   DIMENSIONS, ELEMENTS, SHARD_ZONES, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
+import { musicForScreen, musicSettingChanged, playMusic } from "./music.js";
 import * as progress from "./progress.js";
 import { creatureImg, heroImg, itemImg, LANDMARKS, landmarkSrc, LOOK_OPTIONS, randomLook } from "./sprites.js";
 import { playScene } from "./story.js";
@@ -27,6 +28,7 @@ export function show(name) {
   if (slot) $("camera-video").play().catch(() => {});
 
   showHooks[name]?.();
+  musicForScreen(name);
   screen.querySelector("h1, h2")?.focus({ preventScroll: true });
 }
 
@@ -224,6 +226,7 @@ $("learn-skip").onclick = () => learn && !learn.done && finishLearnCard(false);
 function playEvolution(list, onDone) {
   const [first, ...rest] = list;
   if (!first) return onDone();
+  playMusic("evolve");
   const box = $("evolve");
   const art = $("evolve-art");
   const old = creatureImg(first.id, "evolve-old");
@@ -455,6 +458,7 @@ showHooks.settings = () => {
   $("set-hand").value = s.hand;
   $("set-recognizer").value = s.recognizer;
   $("set-narration").checked = s.narration !== false;
+  $("set-music").checked = s.music !== false;
   $("reset-confirm").hidden = true;
   updateSettingsText();
 };
@@ -472,6 +476,7 @@ $("set-hold").oninput = (e) => (progress.updateSettings({ holdMs: Number(e.targe
 $("set-conf").oninput = (e) => (progress.updateSettings({ minConfidence: Number(e.target.value) }), updateSettingsText());
 $("set-hand").onchange = (e) => progress.updateSettings({ hand: e.target.value });
 $("set-narration").onchange = (e) => progress.updateSettings({ narration: e.target.checked });
+$("set-music").onchange = (e) => (progress.updateSettings({ music: e.target.checked }), musicSettingChanged());
 $("set-recognizer").onchange = (e) => (progress.updateSettings({ recognizer: e.target.value }), updateSettingsText());
 $("reset-btn").onclick = () => ($("reset-confirm").hidden = false);
 $("reset-confirm").onclick = () => {

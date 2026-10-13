@@ -38,6 +38,7 @@ import { QUESTS, ROOK } from "./quests.js";
 import { trainersFor } from "./trainers.js";
 import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { playCutscene } from "./cutscene.js";
+import { playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
 
@@ -1405,6 +1406,7 @@ export function enterBiome(z, from = null) {
   biome.camX = target.x;
   biome.camY = target.y;
   show("biome");
+  playMusic(`explore-${biome.zone.id}`);
   $("chest-panel").hidden = true;
   biome.chest = null;
   const canvas = $("biome-canvas");

@@ -296,7 +296,8 @@ export const DEFAULT_SETTINGS = {
   minConfidence: 0.6, // how sure the recognizer must be that it's the target letter
   hand: "auto", // "auto" | "right" | "left" - which hand the player signs with
   recognizer: "auto", // "auto" | "model" | "knn" | "keyboard"
-  narration: true, // a narrator voice (and music) in cinematics; captions always show
+  narration: true, // a narrator voice (and a drone) in cinematics; captions always show
+  music: true, // chiptune music on every screen (music.js)
 };
 
 // Turn-based battles: after each of your turns (one letter or one whole

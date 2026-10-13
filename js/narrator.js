@@ -1,4 +1,4 @@
-// The narrator for cinematics: a deep, calm movie-trailer voice with a big
+// The narrator for cinematics: a warm storyteller's voice with a little room
 // echo, a low drone underneath, and a rumble when something big happens.
 //
 // The voice lines are recorded ahead of time (tools/make_narration.py, with a
@@ -12,7 +12,7 @@ import * as progress from "./progress.js";
 
 const DIR = "assets/narration";
 const VOICE_VOLUME = 1;
-const ECHO = 0.28; // how much echo
+const ECHO = 0.1; // a little room echo (more sounds less human)
 
 let manifest = null; // key -> the caption that file says
 const loadManifest = () =>
@@ -98,13 +98,13 @@ function context() {
     const master = ctx.createGain(); // the drone
     master.gain.value = 0;
     master.connect(ctx.destination);
-    // The voice: straight through, plus a big hall echo (a reverb made from
-    // fading noise), so it sounds like a movie trailer.
+    // The voice: straight through, plus a little room echo (a reverb made from
+    // fading noise), so it sounds like it was recorded in a room.
     const voice = ctx.createGain();
     voice.gain.value = VOICE_VOLUME;
     voice.connect(ctx.destination);
     const reverb = ctx.createConvolver();
-    reverb.buffer = hallEcho(ctx, 2.8);
+    reverb.buffer = hallEcho(ctx, 1.6);
     const wet = ctx.createGain();
     wet.gain.value = ECHO;
     voice.connect(reverb).connect(wet).connect(ctx.destination);

@@ -39,6 +39,7 @@ import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } from "./screens.js";
 import { battleBackdropSrc } from "./biome.js";
 import * as fx from "./fx.js";
+import { playMusic } from "./music.js";
 import { QUESTS } from "./quests.js";
 import { playLines } from "./story.js";
 import { creatureImg, heroImg, itemImg } from "./sprites.js";
@@ -139,6 +140,8 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   $("arena-bg").src = battleBackdropSrc(zone.id);
   $("arena").classList.remove("surge");
   sendOut(battle);
+  // Dramatic music: Malgrath has his own theme, bosses a harder one.
+  playMusic(battle.foe.id === "malgrath" ? "final" : stage.type === "boss" ? "boss" : "battle");
   renderCombo();
   $("battle-warning").hidden = true;
   const p = progress.get();
@@ -965,6 +968,7 @@ function finish(won) {
     // Every sign still counts as practice.
     result = { won: false, stars: 0, xp: letters * 5, coins: 0, practice: [...battle.practice], boss, loot: null, caught: null };
   }
+  playMusic(won ? "victory" : "defeat");
   result.foe = battle.foe;
   result.level = battle.level;
   result.opts = battle.opts;

@@ -95,6 +95,13 @@ the first time you walk in: its landmark, its hexed boss and shard, and you
 arriving. Captions type themselves out; Skip ends one, and Settings can
 replay the opening (`js/cutscene.js`).
 
+**Music and voice.** Chiptune music plays everywhere, made live with Web
+Audio (`js/music.js`): dramatic battle music, harder boss and Malgrath themes,
+a theme for each zone, the map, title, shop, and learning screens, plus
+victory, defeat, and evolution jingles. Cinematics have a recorded narrator
+(`assets/narration/`, re-recorded with `tools/make_narration.py`). Both can be
+turned off in Settings; captions always show.
+
 **Story events.** Each zone's quests lead toward its shard, and things happen
 as you walk into new areas: Malgrath appears in a burst of purple fog and
 sends hexed creatures to ambush you, Rook (a rival collecting shards for

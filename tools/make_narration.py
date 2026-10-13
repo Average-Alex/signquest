@@ -36,11 +36,12 @@ SOURCE = ROOT / "js" / "cutscene.js"
 OUT = ROOT / "assets" / "narration"
 MANIFEST = OUT / "narration.json"
 
-# A deep, calm movie-trailer narrator. Small changes to rate and pitch keep it
-# sounding human; big ones make it robotic.
-VOICE = "en-US-ChristopherNeural"
-RATE = "-12%"
-PITCH = "-6Hz"
+# A warm, natural storyteller. The "Multilingual" voices are the most
+# human-sounding. Leave rate and pitch close to normal: changing them much
+# makes any voice sound robotic.
+VOICE = "en-US-AndrewMultilingualNeural"
+RATE = "-4%"
+PITCH = "-2Hz"
 
 
 def captions() -> dict[str, str]:

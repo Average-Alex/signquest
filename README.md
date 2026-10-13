@@ -30,29 +30,45 @@ Then open http://localhost:8000. The camera only works on `localhost` or an
 
 ## How playing works
 
-**Exploring.** Pick a zone on the map to walk around it. Use the arrow keys
-or WASD, or tap where to go. Each zone is six areas tall, explored bottom to
-top along a winding path, and the view scrolls with you. Creatures roam
-around. Bump into one to battle it:
+**Exploring.** It's an open world: every Overworld zone is open from the
+start, so go wherever you like, in any order. Use the arrow keys or WASD, or
+tap where to go. Each zone is six areas tall, and the view scrolls with you.
+The map shows each zone's creature levels, so you can pick your challenge.
+Creatures roam around. Bump into one to battle it:
 
 - ⚔️ practice battle (letters)
 - 📜 word battle, once you've won a practice battle in that zone
-- 👑 the boss, by the zone's landmark at the very top. Once it's beaten, it's
-  gone for good and the next zone opens.
+- 👑 the boss, by the zone's landmark at the very top, guarding a Beacon
+  Shard. Fight it whenever you're ready. Once it's beaten, it's gone for good.
+- 🌟 rare creatures from other zones, which sometimes wander in
 
-**Quests.** Each zone is a story chapter. A locked gate separates each area
-from the next, and a villager in that area holds the key. Walk up to anyone
-with a ❗ to get their quest, and come back when they show a ❓. Five kinds:
+Wherever you go first, learn cards teach any letters that zone's battles need.
+Collect all 5 Overworld shards (in any order) to open the portal to the
+Starfall Realm, where the zones lead one after another up to Malgrath.
+
+**Trainers.** Pokemon-style: four per zone stand near the path. Walk into
+their line of sight and they spot you (❗), walk over, and battle you with a
+team of 2-3 creatures for prize coins (`js/trainers.js`).
+
+**Battles.** Every creature and big move has an element (Fire beats Nature,
+Water beats Fire, and so on); move buttons show ▲ Super or ▼ Weak against the
+current foe. Some turns twist the sign: a riddle (a handshape clue), a missing
+letter in a word, or a quick-draw for double damage. Buddies evolve at level
+5: a new name, a brighter look, and stronger moves.
+
+**Side quests.** Optional. Villagers with a ❗ have a quest; come back when
+they show a ❓ for coins and a present. Five kinds:
 
 - 🐾 Rescue: free some hexed creatures in the area.
 - 🔎 Find: a lost item is hidden in the area. Sign a letter to pick it up,
   then bring it back.
 - 🧩 Riddle: answer by fingerspelling a word.
 - 📦 Delivery: carry something to another villager up the path.
-- ⚔️ Gate guard: beat the hexed guard (a word battle, which opens the boss).
+- ⚔️ Guard: beat a tough hexed guard by the gateway.
 
-A tracker under the map says what to do next, and a compass arrow at the edge
-of the view points to the goal when it's off screen.
+The bar under the map shows where you are and what you've found (side quests,
+chests, trainers). Once you accept a quest, a compass arrow at the edge of the
+view points to it; with no quests, there's no arrow.
 
 **Story events.** Each zone's quests lead toward its shard, and things happen
 as you walk into new areas: Malgrath appears in a burst of purple fog and
@@ -235,7 +251,7 @@ a different number of features).
 | `js/camera.js` | Webcam + MediaPipe, emits hand points each frame |
 | `js/features.js` | Hand points → 63 normalized numbers |
 | `js/classifier.js` | `getPrediction()`, smoothing, hold timer, model/kNN/keyboard |
-| `js/biome.js` | The walkable area for each zone: map building, gates, chests, walking, roaming creatures |
+| `js/biome.js` | The walkable area for each zone: map building, chests, walking, roaming creatures, trainers |
 | `js/fx.js` | Battle effects: particles, projectiles, shake, flashes, damage numbers |
 | `js/game.js` | Turn-based battles: moves and energy, crits, buddies, the monster's attack, potions, stars, loot, freeing creatures |
 | `js/story.js` | The story script and the dialogue box |

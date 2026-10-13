@@ -16,6 +16,12 @@
 // needed). Monsters have levels: higher ones hit harder and have more hex.
 // Win, and a freed creature joins your team if it's new.
 //
+// Elements: big moves have an element (config.js ELEMENTS). Against the
+// right creature they're super effective; the move buttons say which.
+// Sign challenges: some turns are a riddle, a missing letter, or a
+// quick-draw instead of a plain letter, and hit harder.
+// Trainers bring a team: when one creature is beaten, the next comes out.
+//
 // Taking too long only brings a hint, then a skip button. Skipping still
 // moves you on, but the monster gets its attack. If your HP runs out you're
 // knocked out: you keep some XP and can try again.
@@ -24,7 +30,8 @@ import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
-  COMBO_BONUS, COMBO_MAX, CRIT_CHANCE, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
+  CHALLENGE_BONUS, CHALLENGE_CHANCE, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, EVOLVED_POWER,
+  isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, LETTERS, LOOT_CHANCE,
   monsterDamage, playerMaxHp, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
@@ -70,21 +77,29 @@ function nextTarget(z, type, previous) {
 // ---------- Starting a battle ----------
 
 // `foeId` is the creature you're fighting (see CREATURES in config.js), at `level`.
-// `opts.owner`: a rival's name, when it's their creature.
+// `opts.owner`: a rival's or trainer's name, when it's their creature.
+// `opts.team`: a trainer's whole team, [{ id, level }, ...], fought in order.
 export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const zone = ZONES[z];
   const stage = STAGES[s];
-  const foe = creature(foeId);
-  const targets = planTargets(z, stage.type, level);
+  const foes = opts.team || [{ id: foeId, level }];
+  const targets = planTargets(z, stage.type, foes[0].level);
   const team = progress.team();
-  // Room for your signing (with bigger moves), plus your buddies' free hits,
-  // so leveled-up buddies only cut the battle a little short.
-  const letters = targets.reduce((sum, t) => sum + t.length, 0);
-  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER);
-  if (foe.catchable !== false) progress.markSeen(foe.id);
   const playerMax = playerMaxHp(progress.level());
   battle = {
-    z, s, zone, stage, foe, level, team, targets, onFinish, opts,
+    z, s, zone, stage, team, targets, onFinish, opts,
+    foes,
+    foeIndex: 0,
+    foe: null, // set by sendOut()
+    level: 0,
+    hp: 0,
+    maxHp: 0,
+    mode: "plain", // this turn's sign challenge (see pickChallenge)
+    blank: null, // for "blank": { word, index }
+    quickUntil: 0,
+    revealed: false, // a riddle's answer was shown by a hint
+    bonus: 1,
+    lastMode: "plain",
     charging: null, // a big move the monster is winding up (it lands next turn)
     combo: 0, // targets signed fast in a row, without hints: each adds damage
     phase2Done: false, // bosses surge with power at half health
@@ -92,8 +107,6 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
     t: 0, // which target
     i: 0, // which letter in the target
     turn: 1,
-    hp: maxHp,
-    maxHp,
     playerHp: playerMax,
     playerMax,
     energy: ENERGY_START,
@@ -120,22 +133,16 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
 
   show("battle");
   renderAvatars();
-  $("battle-title").textContent = `${zone.icon} ${zone.name} · ${stage.name}`;
+  $("battle-title").textContent = `${zone.icon} ${zone.name} · ${opts.team ? `${opts.owner}` : stage.name}`;
   $("arena-bg").src = battleBackdropSrc(zone.id);
-  // Hexbound creatures look corrupted until you break the hex. (Malgrath is just like that.)
-  const hexed = foe.catchable !== false;
-  $("monster").innerHTML = creatureImg(foe.id, "", hexed);
-  $("monster-name").textContent = opts.owner ? `${opts.owner}'s ${foe.name}` : foe.name;
-  $("hud-foe-sub").textContent = `${opts.owner ? "Rival battle" : foe.catchable === false ? "Hollow King" : "Hexbound"} · Lv ${level}`;
   $("arena").classList.remove("surge");
+  sendOut(battle);
   renderCombo();
   $("battle-warning").hidden = true;
-  $("hud-foe-portrait").innerHTML = creatureImg(foe.id, "", hexed);
   const p = progress.get();
   $("hud-you-name").textContent = p.name || "Hero";
   $("hud-you-level").textContent = `Lv ${progress.level()}`;
   $("hud-you-portrait").innerHTML = heroImg(p.look, p.equipped.hat);
-  $("monster").className = `monster${stage.type === "boss" ? " boss" : ""}`;
   $("arena").dataset.zone = zone.id;
   // Your team: you in the middle, a buddy above and below.
   $("hero-sprite").className = "hero-sprite";
@@ -143,7 +150,7 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   [0, 1].forEach((n) => {
     const pet = team[n];
     $(`buddy-slot-${n}`).hidden = !pet;
-    $(`buddy-slot-${n}`).innerHTML = pet ? creatureImg(pet.id, "buddy") : "";
+    $(`buddy-slot-${n}`).innerHTML = pet ? creatureImg(pet.id, "buddy", false, isEvolved(pet.level)) : "";
   });
   toggleBag(false);
   updateHp();
@@ -153,14 +160,80 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   requestAnimationFrame(tick);
 }
 
+// Puts the next foe on the field (the first one, or a trainer's next creature).
+function sendOut(b) {
+  const { id, level } = b.foes[b.foeIndex];
+  const foe = creature(id);
+  b.foe = foe;
+  b.level = level;
+  // HP: room for your signing (with bigger moves), plus your buddies' free
+  // hits, so leveled-up buddies only cut the battle a little short. A
+  // trainer's creatures have less each, since there are several.
+  const plan = planTargets(b.z, b.stage.type, level);
+  const letters = plan.reduce((sum, t) => sum + t.length, 0);
+  b.maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.opts.team ? TRAINER_HP : 1));
+  b.hp = b.maxHp;
+  b.charging = null;
+  b.foeHealed = false;
+  b.stunned = false;
+  b.dizzyLastTurn = false;
+  b.phase2Done = false;
+  b.surge = false;
+  $("arena").classList.remove("surge");
+  $("battle-warning").hidden = true;
+  if (foe.catchable !== false) progress.markSeen(foe.id);
+  // Hexbound creatures look corrupted until you break the hex. (Malgrath is
+  // just like that.) A trainer's or rival's creatures aren't hexed.
+  const hexed = foe.catchable !== false && !b.opts.owner;
+  $("monster").innerHTML = creatureImg(foe.id, "", hexed);
+  $("monster").className = `monster${b.stage.type === "boss" ? " boss" : ""}`;
+  $("monster-name").textContent = b.opts.owner ? `${b.opts.owner}'s ${foe.name}` : foe.name;
+  const el = ELEMENTS[foe.element];
+  const kind = b.opts.team ? "Trainer" : b.opts.owner ? "Rival battle" : foe.catchable === false ? "Hollow King" : "Hexbound";
+  $("hud-foe-sub").innerHTML = `${el ? `<span class="el-badge el-${foe.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${level}`;
+  $("hud-foe-portrait").innerHTML = creatureImg(foe.id, "", hexed);
+  // A trainer's team: one ball per creature, dark once beaten.
+  $("foe-team").hidden = b.foes.length < 2;
+  $("foe-team").innerHTML = b.foes.map((_, n) => `<span class="ball${n < b.foeIndex ? " out" : ""}${n === b.foeIndex ? " now" : ""}"></span>`).join("");
+  updateHp(b);
+}
+
 const currentTarget = () => battle.targets[battle.t];
 const currentLetter = () => currentTarget()[battle.i];
+
+// Some turns twist what you sign, so battles don't all feel the same.
+// Only single letters get a challenge, never on the first turn, and never the
+// same twist twice in a row.
+function pickChallenge(b) {
+  const target = b.targets[b.t];
+  b.blank = null;
+  if (target.length !== 1 || b.turn < 2) return "plain";
+  const roll = Math.random();
+  let sum = 0;
+  for (const [mode, chance] of Object.entries(CHALLENGE_CHANCE)) {
+    sum += chance;
+    if (roll >= sum || mode === b.lastMode) continue;
+    if (mode === "blank") {
+      // A word from this zone (or earlier) with the letter in it.
+      const words = ZONES.slice(0, b.z + 1).flatMap((zn) => zn.words).filter((w) => w.includes(target));
+      if (!words.length) return "plain";
+      const word = words[Math.floor(Math.random() * words.length)];
+      b.blank = { word, index: word.indexOf(target) };
+    }
+    return mode;
+  }
+  return "plain";
+}
 
 function startLetter(now) {
   battle.letterStart = now;
   if (battle.i === 0) {
     battle.targetStart = now;
     battle.targetSlow = false;
+    battle.mode = pickChallenge(battle);
+    battle.lastMode = battle.mode;
+    battle.revealed = false;
+    battle.quickUntil = battle.mode === "quick" ? now + QUICK_MS : 0;
   }
   battle.hinted = false;
   battle.hold.reset();
@@ -171,19 +244,50 @@ function startLetter(now) {
   renderMoves();
   renderItems();
   const target = currentTarget();
-  announce(target.length > 1 && battle.i === 0 ? `Your turn! Spell the word ${target.split("").join(" ")}` : `Sign ${currentLetter()}`);
+  const letter = currentLetter();
+  const said = {
+    riddle: `Riddle! Which letter is this? ${TIPS[letter]}`,
+    blank: battle.blank && `Fill in the missing letter: ${battle.blank.word.split("").map((l, n) => (n === battle.blank.index ? "blank" : l)).join(" ")}`,
+    quick: `Quick-draw! Sign ${letter} fast for double damage!`,
+  }[battle.mode];
+  announce(said || (target.length > 1 && battle.i === 0 ? `Your turn! Spell the word ${target.split("").join(" ")}` : `Sign ${letter}`));
 }
 
 function renderTarget() {
   const target = currentTarget();
+  const { mode, blank } = battle;
   $("battle-count").textContent = `Turn ${battle.turn}`;
+  $("target").dataset.answer = currentLetter() || ""; // for automated tests
+  $("sign-label").textContent = { riddle: "🧩 Riddle! Which letter?", blank: "✏️ Fill in the missing letter", quick: "⚡ Quick-draw! Sign it fast" }[mode] || "Sign this";
+  $("challenge").hidden = mode !== "riddle" && mode !== "quick";
+  if (mode === "riddle") $("challenge").textContent = `“${TIPS[target]}”`;
+  if (mode === "quick") renderQuick(performance.now());
+  $("sign-label").className = `cmd-label${mode !== "plain" ? " challenge-label" : ""}`;
+  const done = battle.i > 0;
+  if (mode === "blank" && blank) {
+    // The word, with a gap where the letter goes.
+    $("target").innerHTML = blank.word
+      .split("")
+      .map((l, n) => (n === blank.index ? `<span class="slot ${done ? "done" : battle.busy ? "" : "now"}">${done ? l : "?"}</span>` : `<span class="slot given">${l}</span>`))
+      .join("");
+    return;
+  }
   $("target").innerHTML = target
     .split("")
     .map((letter, i) => {
       const state = i < battle.i ? "done" : i === battle.i && !battle.busy ? "now" : "";
-      return `<span class="slot ${state}${target.length === 1 ? " single" : ""}">${letter}</span>`;
+      const hidden = mode === "riddle" && !battle.revealed && i >= battle.i && state !== "done";
+      return `<span class="slot ${state}${target.length === 1 ? " single" : ""}">${hidden ? "?" : letter}</span>`;
     })
     .join("");
+}
+
+// The quick-draw countdown.
+function renderQuick(now) {
+  const left = battle.quickUntil - now;
+  const el = $("challenge");
+  if (left > 0) el.textContent = `⏱️ ${(left / 1000).toFixed(1)}s for ×${QUICK_BONUS} damage!`;
+  else el.textContent = "Too slow for the bonus. Keep going!";
 }
 
 function tick(now) {
@@ -199,6 +303,7 @@ function tick(now) {
   $("seeing").textContent = prediction?.partial ? "✋ Move your whole hand into view" : prediction ? `I see: ${prediction.letter}` : "Show your hand ✋";
   const held = battle.hold.update(letter, prediction, now);
   $("battle-hold").style.width = `${held * 100}%`;
+  if (battle.mode === "quick") renderQuick(now);
 
   if (held >= 1) return letterDone(now, false);
 
@@ -215,7 +320,13 @@ function showHint(auto) {
   battle.hints++;
   battle.practice.add(letter);
   progress.addMiss(letter);
-  $("hint-tip").textContent = TIPS[letter];
+  // A hint gives away a riddle's answer.
+  if (battle.mode === "riddle" || battle.mode === "blank") {
+    battle.revealed = true;
+    if (battle.mode === "blank") $("target").children[battle.blank.index].textContent = letter;
+    else renderTarget();
+  }
+  $("hint-tip").textContent = battle.mode === "plain" || battle.mode === "quick" ? TIPS[letter] : `It's ${letter}! ${TIPS[letter]}`;
   setHandImage($("hint-img"), letter);
   toggleBag(false);
   $("hint").hidden = false;
@@ -251,12 +362,18 @@ function letterDone(now, skipped) {
   if (fast) gainEnergy(ENERGY_FAST_BONUS);
   battle.combo = fast ? battle.combo + 1 : 0;
   renderCombo();
+  // Challenges done without a hint (or skip) hit harder.
+  battle.bonus = 1;
+  if (!battle.targetSlow) {
+    if (battle.mode === "quick" && now <= battle.quickUntil) battle.bonus = QUICK_BONUS;
+    if (battle.mode === "riddle" || battle.mode === "blank") battle.bonus = CHALLENGE_BONUS;
+  }
   battle.busy = true;
   fireMove(target.length, fast);
   renderTarget();
   renderMoves();
   renderItems();
-  if (battle.hp <= 0) return finish(true);
+  if (battle.hp <= 0) return battle.foeIndex < battle.foes.length - 1 ? nextFoe(battle) : finish(true);
 
   // Only the one character you picked acts. Then it's the monster's turn.
   // (At half health, a boss first surges with dark power: phase 2.)
@@ -308,8 +425,17 @@ function fireMove(letters, fast) {
   const { move, mover } = battle;
   battle.energy -= move.cost;
   renderEnergy();
-  // A streak of fast signs makes every attack hit harder.
-  const comboBoost = 1 + Math.min(battle.combo, COMBO_MAX) * COMBO_BONUS;
+  // A streak of fast signs makes every attack hit harder, and so does a
+  // challenge, and a move the foe is weak to.
+  const eff = effectiveness(move.element, battle.foe.element);
+  const comboBoost = (1 + Math.min(battle.combo, COMBO_MAX) * COMBO_BONUS) * battle.bonus * eff;
+  if (battle.bonus > 1) popText(battle.mode === "quick" ? `⚡ QUICK-DRAW! ×${QUICK_BONUS}` : "🧩 Solved! Bonus damage!", true);
+  if (eff !== 1 && (!move.type || move.type === "attack")) {
+    setTimeout(() => {
+      popText(eff > 1 ? "It's super effective! ▲" : "Not very effective... ▼", eff > 1);
+      announce(eff > 1 ? "It's super effective!" : "It's not very effective.");
+    }, ATTACK_FX_MS + 450);
+  }
 
   if (!mover) {
     // One of your hero's spells: more letters signed and stronger spells hit harder.
@@ -323,12 +449,13 @@ function fireMove(letters, fast) {
     if (move.type === "attack") {
       // Like your signing, scaled by the move's power and the buddy's level.
       const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE);
-      const damage = Math.round(letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * comboBoost * (crit ? CRIT_MULTIPLIER : 1));
+      const evolved = isEvolved(mover.level) ? EVOLVED_POWER : 1;
+      const damage = Math.round(letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * evolved * comboBoost * (crit ? CRIT_MULTIPLIER : 1));
       attackFx({ from: at.buddy(n), attacker: el, move, crit });
       hitMonster(damage, crit, ATTACK_FX_MS);
       popText(`${move.icon} ${move.name}!`, true);
       if (crit) setTimeout(() => popText("CRITICAL HIT!", true), ATTACK_FX_MS);
-      announce(`${pet.name} uses ${move.name}!${crit ? " Critical hit!" : ""} ${damage} damage.`);
+      announce(`${creatureName(pet.id, mover.level)} uses ${move.name}!${crit ? " Critical hit!" : ""} ${damage} damage.`);
     } else {
       restartAnimation(el, "boost");
       fx.gather(at.buddy(n), fx.elementOf(move), { ms: 260 });
@@ -340,7 +467,7 @@ function fireMove(letters, fast) {
           fx.burst(at.hero(), "shield", { count: 18, speed: 0.8, gravity: 0 });
         }, 260);
         popText(`${move.icon} ${move.name}!`);
-        announce(`${pet.name} uses ${move.name}! It will block the next hit.`);
+        announce(`${creatureName(pet.id, mover.level)} uses ${move.name}! It will block the next hit.`);
       } else if (move.type === "heal") {
         const before = battle.playerHp;
         battle.playerHp = Math.min(battle.playerMax, before + Math.round(battle.playerMax * HEAL_FRACTION));
@@ -350,7 +477,7 @@ function fireMove(letters, fast) {
           fx.number(at.hero(), `+${healed}`, "good");
         }, 260);
         popText(`${move.icon} ${move.name}!`);
-        announce(`${pet.name} uses ${move.name}! You heal ${healed} HP.`);
+        announce(`${creatureName(pet.id, mover.level)} uses ${move.name}! You heal ${healed} HP.`);
       } else if (move.type === "stun") {
         battle.stunned = true;
         fx.projectile(at.buddy(n), at.foe(), fx.elementOf(move), { ms: 300, size: 2 }).then(() => {
@@ -360,7 +487,7 @@ function fireMove(letters, fast) {
           restartAnimation($("monster"), "dizzy");
         });
         popText(`${move.icon} ${move.name}!`);
-        announce(`${pet.name} uses ${move.name}! ${battle.foe.name} is stunned.`);
+        announce(`${creatureName(pet.id, mover.level)} uses ${move.name}! ${battle.foe.name} is stunned.`);
       }
       setTimeout(() => {
         updateHp();
@@ -452,7 +579,7 @@ const buddyEl = (n) => $(`buddy-slot-${n}`);
 function renderMoves() {
   const p = progress.get();
   const tabs = [{ who: "You", art: heroImg(p.look, p.equipped.hat, "tab-hero"), mover: null }].concat(
-    battle.team.map((pet) => ({ who: creature(pet.id).name, art: creatureImg(pet.id, "tab-art"), mover: pet })),
+    battle.team.map((pet) => ({ who: creatureName(pet.id, pet.level), art: creatureImg(pet.id, "tab-art", false, isEvolved(pet.level)), mover: pet })),
   );
   if (battle.tab >= tabs.length) battle.tab = 0;
   $("move-tabs").innerHTML = "";
@@ -484,12 +611,15 @@ function renderMoves() {
     button.className = `move-btn${picked ? " picked" : ""} type-${move.type || "attack"}`;
     button.disabled = battle.busy || battle.done || move.cost > battle.energy;
     button.setAttribute("aria-pressed", String(picked));
+    const eff = !move.type || move.type === "attack" ? effectiveness(move.element, battle.foe.element) : 1;
+    const tag = eff > 1 ? `<span class="move-eff up">▲ Super</span>` : eff < 1 ? `<span class="move-eff down">▼ Weak</span>` : "";
+    const el = ELEMENTS[move.element];
     button.innerHTML = `
       <span class="move-icon">${move.icon}</span>
-      <span class="move-text"><span class="move-name">${move.name}</span><span class="move-desc">${moveDescription(move)}</span></span>
+      <span class="move-text"><span class="move-name">${move.name}${tag}</span><span class="move-desc">${el ? `${el.icon} ` : ""}${moveDescription(move)}</span></span>
       <span class="move-cost">${move.cost ? `${move.cost}⚡` : "Free"}</span>
       <span class="move-key" aria-hidden="true">${n + 1}</span>`;
-    button.setAttribute("aria-label", `${tab.who}: ${move.name}. ${moveDescription(move)}. Costs ${move.cost} energy.`);
+    button.setAttribute("aria-label", `${tab.who}: ${move.name}. ${el ? `${el.name}. ` : ""}${moveDescription(move)}.${eff > 1 ? " Super effective!" : eff < 1 ? " Not very effective." : ""} Costs ${move.cost} energy.`);
     button.onclick = () => pickMove(move, tab.mover);
     bar.appendChild(button);
   });
@@ -632,20 +762,46 @@ function monsterTurn(fast) {
     if (b.playerHp <= 0) return setTimeout(() => battle === b && finish(false), 900);
   }
 
+  setTimeout(() => nextTurn(b), MONSTER_TURN_MS);
+}
+
+// Back to you, with the next target. If the planned ones ran out, the hex
+// isn't broken yet: keep going.
+function nextTurn(b) {
+  if (battle !== b || b.done) return;
+  b.t++;
+  b.i = 0;
+  b.turn++;
+  if (b.t >= b.targets.length) {
+    const type = b.stage.type === "boss" ? (b.turn % 3 === 0 ? "words" : "review") : b.stage.type;
+    b.targets.push(nextTarget(b.z, type, b.targets[b.targets.length - 1]));
+  }
+  b.busy = false;
+  setTurn("you");
+  startLetter(performance.now());
+}
+
+// A trainer's creature is beaten: it goes back, and the next one comes out.
+// Then it's your turn again.
+function nextFoe(b) {
+  const out = b.foe;
   setTimeout(() => {
     if (battle !== b || b.done) return;
-    // Next target. If the planned ones ran out, the hex isn't broken yet: keep going.
-    b.t++;
-    b.i = 0;
-    b.turn++;
-    if (b.t >= b.targets.length) {
-      const type = b.stage.type === "boss" ? (b.turn % 3 === 0 ? "words" : "review") : b.stage.type;
-      b.targets.push(nextTarget(b.z, type, b.targets[b.targets.length - 1]));
-    }
-    b.busy = false;
-    setTurn("you");
-    startLetter(performance.now());
-  }, MONSTER_TURN_MS);
+    restartAnimation($("monster"), "faint");
+    popText(`${out.name} is out!`);
+    announce(`${b.opts.owner}'s ${out.name} is out of the fight!`);
+    setTimeout(() => {
+      if (battle !== b || b.done) return;
+      b.foeIndex++;
+      sendOut(b);
+      restartAnimation($("monster"), "send-in");
+      fx.burst(at.foe(), "light", { count: 30, speed: 1.6 });
+      fx.ring(at.foe(), "light", { maxR: 30 });
+      popText(`${b.opts.owner} sends out ${b.foe.name}!`, true);
+      announce(`${b.opts.owner} sends out ${b.foe.name}!${b.foeIndex === b.foes.length - 1 ? " It's their last one!" : ""}`);
+      setTimeout(() => nextTurn(b), 1100);
+    }, 1000);
+  }, ATTACK_FX_MS + 700);
 }
 
 function setTurn(who) {
@@ -719,7 +875,7 @@ function updateHp(b = battle) {
 }
 
 function restartAnimation(el, cls) {
-  el.classList.remove("hit", "lunge", "dizzy", "hurt", "boost", "pounce", "shake", "charging", "cast");
+  el.classList.remove("hit", "lunge", "dizzy", "hurt", "boost", "pounce", "shake", "charging", "cast", "faint", "send-in");
   void el.offsetWidth;
   el.classList.add(cls);
 }
@@ -753,7 +909,12 @@ function finish(won) {
   let result;
 
   if (won) {
-    if (battle.foe.catchable === false) {
+    if (battle.opts.owner) {
+      // A trainer's or rival's creature isn't hexed: it just gives up.
+      restartAnimation($("monster"), "faint");
+      popText(battle.opts.team ? `${battle.opts.owner} is out of creatures!` : "VICTORY!", true);
+      fx.rays(at.foe(), "light");
+    } else if (battle.foe.catchable === false) {
       // Malgrath isn't hexed - he's sealed away.
       $("monster").classList.add("sealed");
       popText("SEALED AWAY!", true);
@@ -790,7 +951,8 @@ function finish(won) {
       won: true,
       stars,
       xp: letters * 10,
-      coins: stars * 5 + (boss ? 15 : 0),
+      coins: stars * 5 + (boss ? 15 : 0) + (battle.opts.prize || 0),
+      prize: battle.opts.prize || 0,
       practice: [...battle.practice],
       boss,
       loot: rollLoot(boss),
@@ -805,8 +967,12 @@ function finish(won) {
   result.level = battle.level;
   result.opts = battle.opts;
   result.zone = battle.zone;
+  // Level-ups, and buddies that just reached their evolution level.
+  const before = Object.fromEntries(progress.team().map((pet) => [pet.id, pet.level]));
   const leveled = progress.addTeamXp(won ? BUDDY_XP_WIN : BUDDY_XP_LOSS);
-  result.buddyLevels = leveled.map((id) => ({ ...creature(id), level: progress.get().creatures[id].level }));
+  const levelOf = (id) => progress.get().creatures[id].level;
+  result.buddyLevels = leveled.map((id) => ({ ...creature(id), name: creatureName(id, levelOf(id)), level: levelOf(id) }));
+  result.evolved = leveled.filter((id) => !isEvolved(before[id]) && isEvolved(levelOf(id))).map((id) => ({ id, from: creature(id).name, to: creatureName(id, levelOf(id)) }));
 
   progress.recordStage(battle.z, battle.s, result);
   const { onFinish } = battle;

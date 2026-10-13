@@ -784,3 +784,48 @@ input[type=text], select {
 .record-example .hand-img { width: 90px; height: 90px; }
 .record-auto { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-weight: 700; }
 #record-go small { font-size: 0.6em; opacity: 0.7; }
+
+/* ---------- Elements and type matchups ---------- */
+.el-badge { display: inline-block; margin-right: 0.6em; padding: 0 0.5em; border-radius: 99px; border: 2px solid var(--ink); color: #fff; font-size: 0.9em; text-shadow: 0 1px 0 var(--ink); white-space: nowrap; }
+.el-fire { background: #e8622a; }
+.el-water { background: #2f86d6; }
+.el-nature { background: #3f9a4a; }
+.el-lightning { background: #d9a520; }
+.el-ice { background: #4fb3d9; }
+.el-rock { background: #8a7058; }
+.el-light { background: #c99a2a; }
+.el-dark { background: #5a2fa0; }
+.book-el { min-height: 1.4em; margin: 2px 0; font-size: 13px; font-weight: 700; }
+.move-eff { margin-left: 6px; padding: 0 6px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: middle; border: 2px solid var(--ink); }
+.move-eff.up { background: #3fc93a; color: #fff; animation: eff-pulse 0.9s ease-in-out infinite alternate; }
+.move-eff.down { background: #c8c0b0; color: var(--ink); }
+@keyframes eff-pulse { to { box-shadow: 0 0 0 3px rgba(63, 201, 58, 0.45); } }
+
+/* ---------- Sign challenges ---------- */
+.cmd-label.challenge-label { color: var(--brand); font-size: 15px; animation: combo-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.challenge { margin: 2px 0 6px; font-weight: 700; font-size: 16px; color: var(--ink); background: #fff6c8; border: 2px solid var(--ink); border-radius: 8px; padding: 4px 10px; }
+.slot.given { border: 3px solid var(--line); border-style: solid; background: rgba(251, 241, 214, 0.9); color: var(--ink); }
+
+/* ---------- Trainer battles ---------- */
+.foe-team { display: flex; justify-content: flex-end; gap: 0.6cqw; margin-top: 0.4cqw; }
+.foe-team .ball { width: 1.6cqw; height: 1.6cqw; min-width: 9px; min-height: 9px; border-radius: 50%; border: 2px solid var(--ink); background: linear-gradient(#e8413b 0 45%, var(--ink) 45% 55%, #fff 55%); }
+.foe-team .ball.out { filter: grayscale(1) brightness(0.55); }
+.foe-team .ball.now { box-shadow: 0 0 0 2px var(--gold); }
+.monster.faint { animation: faint 0.8s ease-in forwards; }
+@keyframes faint { 0% { transform: none; opacity: 1; } 30% { transform: translateY(-1cqw); } 100% { transform: translateY(6cqw) scale(0.6); opacity: 0; } }
+.monster.send-in { animation: send-in 0.7s cubic-bezier(0.2, 1.5, 0.4, 1); }
+@keyframes send-in { 0% { transform: scale(0.1); filter: brightness(5); opacity: 0; } 60% { filter: brightness(2); opacity: 1; } 100% { transform: none; filter: none; } }
+.biome-label.alert { animation: none; }
+.biome-label.alert .npc-icon { font-size: clamp(22px, 3.6vw, 38px); display: inline-block; animation: alert-pop 0.35s cubic-bezier(0.2, 1.8, 0.4, 1); }
+@keyframes alert-pop { 0% { transform: scale(0) translateY(10px); } 100% { transform: none; } }
+
+/* ---------- Evolution ---------- */
+.sprite.evolved { scale: 1.2; }
+.evolve { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; background: radial-gradient(circle, #3a2a6e, #120a24 70%); color: #fff; text-align: center; }
+.evolve-stage { width: min(60vw, 280px); aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, rgba(255, 233, 168, 0.35), transparent 65%); }
+.evolve-art .sprite { width: min(40vw, 190px); }
+.evolve-art .sprite.small { width: min(30vw, 140px); }
+.evolve-art.glowing .sprite { filter: brightness(0) invert(1) drop-shadow(0 0 12px #fff6c8); }
+.evolve.done .evolve-stage { animation: evolve-flash 0.9s ease-out; }
+@keyframes evolve-flash { 0% { background: #fff; box-shadow: 0 0 80px 40px #fff; } 100% { box-shadow: none; } }
+.evolve-text { max-width: 520px; margin: 0; font-size: clamp(18px, 3vw, 26px); font-weight: 700; text-shadow: 0 2px 0 #000; }

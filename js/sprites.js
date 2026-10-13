@@ -245,15 +245,16 @@ export function normalizeLook(look, oldCharacter) {
   return out;
 }
 
-export function randomLook() {
+// `rand`: pass a seeded random function to get the same look every time.
+export function randomLook(rand = Math.random) {
   const pick = (obj) => {
     const keys = Object.keys(obj);
-    return keys[Math.floor(Math.random() * keys.length)];
+    return keys[Math.floor(rand() * keys.length)];
   };
   const look = {};
   for (const [part, { choices }] of Object.entries(LOOK_OPTIONS)) look[part] = pick(choices);
-  if (Math.random() < 0.7) look.glasses = "none";
-  if (look.hairStyle === "bald" && Math.random() < 0.7) look.hairStyle = "short";
+  if (rand() < 0.7) look.glasses = "none";
+  if (look.hairStyle === "bald" && rand() < 0.7) look.hairStyle = "short";
   return look;
 }
 
@@ -1301,10 +1302,51 @@ function liftFootOnce(ctx, w, h, frame) {
   ctx.putImageData(image, 0, top);
 }
 
+// ---------- Evolved ----------
+// An evolved buddy: the same creature, grown up. Richer, deeper colors, a
+// darker outline, and a golden glow around its edge (the sprite is shown a
+// bit bigger too, with the "evolved" class).
+const EVOLVED_GLOW = "#ffd23f";
+const EVOLVED_OUTLINE = "#1a0f2e";
+
+function evolvedColors(art) {
+  const out = { K: EVOLVED_OUTLINE };
+  for (const [ch, color] of Object.entries(art.colors)) {
+    const [r, g, b] = rgbOf(color);
+    const grey = (r + g + b) / 3;
+    // More saturated, a touch deeper.
+    out[ch] = toHex([r, g, b].map((v) => (grey + (v - grey) * 1.45) * 0.95));
+  }
+  return out;
+}
+
+// A 1-pixel golden outline around everything already drawn.
+function glow(ctx, w, h) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const [gr, gg, gb] = rgbOf(EVOLVED_GLOW);
+  const solid = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
+  const edge = [];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) edge.push((y * w + x) * 4);
+  for (const i of edge) d.set([gr, gg, gb, 200], i);
+  ctx.putImageData(image, 0, 0);
+}
+
 // `hexed`: draw the corrupted Hexbound version. `frame`: a walking frame.
-export function creatureSrc(id, hexed = false, frame = 0) {
+// `evolved`: the evolved version (see EVOLUTIONS in config.js).
+export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
   const art = CREATURE_ART[id];
   const w = art.rows[0].length, h = art.rows.length;
+  if (evolved && !hexed) {
+    // One pixel of room on every side for the glow.
+    return draw(`creature:${id}:evolved:${frame}`, w + 2, h + 2, (ctx) => {
+      paint(ctx, art.rows, evolvedColors(art), 1, 1);
+      liftFoot(ctx, w + 2, h + 2, frame);
+      glow(ctx, w + 2, h + 2);
+    });
+  }
   if (!hexed) {
     return draw(`creature:${id}:${frame}`, w, h, (ctx) => {
       paint(ctx, art.rows, art.colors);
@@ -1319,9 +1361,9 @@ export function creatureSrc(id, hexed = false, frame = 0) {
 }
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.
-export function creatureImg(id, cls = "", hexed = false) {
+export function creatureImg(id, cls = "", hexed = false, evolved = false) {
   const small = CREATURE_ART[id].rows.length <= 12;
-  return img(creatureSrc(id, hexed), `creature ${small ? "small" : ""} ${cls}`, id);
+  return img(creatureSrc(id, hexed, 0, evolved), `creature ${small ? "small" : ""}${evolved ? " evolved" : ""} ${cls}`, id);
 }
 
 export function decorSrc(id) {

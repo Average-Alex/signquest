@@ -153,6 +153,7 @@
           <div id="monster-name" class="hud-name"></div>
           <div class="hp hex" aria-hidden="true"><div id="monster-hp" class="hp-fill"></div><span id="monster-hp-text" class="hp-text"></span></div>
           <div id="hud-foe-sub" class="hud-sub"></div>
+          <div id="foe-team" class="foe-team" aria-hidden="true" hidden></div>
         </div>
       </div>
       <div id="turn" class="turn-banner" aria-hidden="true"></div>
@@ -179,7 +180,8 @@
       </div>
       <div class="cmd-sign">
         <p id="battle-warning" class="battle-warning" role="alert" hidden></p>
-        <p class="cmd-label">Sign this</p>
+        <p id="sign-label" class="cmd-label">Sign this</p>
+        <p id="challenge" class="challenge" hidden></p>
         <div id="target" class="target" aria-live="polite"></div>
         <div class="cmd-tools">
           <button id="hint-btn" class="btn small">💡 Hint</button>
@@ -388,6 +390,15 @@
       </div>
     </div>
   </section>
+
+  <!-- Evolution (screens.js) -->
+  <div id="evolve" class="evolve" role="dialog" aria-modal="true" aria-labelledby="evolve-text" hidden>
+    <div class="evolve-stage">
+      <div id="evolve-art" class="evolve-art"></div>
+    </div>
+    <p id="evolve-text" class="evolve-text" aria-live="polite"></p>
+    <button id="evolve-ok" class="btn go" hidden>Awesome! ▶</button>
+  </div>
 
   <!-- Story dialogue (story.js) -->
   <div id="story" class="story" role="dialog" aria-modal="true" aria-labelledby="story-name" hidden>

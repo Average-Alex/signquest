@@ -4,8 +4,8 @@
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
 import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
 import {
-  BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, CREATURES,
-  DIMENSIONS, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
+  BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
+  DIMENSIONS, ELEMENTS, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
 import * as progress from "./progress.js";
@@ -212,17 +212,66 @@ function finishLearnCard(gotIt) {
 
 $("learn-skip").onclick = () => learn && !learn.done && finishLearnCard(false);
 
+// ---------- Evolution ----------
+// "What? Pip is evolving!" The creature flickers between its old and new
+// shapes, faster and faster, then a flash, and there it is.
+
+function playEvolution(list, onDone) {
+  const [first, ...rest] = list;
+  if (!first) return onDone();
+  const box = $("evolve");
+  const art = $("evolve-art");
+  const old = creatureImg(first.id, "evolve-old");
+  const neu = creatureImg(first.id, "evolve-new", false, true);
+  box.hidden = false;
+  box.classList.remove("done");
+  $("evolve-ok").hidden = true;
+  $("evolve-text").textContent = `What? ${first.from} is evolving!`;
+  announce(`What? ${first.from} is evolving!`);
+  art.innerHTML = old;
+  art.classList.add("glowing");
+  // Swap shapes with shrinking gaps: slow, then a blur.
+  let gap = 420, showingNew = false, elapsed = 0;
+  const flick = () => {
+    if (elapsed > 3200) {
+      art.classList.remove("glowing");
+      art.innerHTML = neu;
+      box.classList.add("done");
+      $("evolve-text").textContent = `Congratulations! ${first.from} evolved into ${first.to}! Its moves hit harder now.`;
+      announce(`Congratulations! ${first.from} evolved into ${first.to}!`);
+      $("evolve-ok").hidden = false;
+      $("evolve-ok").focus();
+      $("evolve-ok").onclick = () => {
+        box.hidden = true;
+        playEvolution(rest, onDone);
+      };
+      return;
+    }
+    showingNew = !showingNew;
+    art.innerHTML = showingNew ? neu : old;
+    elapsed += gap;
+    gap = Math.max(60, gap * 0.8);
+    setTimeout(flick, gap);
+  };
+  setTimeout(flick, 900);
+}
+
 // ---------- Results ----------
 
 function showResults(z, s, result) {
+  // Evolutions first, Pokemon-style, then the results.
+  if (result.evolved?.length && !result.evolveShown) {
+    result.evolveShown = true;
+    return playEvolution(result.evolved, () => showResults(z, s, result));
+  }
   show("results");
   const { won } = result;
-  $("results-title").textContent = !won ? "Knocked out! 💫" : result.boss ? "Boss defeated! 🏆" : "You won! 🎉";
+  $("results-title").textContent = !won ? "Knocked out! 💫" : result.boss ? "Boss defeated! 🏆" : result.opts?.team ? `You beat ${result.opts.owner}! 🎉` : "You won! 🎉";
   $("results-stars").hidden = !won;
   $("results-stars").textContent = starsText(result.stars);
   $("results-stars").setAttribute("aria-label", `${result.stars} out of 3 stars`);
   $("results-xp").textContent = `+${result.xp} XP`;
-  $("results-coins").textContent = won ? `+${result.coins} 🪙` : "";
+  $("results-coins").textContent = won ? `+${result.coins} 🪙${result.prize ? ` (${result.prize} prize money!)` : ""}` : "";
   $("results-loot").hidden = !result.loot;
   if (result.loot) $("results-loot").innerHTML = `You found: ${itemImg(result.loot.id)} <b>${result.loot.name}</b>!`;
   $("results-caught").hidden = !result.caught;
@@ -251,6 +300,8 @@ function showResults(z, s, result) {
   if (shard) playScene(`shard-${result.zone.id}`);
 
   $("results-again").textContent = won ? "🔁 Again" : "🔁 Try again";
+  // A trainer only battles once (and a lost trainer battle restarts when they spot you again).
+  $("results-again").hidden = Boolean(result.opts?.team);
   $("results-again").onclick = () => playStage(z, s, result.foe.id, result.level, result.opts);
   $("results-next").onclick = () => enterBiome(z);
 }
@@ -336,13 +387,18 @@ showHooks.book = () => {
     const card = document.createElement("div");
     card.className = `book-card${mine ? "" : " unknown"}${onTeam ? " buddy" : ""}`;
 
+    const el = ELEMENTS[creature.element];
+    const elBadge = el ? `<span class="el-badge el-${creature.element}">${el.icon} ${el.name}</span>` : "";
     if (mine) {
       const maxed = mine.level >= BUDDY_MAX_LEVEL;
       const pct = maxed ? 100 : Math.round((mine.xp / buddyXpToLevel(mine.level)) * 100);
+      const evolved = isEvolved(mine.level);
+      const evolveNote = EVOLUTIONS[creature.id] && !evolved ? `<div class="small-text">✨ Evolves at level ${EVOLVE_LEVEL}!</div>` : "";
       card.innerHTML = `
-        <div class="book-art">${creatureImg(creature.id)}</div>
-        <div class="book-name">${creature.name}</div>
-        <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""}</div>
+        <div class="book-art">${creatureImg(creature.id, "", false, evolved)}</div>
+        <div class="book-name">${creatureName(creature.id, mine.level)}</div>
+        <div class="book-el">${elBadge}</div>
+        <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""}</div>${evolveNote}
         <div class="xpbar" aria-hidden="true"><span style="width:${pct}%"></span></div>
         <ul class="book-moves">${moveText}</ul>
         <div class="small-text">${where}</div>`;
@@ -354,7 +410,7 @@ showHooks.book = () => {
       button.onclick = () => {
         if (onTeam) {
           progress.removeFromTeam(creature.id);
-          announce(`${creature.name} left your team.`);
+          announce(`${creatureName(creature.id, mine.level)} left your team.`);
         } else {
           const left = progress.addToTeam(creature.id);
           announce(`${creature.name} joined your team!${left ? ` ${CREATURES.find((c) => c.id === left).name} stepped out.` : ""}`);
@@ -368,6 +424,7 @@ showHooks.book = () => {
       card.innerHTML = `
         <div class="book-art silhouette">${creatureImg(creature.id)}</div>
         <div class="book-name">${seen ? creature.name : "???"}</div>
+        <div class="book-el">${seen ? elBadge : ""}</div>
         <div class="small-text">${seen ? `${where}. Break its hex to free it!` : where}</div>`;
     }
     grid.appendChild(card);

@@ -24,6 +24,7 @@ function defaults() {
     team: [STARTER_CREATURE], // up to TEAM_SIZE buddies that fight beside you
     seen: [STARTER_CREATURE], // creatures met, for the creature book
     storySeen: [], // story scenes already shown (story.js)
+    trainers: [], // trainers beaten (trainers.js)
     trails: {}, // zone id -> { gates: gates opened, wins: [creatures beaten per area] }
     settings: { ...DEFAULT_SETTINGS },
   };
@@ -301,6 +302,15 @@ export function updateQuest(zoneIndex, area, changes) {
 export function openChest(zoneIndex, chestId) {
   const t = trail(zoneIndex);
   if (!t.chests.includes(chestId)) t.chests.push(chestId);
+  save();
+}
+
+// ---------- Trainers ----------
+
+export const trainerBeaten = (id) => (state.trainers || []).includes(id);
+export function beatTrainer(id) {
+  state.trainers ||= [];
+  if (!state.trainers.includes(id)) state.trainers.push(id);
   save();
 }
 

@@ -29,11 +29,13 @@
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, CHEST_COINS, CHESTS_PER_AREA, COINS_PER_AREA, CONSUMABLES, creatureLevel, CREATURES,
-  GUARD_EXTRA_LEVELS, QUEST_COINS, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, WILD_PER_AREA, ZONES,
+  GUARD_EXTRA_LEVELS, isEvolved, QUEST_COINS, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, TRAINER_SIGHT,
+  WILD_PER_AREA, ZONES,
 } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
 import { QUESTS, ROOK } from "./quests.js";
+import { trainersFor } from "./trainers.js";
 import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
@@ -229,6 +231,8 @@ function build(z) {
     chest: null, // the sign panel that's open (a chest, an item, or a riddle)
     npcs: [], // villagers (quests.js)
     actors: [], // Malgrath or Rook, while a story event plays
+    trainers: [], // trainers.js: they battle you when they spot you
+    spotted: null, // { t, since }: a trainer who just spotted you
     items: [], // lost things to find for quests
     dust: [], // little puffs from footsteps
     atSign: null,
@@ -284,6 +288,12 @@ function build(z) {
       if (p) biome.items.push({ area: a, name: step.item, letter: letters[Math.floor(hash(a, 3, seed + 60) * letters.length)], ...p });
     }
   });
+
+  // Trainers stand near the path, in the middle of their area.
+  for (const t of trainersFor(z)) {
+    const p = spot(t.area, 600, true);
+    if (p) biome.trainers.push({ ...t, ...p, homeX: p.x, homeY: p.y, beaten: progress.trainerBeaten(t.id) });
+  }
 
   for (const gate of gates) if (!gate.open) for (const i of gate.tiles) blocked[i] = 1;
   placeOnOpenGround(biome, hero);
@@ -630,6 +640,15 @@ function checkTouch(biome, now) {
 
   if (now < biome.safeUntil) return;
 
+  // ⚔️ Trainers: beaten ones chat; anyone else who sees you wants a battle.
+  const trainer = biome.trainers.find((t) => near(t, hero, 12));
+  if (trainer?.beaten) return say(biome, [[trainerSpeaker(trainer), trainer.chat]]);
+  const area = areaOf(hero.y);
+  const watcher = biome.trainers.find(
+    (t) => !t.beaten && t.area === area && now > (t.restUntil || 0) && Math.hypot(t.x - hero.x, t.y - hero.y) < TRAINER_SIGHT,
+  );
+  if (watcher) return spotYou(biome, watcher, now);
+
   // 💬 Villagers: walk up to talk.
   const villager = biome.npcs.find((v) => near(v, hero, 12));
   if (villager) return talkTo(biome, villager);
@@ -663,6 +682,47 @@ function checkTouch(biome, now) {
   }
 }
 
+// ---------- Trainers ----------
+
+const trainerSpeaker = (t) => ({ name: t.name, art: () => heroImg(t.look, null, "", true) });
+
+// ❗ A trainer spots you: you freeze, they walk over (runSpot), and battle.
+function spotYou(biome, t, now) {
+  biome.spotted = { t, since: now };
+  keys.clear();
+  biome.hero.path = [];
+  biome.hero.moving = false;
+  announce(`${t.name} spotted you!`);
+}
+
+function runSpot(biome, now, dt) {
+  const { t, since } = biome.spotted;
+  if (now - since < 900) return; // the ❗ pops up first
+  const hero = biome.hero;
+  const dx = hero.x - t.x, dy = hero.y - t.y;
+  const d = Math.hypot(dx, dy);
+  if (d > 17) {
+    const step = Math.min(d - 16, HERO_SPEED * dt);
+    t.x += (dx / d) * step;
+    t.y += (dy / d) * step;
+    t.moving = true;
+    return;
+  }
+  t.moving = false;
+  biome.spotted = null;
+  playLines([[trainerSpeaker(t), t.before]], () =>
+    startEncounter(biome, {
+      id: t.team[0].id,
+      level: t.team[0].level,
+      stage: progress.stageUnlocked(biome.z, 1) ? 1 : 0,
+      owner: t.name,
+      team: t.team,
+      prize: t.prize,
+      trainer: t,
+    }),
+  );
+}
+
 function bumpBack(biome, now) {
   biome.safeUntil = now + SAFE_MS;
   biome.hero.path = [];
@@ -677,7 +737,7 @@ function startEncounter(biome, creature) {
   $("biome-wrap").classList.add("encounter");
   setTimeout(() => {
     $("biome-wrap").classList.remove("encounter");
-    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner });
+    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner, team: creature.team, prize: creature.prize });
     if (creature.boss) playScene(`boss-${creature.id}`, fight);
     else fight();
   }, 600);
@@ -691,6 +751,18 @@ export function biomeBattleOver(z, won) {
   biome.fighting = null;
   biome.safeUntil = performance.now() + SAFE_MS;
   biome.nextSpawn = performance.now() + RESPAWN_MS;
+  if (c.trainer) {
+    // Back to their spot. Beaten: they're done battling. Not: they'll spot you again in a bit.
+    const t = c.trainer;
+    t.x = t.homeX;
+    t.y = t.homeY;
+    if (won) {
+      progress.beatTrainer(t.id);
+      t.beaten = true;
+    } else t.restUntil = performance.now() + 10000;
+    pendingLines = { lines: [[trainerSpeaker(t), won ? t.after : "Ha! Train up and come find me again!"]] };
+    return;
+  }
   if (c.event) {
     biome.actors = [];
     const lost = c.event.type === "rook" ? [["rook", "Too slow, apprentice! See you around."]] : [["pip", "We'll get stronger. Malgrath won't win!"]];
@@ -1016,12 +1088,18 @@ function draw(biome, now) {
     const back = hero.trail.length - 1 - (n + 1) * 8; // about 16 pixels apart
     const spot = hero.trail[Math.max(0, back)] || { x: hero.x - 12 * (n + 1), y: hero.y, flip: hero.flip };
     const frame = walkFrame(hero.moving, now, 110, n * 2 + 1);
-    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame)), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
+    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame, isEvolved(pet.level))), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
   });
   // Villagers face you and breathe gently.
   for (const v of biome.npcs) {
     const lift = Math.floor(now / 500 + v.x) % 2;
     things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, Boolean(v.wand))), x: v.x, flip: hero.x < v.x, lift, shadow: true });
+  }
+  // Trainers face you; they walk when they come over to battle.
+  for (const t of biome.trainers) {
+    const frame = walkFrame(t.moving, now, 110, t.x);
+    const lift = t.moving ? frame % 2 : Math.floor(now / 500 + t.x) % 2;
+    things.push({ y: t.y, img: spriteCanvas(heroSrc(t.look, null, frame, true)), x: t.x, flip: hero.x < t.x, lift, shadow: true });
   }
   // Malgrath or Rook, during a story event.
   for (const a of biome.actors) {
@@ -1084,6 +1162,12 @@ function draw(biome, now) {
     ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - 14, html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
     // ❗ has a quest for you, ❓ come back (it's done), 💬 just chatting.
     ...biome.npcs.map((v) => ({ x: v.x, y: v.y - 31, html: `<span class="npc-icon">${npcIcon(biome, v)}</span><small>${v.name}</small>`, cls: " npc" })),
+    // ❗ when a trainer spots you; ⚔️ for ones still waiting to battle.
+    ...biome.trainers.map((t) =>
+      biome.spotted?.t === t
+        ? { x: t.x, y: t.y - 31, html: `<span class="npc-icon">❗</span>`, cls: " alert" }
+        : { x: t.x, y: t.y - 31, html: `<span class="npc-icon">${t.beaten ? "💬" : "⚔️"}</span><small>${t.name}</small>`, cls: " npc" },
+    ),
     // Lost things sparkle once someone has asked you to find them.
     ...biome.items
       .filter((it) => !it.taken && progress.questState(biome.z, it.area).accepted && !progress.questState(biome.z, it.area).have)
@@ -1145,7 +1229,8 @@ function renderHud(biome) {
   else if (step.type === "find") next = state.have ? `❓ Bring ${step.item} back to ${giver.name}` : `📜 ${step.title}`;
   else next = `📜 ${step.title}`;
   const opened = biome.chests.filter((c) => c.open).length;
-  const html = `<span class="goal">📍 Area ${frontier + 1} of ${BIOME_AREAS}</span><span class="goal">${next}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span>`;
+  const beaten = biome.trainers.filter((t) => t.beaten).length;
+  const html = `<span class="goal">📍 Area ${frontier + 1} of ${BIOME_AREAS}</span><span class="goal">${next}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
   if ($("biome-goals").innerHTML !== html) $("biome-goals").innerHTML = html;
 }
 
@@ -1180,6 +1265,8 @@ function frame(now) {
   const talking = isStoryPlaying();
   if (biome.chest) {
     signTick(biome, now);
+  } else if (biome.spotted) {
+    if (!talking) runSpot(biome, now, dt);
   } else if (!talking) {
     moveHero(biome, dt);
     moveCreatures(biome, dt, now);
@@ -1199,8 +1286,8 @@ function frame(now) {
   }
   biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
-  if (!biome.chest && !talking && current === biome) checkEvents(biome);
-  if (!biome.chest && !isStoryPlaying() && current === biome) checkTouch(biome, now);
+  if (!biome.chest && !biome.spotted && !talking && current === biome) checkEvents(biome);
+  if (!biome.chest && !biome.spotted && !isStoryPlaying() && current === biome) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);
 }
 
@@ -1252,7 +1339,7 @@ const KEY_DIRS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right",
 
 addEventListener("keydown", (e) => {
   const dir = KEY_DIRS[e.key];
-  if (!dir || !current || current.chest || !isShowing("biome") || e.target.closest?.("input, textarea, select")) return;
+  if (!dir || !current || current.chest || current.spotted || !isShowing("biome") || e.target.closest?.("input, textarea, select")) return;
   keys.add(dir);
   e.preventDefault();
 });
@@ -1266,7 +1353,7 @@ $("biome-book").onclick = () => {
 };
 
 $("biome-canvas").addEventListener("pointerdown", (e) => {
-  if (!current || current.chest) return;
+  if (!current || current.chest || current.spotted) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const tx = tileOf(((e.clientX - rect.left) / rect.width) * VIEW_W + current.camX);
   const ty = tileOf(((e.clientY - rect.top) / rect.height) * VIEW_H + current.camY);

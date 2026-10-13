@@ -454,6 +454,7 @@ showHooks.settings = () => {
   $("set-conf").value = s.minConfidence;
   $("set-hand").value = s.hand;
   $("set-recognizer").value = s.recognizer;
+  $("set-narration").checked = s.narration !== false;
   $("reset-confirm").hidden = true;
   updateSettingsText();
 };
@@ -470,6 +471,7 @@ function updateSettingsText() {
 $("set-hold").oninput = (e) => (progress.updateSettings({ holdMs: Number(e.target.value) }), updateSettingsText());
 $("set-conf").oninput = (e) => (progress.updateSettings({ minConfidence: Number(e.target.value) }), updateSettingsText());
 $("set-hand").onchange = (e) => progress.updateSettings({ hand: e.target.value });
+$("set-narration").onchange = (e) => progress.updateSettings({ narration: e.target.checked });
 $("set-recognizer").onchange = (e) => (progress.updateSettings({ recognizer: e.target.value }), updateSettingsText());
 $("reset-btn").onclick = () => ($("reset-confirm").hidden = false);
 $("reset-confirm").onclick = () => {

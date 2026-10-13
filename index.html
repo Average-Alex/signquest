@@ -334,6 +334,10 @@
           <option value="left">Left hand</option>
         </select>
       </label>
+      <label class="setting setting-check">
+        <span>Narrator voice in cinematics</span>
+        <input id="set-narration" type="checkbox">
+      </label>
       <label class="setting">
         <span>Recognizer</span>
         <select id="set-recognizer">
@@ -407,6 +411,7 @@
       <p id="cine-live" class="sr-only" aria-live="polite"></p>
       <div class="cine-controls">
         <div id="cine-dots" class="cine-dots" aria-hidden="true"></div>
+        <button id="cine-mute" class="btn small cine-mute" aria-label="Turn the narrator off">🔊</button>
         <button id="cine-skip" class="btn small">Skip ⏭</button>
         <button id="cine-next" class="btn go">Next ▶</button>
       </div>

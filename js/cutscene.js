@@ -9,18 +9,22 @@
 // caption that types itself out. Skip ends it; click or Next moves on.
 //
 // Everything is drawn from the game's own sprites, so a cinematic always
-// matches what you see in play (including your hero's look).
+// matches what you see in play (including your hero's look). A deep narrator
+// voice reads each caption, over an ominous drone (narrator.js); a shot waits
+// for the voice to finish before moving on.
 
 import { battleBackdropSrc } from "./biome.js";
 import { CREATURES, ZONES } from "./config.js";
 import * as progress from "./progress.js";
+import { isMuted, narrationOn, rumble, setMuted, speak, startDrone, stopDrone, stopSpeaking } from "./narrator.js";
 import { QUEEN } from "./quests.js";
 import { creatureImg, heroImg, landmarkSrc, randomLook } from "./sprites.js";
 import { worldMapSrc } from "./worldmap.js";
 
 const $ = (id) => document.getElementById(id);
 const TYPE_MS = 28; // per letter of a caption
-const HOLD_MS = 2600; // after a caption finishes, before moving on by itself
+const HOLD_MS = 2600; // after a caption finishes, before moving on by itself (no voice)
+const AFTER_VOICE_MS = 900; // after the narrator finishes
 
 // ---------- Building blocks for shots ----------
 
@@ -194,9 +198,11 @@ export function playCutscene(id, onDone = () => {}, { replay = false } = {}) {
   const seenId = `cine-${id}`;
   if (!SCENES[id] || (progress.storySeen(seenId) && !replay)) return onDone();
   progress.markStorySeen(seenId);
-  playing = { shots: SCENES[id], index: 0, onDone, typing: null, timer: null };
+  playing = { shots: SCENES[id], index: 0, onDone, typing: null, timer: null, typed: false, spoken: false };
   $("cine").hidden = false;
   $("cine-skip").focus();
+  renderMute();
+  startDrone();
   showShot();
 }
 
@@ -206,6 +212,9 @@ function showShot() {
   const shot = playing.shots[playing.index];
   clearTimeout(playing.timer);
   clearInterval(playing.typing);
+  stopSpeaking();
+  playing.typed = false;
+  playing.spoken = false;
 
   // Background: a picture, darkened, with a sky tint and a slow camera move.
   const stage = $("cine-stage");
@@ -219,8 +228,11 @@ function showShot() {
     .map((a) => `<div class="cine-actor ${a.anim} ${a.extra}" style="left:${a.x}%; top:${a.y}%; width:${a.w}%; animation-delay:${a.delay}ms">${a.art()}</div>`)
     .join("");
 
-  // Effects.
-  $("cine-fx").innerHTML = (shot.fx || []).map(effect).join("");
+  // Effects, with a rumble for the big moments.
+  const fx = shot.fx || [];
+  $("cine-fx").innerHTML = fx.map(effect).join("");
+  if (fx.includes("flash")) rumble(1000);
+  else if (fx.includes("shake")) rumble(900);
 
   // Title card (zones), and the caption typing itself out.
   $("cine-title").hidden = !shot.title;
@@ -235,6 +247,17 @@ function showShot() {
     caption.textContent = text.slice(0, n);
     if (n >= text.length) doneTyping();
   }, TYPE_MS);
+  // The narrator reads it (a beat after the picture appears).
+  const shotNow = playing;
+  const index = playing.index;
+  setTimeout(() => {
+    if (playing !== shotNow || playing.index !== index) return;
+    speak(text, () => {
+      if (playing !== shotNow || playing.index !== index) return;
+      playing.spoken = true;
+      maybeMoveOn();
+    });
+  }, 350);
   $("cine-next").textContent = playing.index === playing.shots.length - 1 ? "Let's go! ▶" : "Next ▶";
   // Little dots: which shot this is.
   $("cine-dots").innerHTML = playing.shots.map((_, i) => `<span class="${i === playing.index ? "on" : ""}"></span>`).join("");
@@ -243,9 +266,18 @@ function showShot() {
 function doneTyping() {
   clearInterval(playing.typing);
   playing.typing = null;
-  const shot = playing.shots[playing.index];
   $("cine-text").textContent = $("cine-live").textContent;
-  playing.timer = setTimeout(next, HOLD_MS + (shot.text.length > 90 ? 1200 : 0));
+  playing.typed = true;
+  maybeMoveOn();
+}
+
+// Moves on by itself once the caption is shown and the narrator is done.
+function maybeMoveOn() {
+  if (!playing.typed || !playing.spoken) return;
+  const shot = playing.shots[playing.index];
+  clearTimeout(playing.timer);
+  const hold = narrationOn() ? AFTER_VOICE_MS : HOLD_MS + (shot.text.length > 90 ? 1200 : 0);
+  playing.timer = setTimeout(next, hold);
 }
 
 function next() {
@@ -261,6 +293,8 @@ function end() {
   if (!playing) return;
   clearTimeout(playing.timer);
   clearInterval(playing.typing);
+  stopSpeaking();
+  stopDrone();
   const { onDone } = playing;
   playing = null;
   $("cine").hidden = true;
@@ -302,6 +336,22 @@ function effect(name) {
 $("cine-next").onclick = next;
 $("cine-stage").onclick = next;
 $("cine-skip").onclick = end;
+
+// 🔊 / 🔇: mute the narrator and music for this and later cinematics.
+function renderMute() {
+  const off = isMuted() || progress.get().settings.narration === false;
+  $("cine-mute").textContent = off ? "🔇" : "🔊";
+  $("cine-mute").setAttribute("aria-label", off ? "Turn the narrator on" : "Turn the narrator off");
+}
+$("cine-mute").onclick = () => {
+  const off = isMuted() || progress.get().settings.narration === false;
+  if (off) {
+    setMuted(false);
+    progress.updateSettings({ narration: true });
+    startDrone();
+  } else setMuted(true);
+  renderMute();
+};
 addEventListener("keydown", (e) => {
   if (!playing) return;
   if (e.key === "Escape") return end();

@@ -10,8 +10,8 @@
 //
 // Everything is drawn from the game's own sprites, so a cinematic always
 // matches what you see in play (including your hero's look). A deep narrator
-// voice reads each caption, over an ominous drone (narrator.js); a shot waits
-// for the voice to finish before moving on.
+// reads each caption (recorded lines, see narrator.js) over an ominous drone;
+// a shot waits for the voice to finish before moving on.
 
 import { battleBackdropSrc } from "./biome.js";
 import { CREATURES, ZONES } from "./config.js";
@@ -198,7 +198,7 @@ export function playCutscene(id, onDone = () => {}, { replay = false } = {}) {
   const seenId = `cine-${id}`;
   if (!SCENES[id] || (progress.storySeen(seenId) && !replay)) return onDone();
   progress.markStorySeen(seenId);
-  playing = { shots: SCENES[id], index: 0, onDone, typing: null, timer: null, typed: false, spoken: false };
+  playing = { id, shots: SCENES[id], index: 0, onDone, typing: null, timer: null, typed: false, spoken: false };
   $("cine").hidden = false;
   $("cine-skip").focus();
   renderMute();
@@ -252,7 +252,7 @@ function showShot() {
   const index = playing.index;
   setTimeout(() => {
     if (playing !== shotNow || playing.index !== index) return;
-    speak(text, () => {
+    speak(`${playing.id}-${index}`, text, () => {
       if (playing !== shotNow || playing.index !== index) return;
       playing.spoken = true;
       maybeMoveOn();

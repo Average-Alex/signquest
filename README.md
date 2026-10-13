@@ -88,6 +88,13 @@ The bar under the map shows where you are and what you've found (side quests,
 chests, trainers). Once you accept a quest, a compass arrow at the edge of the
 view points to it; with no quests, there's no arrow.
 
+**Cinematics.** The first time you start, an animated opening tells the story:
+the Great Beacon, Queen Amara discovering Signlight, Malgrath shattering the
+Beacon, and you escaping the Academy. Every zone has its own short cinematic
+the first time you walk in: its landmark, its hexed boss and shard, and you
+arriving. Captions type themselves out; Skip ends one, and Settings can
+replay the opening (`js/cutscene.js`).
+
 **Story events.** Each zone's quests lead toward its shard, and things happen
 as you walk into new areas: Malgrath appears in a burst of purple fog and
 sends hexed creatures to ambush you, Rook (a rival collecting shards for

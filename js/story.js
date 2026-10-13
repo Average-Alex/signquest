@@ -28,11 +28,8 @@ const SPEAKERS = {
 };
 
 const SCENES = {
+  // After the opening cinematic (cutscene.js), Pip introduces itself.
   intro: [
-    ["narrator", "Long ago, the Great Beacon lit up the whole land. Its magic was called Signlight, and it flowed through the hands of people who sign."],
-    ["narrator", "The greatest signers were the Signkeepers. They could shape Signlight into shields, bridges, and spells."],
-    ["narrator", "Then Malgrath the Hollow King broke free. In one night, he shattered the Beacon into 8 Beacon Shards."],
-    ["narrator", "Wherever a shard fell, creatures became Hexbound: wild, grumpy, and glowing purple."],
     ["pip", "Psst! Down here! I'm Pip. You're from the Signkeeper Academy, right? The last apprentice who got out?"],
     ["pip", "Then you know the old magic! When you sign, the hex cracks. Free a Hexbound creature and it'll want to join your team."],
     ["pip", "Every big spell needs energy, and signing is what charges it. The more you sign, the stronger you get!"],

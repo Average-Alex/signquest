@@ -4,6 +4,7 @@ import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
 import * as progress from "./progress.js";
 import { ENOUGH, openCalibration } from "./calibrate.js";
+import { playCutscene } from "./cutscene.js";
 import { initRecordPage } from "./record.js";
 import { countsByLetter } from "./samples.js";
 import { show } from "./screens.js";
@@ -63,16 +64,18 @@ onHand((hand) => {
   $("title-calibrate").hidden = Object.values(counts).filter((n) => n >= ENOUGH).length >= 20;
 });
 
-// Off to the map. The first time, the story's intro plays over it.
+// Off to the map. The first time, the opening cinematic plays, then Pip
+// introduces itself.
 function startAdventure() {
   if (!progress.get().name) progress.update({ name: "Hero" });
   show("map");
-  playScene("intro");
+  playCutscene("opening", () => playScene("intro"));
 }
 
 $("title-continue").onclick = startAdventure;
 $("title-calibrate").onclick = () => openCalibration(() => show("title"));
 $("open-calibrate").onclick = () => openCalibration(() => show("settings"));
+$("replay-opening").onclick = () => playCutscene("opening", () => {}, { replay: true });
 
 // With ?dev, holding a letter key always counts as signing it.
 $("keyboard-play").onclick = startAdventure;

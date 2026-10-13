@@ -345,6 +345,7 @@
       </label>
       <p id="recognizer-info" class="small-text"></p>
       <button id="open-calibrate" class="btn small">🎯 Teach the camera your hands</button>
+      <button id="replay-opening" class="btn small">🎬 Watch the opening again</button>
       <div class="danger">
         <button id="reset-btn" class="btn small">Start over</button>
         <button id="reset-confirm" class="btn small warn" hidden>Yes, erase my progress</button>
@@ -390,6 +391,27 @@
       </div>
     </div>
   </section>
+
+  <!-- Cinematics (cutscene.js) -->
+  <div id="cine" class="cine" role="dialog" aria-modal="true" aria-label="Story" hidden>
+    <div id="cine-stage" class="cine-stage">
+      <img id="cine-bg" class="sprite cine-bg" alt="">
+      <div id="cine-dim" class="cine-dim"></div>
+      <div id="cine-fx" class="cine-fx" aria-hidden="true"></div>
+      <div id="cine-actors" class="cine-actors" aria-hidden="true"></div>
+      <p id="cine-title" class="cine-title" hidden></p>
+      <div class="cine-bars" aria-hidden="true"></div>
+    </div>
+    <div class="cine-caption">
+      <p id="cine-text" class="cine-text" aria-hidden="true"></p>
+      <p id="cine-live" class="sr-only" aria-live="polite"></p>
+      <div class="cine-controls">
+        <div id="cine-dots" class="cine-dots" aria-hidden="true"></div>
+        <button id="cine-skip" class="btn small">Skip ⏭</button>
+        <button id="cine-next" class="btn go">Next ▶</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Evolution (screens.js) -->
   <div id="evolve" class="evolve" role="dialog" aria-modal="true" aria-labelledby="evolve-text" hidden>

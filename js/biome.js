@@ -37,6 +37,7 @@ import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, sh
 import { QUESTS, ROOK } from "./quests.js";
 import { trainersFor } from "./trainers.js";
 import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
+import { playCutscene } from "./cutscene.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
 
@@ -1414,8 +1415,8 @@ export function enterBiome(z, from = null) {
   renderHud(biome);
   renderCoins();
   draw(biome, performance.now());
-  // The first visit to a zone starts with a bit of story.
-  playScene(`zone-${biome.zone.id}`, () => {
+  // The first visit to a zone starts with its cinematic, then Pip.
+  playCutscene(`zone-${biome.zone.id}`, () => playScene(`zone-${biome.zone.id}`, () => {
     current = biome;
     biome.last = 0;
     if (pendingToast) {
@@ -1428,7 +1429,7 @@ export function enterBiome(z, from = null) {
       say(biome, lines, after);
     }
     requestAnimationFrame(frame);
-  });
+  }));
 }
 
 function toast(text, ms = 3500) {

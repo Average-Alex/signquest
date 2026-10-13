@@ -69,8 +69,10 @@ const shuffledWords = (z) => [...ZONES[z].words].sort(() => Math.random() - 0.5)
 function nextTarget(z, type, previous) {
   const zone = ZONES[z];
   if (type === "words") return shuffledWords(z).find((w) => w !== previous) || zone.words[0];
-  // Everything learned so far for review. The Starfall Realm reviews the whole alphabet.
-  const pool = type === "review" ? (zone.dimension > 0 ? LETTERS : ZONES.slice(0, z + 1).flatMap((zn) => zn.letters)) : zone.letters;
+  // Review: this zone's letters plus every other letter you've learned
+  // (zones can be played in any order). The Starfall Realm reviews the whole alphabet.
+  const known = progress.get().learned;
+  const pool = type === "review" ? (zone.dimension > 0 ? LETTERS : [...new Set([...zone.letters, ...known])]) : zone.letters;
   return progress.weightedPick(pool, previous);
 }
 

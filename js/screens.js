@@ -122,8 +122,8 @@ showHooks.map = () => {
   portal.innerHTML = `
     <img class="sprite landmark" src="${landmarkSrc("void")}" alt="">
     <span class="banner">${portalOpen ? "" : "🔒 "}${DIMENSIONS[other].icon} ${DIMENSIONS[other].name}</span>
-    <span class="zone-stars">${portalOpen ? "Step through the portal!" : `Beat the ${ZONES[realmStart - 1].name} boss`}</span>`;
-  portal.setAttribute("aria-label", `Portal to the ${DIMENSIONS[other].name}${portalOpen ? "" : `, locked until you beat the ${ZONES[realmStart - 1].name} boss`}`);
+    <span class="zone-stars">${portalOpen ? "Step through the portal!" : `Collect all ${realmStart} shards here`}</span>`;
+  portal.setAttribute("aria-label", `Portal to the ${DIMENSIONS[other].name}${portalOpen ? "" : `, locked until you collect all ${realmStart} shards here`}`);
   portal.onclick = () => {
     mapDimension = other;
     showHooks.map();
@@ -144,8 +144,12 @@ let mapDimension = null; // which dimension's map is showing
 // Learn any new letters first, then fight `foeId` (a creature id) at `level`.
 // `opts.owner`: whose creature it is, for rival battles (it can't be caught).
 export function playStage(z, s, foeId, level, opts = {}) {
-  const unlearned = ZONES[z].letters.filter((l) => !progress.get().learned.includes(l));
-  if (s === 0 && unlearned.length) startLearn(unlearned, () => playStage(z, s, foeId, level, opts));
+  // Zones can be visited in any order, so learn any letter this battle might
+  // ask for first: the zone's letters, plus the ones in its words.
+  const zone = ZONES[z];
+  const needed = [...new Set([...zone.letters, ...(s > 0 ? zone.words.join("") : "")])];
+  const unlearned = needed.filter((l) => !progress.get().learned.includes(l));
+  if (unlearned.length) startLearn(unlearned, () => playStage(z, s, foeId, level, opts));
   else startBattle(z, s, foeId, level, (result) => showResults(z, s, result), opts);
 }
 
@@ -297,7 +301,7 @@ function showResults(z, s, result) {
       levelUps.map((c) => ` ${c.name} reached level ${c.level}!`).join(""),
   );
   // After a boss: the shard, and a piece of the story.
-  if (shard) playScene(`shard-${result.zone.id}`);
+  if (shard) playScene(`shard-${result.zone.id}`, () => result.zone.dimension === 0 && playScene(`memory-${progress.shardCount()}`));
 
   $("results-again").textContent = won ? "🔁 Again" : "🔁 Try again";
   // A trainer only battles once (and a lost trainer battle restarts when they spot you again).

@@ -41,8 +41,8 @@ const SCENES = {
   // The first time you walk into each zone.
   "zone-meadow": [
     ["pip", "This is the Meadow. See the creatures glowing purple? That's the hex. Bump into one and sign to break it!"],
-    ["pip", "Locked gates block the path. The people who live here can open them. Look for anyone with a ❗ over their head and help them out!"],
-    ["pip", "At the very top, the Croak King is guarding our first Beacon Shard."],
+    ["pip", "Go wherever you want! Anyone with a ❗ over their head has a side quest, if you feel like helping. Trainers want battles, and treasure is hidden off the path."],
+    ["pip", "At the very top, the Croak King is guarding a Beacon Shard. Take him on whenever you're ready. Every zone on the map has one!"],
   ],
   "zone-forest": [
     ["pip", "The Forest is so dark without the Beacon. Professor Hoot used to teach young Signkeepers here."],
@@ -99,26 +99,20 @@ const SCENES = {
   ],
 
   // After each boss: a shard, and one of Pip's memories comes back.
-  "shard-meadow": [
-    ["pip", "You did it! The Croak King is free, and you found a Beacon Shard! That's 1 of 8!"],
-    ["pip", "Whoa... when the shard glowed, I remembered something. A tall tower made of light. I think I've been there before."],
-  ],
-  "shard-forest": [
-    ["pip", "Shard 2! Professor Hoot is himself again!"],
-    ["pip", "And I remember... voices. Lots of kids signing and laughing. The Academy!"],
-  ],
-  "shard-caves": [
-    ["pip", "Shard 3!"],
-    ["pip", "I remember Malgrath's face now. He was holding the Beacon, and it started to crack."],
-  ],
-  "shard-river": [
-    ["pip", "Shard 4! We're halfway there!"],
-    ["pip", "I remember falling. A tiny piece of light, falling through the night sky..."],
-  ],
-  "shard-castle": [
-    ["pip", "Shard 5! Blaze is free, and the Academy is ours again!"],
-    ["pip", "I remember Malgrath now. He was a Signkeeper here, long ago. He wanted all the Signlight for himself."],
-    ["rook", "And the last 3 shards flew through a portal. Robin is somewhere on the other side. Look at the map!"],
+  // Overworld bosses can be beaten in any order, so the shard count is filled
+  // in, and Pip's memories (memory-1 to memory-5) come back in order after.
+  "shard-meadow": [["pip", "You did it! The Croak King is free, and you found a Beacon Shard! That's {shards} of 8!"]],
+  "shard-forest": [["pip", "Professor Hoot is himself again! That's shard {shards} of 8!"]],
+  "shard-caves": [["pip", "Count Flap is free, and the Caves are quiet again. Shard {shards} of 8!"]],
+  "shard-river": [["pip", "Inkzilla is free, and the River sparkles again! Shard {shards} of 8!"]],
+  "shard-castle": [["pip", "Blaze is free, and the Academy is ours again! Shard {shards} of 8!"]],
+  "memory-1": [["pip", "Whoa... when the shard glowed, I remembered something. A tall tower made of light. I think I've been there before."]],
+  "memory-2": [["pip", "And I remember... voices. Lots of kids signing and laughing. The Academy!"]],
+  "memory-3": [["pip", "I remember Malgrath's face now. He was holding the Beacon, and it started to crack."]],
+  "memory-4": [["pip", "I remember falling. A tiny piece of light, falling through the night sky... We're more than halfway there!"]],
+  "memory-5": [
+    ["pip", "I remember Malgrath now. He was a Signkeeper at the Academy, long ago. He wanted all the Signlight for himself."],
+    ["rook", "And the last 3 shards flew through a portal. Robin is somewhere on the other side. The portal's open now. Look at the map!"],
   ],
   "shard-spires": [["pip", "Shard 6! Now that I remember who I am, I can feel the last shards calling me."], ["rook", "Two more. Hang on, Robin."]],
   "shard-clouds": [["pip", "Shard 7! Only one left, and Malgrath has it. He's waiting at the top of the Void Rift."], ["rook", "With Robin. Let's go."]],
@@ -165,7 +159,7 @@ function showLine() {
   $("story-portrait").className = `story-portrait ${typeof who === "string" ? who : "npc"}`;
   $("story-name").textContent = name;
   $("story-name").hidden = !name;
-  $("story-text").textContent = text.replaceAll("{name}", progress.get().name || "Signkeeper");
+  $("story-text").textContent = text.replaceAll("{name}", progress.get().name || "Signkeeper").replaceAll("{shards}", progress.shardCount());
   const last = playing.index === playing.lines.length - 1;
   $("story-next").textContent = last ? "Let's go! ▶" : "Next ▶";
   // Restart the little fade-in.

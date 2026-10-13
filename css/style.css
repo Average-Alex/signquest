@@ -829,3 +829,8 @@ input[type=text], select {
 .evolve.done .evolve-stage { animation: evolve-flash 0.9s ease-out; }
 @keyframes evolve-flash { 0% { background: #fff; box-shadow: 0 0 80px 40px #fff; } 100% { box-shadow: none; } }
 .evolve-text { max-width: 520px; margin: 0; font-size: clamp(18px, 3vw, 26px); font-weight: 700; text-shadow: 0 2px 0 #000; }
+
+/* Rare creatures from other zones: a gold, twinkling marker. */
+.biome-label.rare small { background: linear-gradient(#ffd23f, #f08a24); color: var(--ink); }
+.biome-label.rare { animation: rare-twinkle 0.9s steps(2) infinite; }
+@keyframes rare-twinkle { 50% { filter: brightness(1.4) drop-shadow(0 0 4px #fff6a8); } }

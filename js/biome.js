@@ -175,7 +175,8 @@ function build(z) {
           tiles.push(at(tx, ty));
         }
     const xs = tiles.map((i) => i % TW);
-    gates.push({ area: a, tiles, minX: Math.min(...xs), maxX: Math.max(...xs), y: (areaTop(a) + 2) * T, open: a < trail.gates });
+    // Gateways are always open: go anywhere. (Quests are optional now.)
+    gates.push({ area: a, tiles, minX: Math.min(...xs), maxX: Math.max(...xs), y: (areaTop(a) + 2) * T, open: true });
   }
 
   for (let i = 0; i < kind.length; i++) if (kind[i] === WATER_TILE) blocked[i] = 1;
@@ -210,9 +211,8 @@ function build(z) {
     for (let tx = Math.floor((landmark.x - landmark.w / 2) / T); tx < Math.ceil((landmark.x + landmark.w / 2) / T); tx++)
       if (ty >= 0) blocked[at(tx, ty)] = 1;
 
-  // Start just past the furthest gate you've opened.
-  const startArea = Math.min(trail.gates, BIOME_AREAS - 1);
-  const startRow = startArea === 0 ? TH - 3 : areaTop(startArea) + SH - 2;
+  // Start at the entrance, at the bottom.
+  const startRow = TH - 3;
   const hero = { x: pathX(startRow) * T, y: startRow * T, flip: false, moving: false, path: [], trail: [] };
 
   const biome = {
@@ -307,7 +307,8 @@ function build(z) {
     biome.creatures.push({ id: boss.id, stage: 2, boss: true, area: BIOME_AREAS - 1, level, x: W / 2 + landmark.w / 2 + 22, y: landmark.y + 3 * T, home: true });
   }
   for (const gate of gates) {
-    if (gate.open || story?.steps[gate.area]?.type !== "guard") continue; // only guard quests have a guard
+    // A guard quest has a tough creature waiting by the gateway until it's beaten.
+    if (story?.steps[gate.area]?.type !== "guard" || progress.questState(z, gate.area).done) continue;
     const row = areaTop(gate.area) + 6;
     biome.creatures.push({
       id: wild[gate.area % wild.length].id,
@@ -534,9 +535,15 @@ function nearestReachable(biome, tx, ty) {
 
 // ---------- Creatures ----------
 
+// Now and then, a rare creature from another zone wanders in. Explore to find them!
+const RARE_CHANCE = 0.08;
+
 function spawnWild(biome, area) {
-  const wild = CREATURES.filter((c) => c.zone === biome.zone.id && c.kind === "wild");
-  const wordsOpen = progress.stageUnlocked(biome.z, 1);
+  const local = CREATURES.filter((c) => c.zone === biome.zone.id && c.kind === "wild");
+  const rare = CREATURES.filter((c) => c.kind === "wild" && c.zone !== biome.zone.id && ZONES.find((zn) => zn.id === c.zone).dimension === biome.zone.dimension);
+  const isRare = Math.random() < RARE_CHANCE && rare.length;
+  const wild = isRare ? rare : local;
+  const wordsOpen = progress.stageStars(biome.z, 0) > 0;
   const top = areaTop(area) + 3;
   const bottom = areaTop(area) + SH - (area === 0 ? 6 : 2); // not right by the entrance
   for (let tries = 0; tries < 300; tries++) {
@@ -548,7 +555,8 @@ function spawnWild(biome, area) {
       id: wild[Math.floor(Math.random() * wild.length)].id,
       stage: wordsOpen && Math.random() < 0.5 ? 1 : 0,
       area,
-      level: creatureLevel(biome.z, area),
+      level: creatureLevel(biome.z, area) + (isRare ? 2 : 0),
+      rare: Boolean(isRare),
       x, y, dir: Math.random() * Math.PI * 2, turnAt: 0,
     });
     return;
@@ -579,8 +587,6 @@ function moveCreatures(biome, dt, now) {
 // Which walk-cycle frame to show: cycles while moving, feet down when still.
 // `msPerFrame` sets the pace; `offset` keeps everyone from stepping in sync.
 const walkFrame = (moving, now, msPerFrame, offset = 0) => (moving ? Math.floor(now / msPerFrame + offset) % 4 : 0);
-
-const guardAwake = (biome, c) => progress.questState(biome.z, c.guard).accepted;
 
 // ---------- The hero ----------
 
@@ -665,18 +671,7 @@ function checkTouch(biome, now) {
     const dy = c.y - hero.y; // negative when the creature is higher up
     if (dx > TOUCH_DISTANCE + extra || dy > 10 || dy < -(TOUCH_REACH_UP + extra)) continue;
 
-    let blockedBy = null;
-    if (c.guard !== undefined && !guardAwake(biome, c)) {
-      const giver = biome.npcs.find((v) => v.area === c.guard && v.role === "giver");
-      blockedBy = `💤 This gate guard is asleep. Talk to ${giver?.name || "the villager"} nearby first!`;
-    } else if (!progress.stageUnlocked(biome.z, c.stage)) {
-      blockedBy = c.stage === 2 ? "🔒 Win a 📜 word battle first, then come back for the boss!" : "🔒 Win a ⚔️ battle here first!";
-    }
-    if (blockedBy) {
-      toast(blockedBy);
-      bumpBack(biome, now);
-      return;
-    }
+    if (c.rare) toast(`🌟 A rare ${CREATURES.find((x) => x.id === c.id).name}! It's far from home.`);
     startEncounter(biome, c);
     return;
   }
@@ -714,7 +709,7 @@ function runSpot(biome, now, dt) {
     startEncounter(biome, {
       id: t.team[0].id,
       level: t.team[0].level,
-      stage: progress.stageUnlocked(biome.z, 1) ? 1 : 0,
+      stage: progress.stageStars(biome.z, 0) > 0 ? 1 : 0,
       owner: t.name,
       team: t.team,
       prize: t.prize,
@@ -881,19 +876,12 @@ function completeQuest(biome, area) {
   const step = questFor(biome, area);
   progress.updateQuest(biome.z, area, { done: true });
   progress.addCoins(QUEST_COINS);
+  // A thank-you present too.
+  const gift = CONSUMABLES[Math.floor(Math.random() * CONSUMABLES.length)];
+  progress.addConsumable(gift.id);
   renderCoins();
-  openGateNow(biome, area);
-  toast(`✅ Quest complete: ${step.title}! +${QUEST_COINS} 🪙 The gate is open!`, 4500);
-  announce(`Quest complete! The gate is open.`);
-}
-
-function openGateNow(biome, area) {
-  progress.openGate(biome.z, area);
-  const gate = biome.gates[area];
-  if (!gate || gate.open) return;
-  gate.open = true;
-  for (const i of gate.tiles) biome.blocked[i] = 0;
-  biome.reachable = floodFrom(biome, tileOf(biome.hero.x), tileOf(biome.hero.y - 1));
+  toast(`✅ Side quest complete: ${step.title}! +${QUEST_COINS} 🪙 and a ${gift.name}!`, 4500);
+  announce(`Side quest complete! You got ${QUEST_COINS} coins and a ${gift.name}.`);
 }
 
 // ---------- Story events ----------
@@ -938,7 +926,7 @@ function runEvent(biome, ev) {
     const rival = ev.type === "rook";
     startEncounter(biome, {
       id: ev.creature,
-      stage: rival && progress.stageUnlocked(z, 1) ? 1 : 0,
+      stage: rival && progress.stageStars(z, 0) > 0 ? 1 : 0,
       level: creatureLevel(z, ev.area) + (rival ? 2 : 1),
       owner: rival ? "Rook" : null,
       event: ev,
@@ -947,24 +935,28 @@ function runEvent(biome, ev) {
 }
 
 // Where the current quest wants you to go (for the compass arrow).
+// The compass points to the nearest thing one of your accepted side quests
+// needs. No accepted quests: no compass - go wherever you like.
 function questTarget(biome) {
-  const trail = progress.trail(biome.z);
-  const area = Math.min(trail.gates, BIOME_AREAS - 1);
-  const boss = biome.creatures.find((c) => c.boss && !c.freed);
-  const step = questFor(biome, area);
-  if (!step) return boss || null;
-  const state = progress.questState(biome.z, area);
-  const giver = biome.npcs.find((v) => v.area === area && v.role === "giver");
-  if (!state.accepted) return giver;
-  if (step.type === "deliver") return biome.npcs.find((v) => v.area === area && v.role === "receiver");
-  if (step.type === "find") return state.have ? giver : biome.items.find((it) => it.area === area);
-  if (step.type === "guard") return biome.creatures.find((c) => c.guard === area);
-  if (step.type === "free" && state.count < step.count) {
-    const h = biome.hero;
-    const wild = biome.creatures.filter((c) => c.area === area && !c.home && !c.freed);
-    return wild.sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0] || giver;
+  const h = biome.hero;
+  const dist = (t) => Math.hypot(t.x - h.x, t.y - h.y);
+  const goals = [];
+  for (let area = 0; area < BIOME_AREAS; area++) {
+    const step = questFor(biome, area);
+    const state = progress.questState(biome.z, area);
+    if (!step || !state.accepted || state.done) continue;
+    const giver = biome.npcs.find((v) => v.area === area && v.role === "giver");
+    let goal = giver;
+    if (step.type === "deliver") goal = biome.npcs.find((v) => v.area === area && v.role === "receiver");
+    else if (step.type === "find" && !state.have) goal = biome.items.find((it) => it.area === area);
+    else if (step.type === "guard") goal = biome.creatures.find((c) => c.guard === area);
+    else if (step.type === "free" && state.count < step.count) {
+      const wild = biome.creatures.filter((c) => c.area === area && !c.home && !c.freed);
+      goal = wild.sort((x, y) => dist(x) - dist(y))[0] || giver;
+    }
+    if (goal) goals.push(goal);
   }
-  return giver;
+  return goals.sort((x, y) => dist(x) - dist(y))[0] || null;
 }
 
 // ---------- ✋ The sign panel: chests, lost things, and riddles ----------
@@ -1076,10 +1068,9 @@ function draw(biome, now) {
   for (const c of biome.coins) if (!c.taken) things.push({ y: c.y, img: sprite("coin"), x: c.x, lift: Math.floor(now / 300 + c.x) % 3 });
   things.push({ y: biome.landmark.y, img: spriteCanvas(landmarkSrc(biome.zone.id)), x: biome.landmark.x, scale: 2 });
   for (const c of biome.creatures) {
-    const asleep = c.guard !== undefined && !guardAwake(biome, c);
     // Walking: step through the walk cycle. Standing: a slow breathing bob.
     const frame = walkFrame(c.moving, now, 170, c.x);
-    const lift = c.moving ? frame % 2 : asleep ? 0 : Math.floor(now / 400 + c.x) % 2;
+    const lift = c.moving ? frame % 2 : Math.floor(now / 400 + c.x) % 2;
     things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift, shadow: true, hex: !c.freed });
   }
   // Your buddies follow a few steps behind, one after the other, in step with you.
@@ -1154,10 +1145,9 @@ function draw(biome, now) {
         const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
         return { x: c.x, y: c.y - h - 2, html: "💚", cls: " freed" };
       }
-      if (c.guard !== undefined && !guardAwake(biome, c)) icon = "💤";
-      else if (!progress.stageUnlocked(biome.z, c.stage)) icon = "🔒";
+      if (c.rare) icon = "🌟";
       const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
-      return { x: c.x, y: c.y - h - 2, html: `${icon}<small>Lv ${c.level}</small>`, cls: c.boss ? " boss" : "" };
+      return { x: c.x, y: c.y - h - 2, html: `${icon}<small>${c.rare ? "Rare! " : ""}Lv ${c.level}</small>`, cls: c.boss ? " boss" : c.rare ? " rare" : "" };
     }),
     ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - 14, html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
     // ❗ has a quest for you, ❓ come back (it's done), 💬 just chatting.
@@ -1208,29 +1198,29 @@ function npcIcon(biome, v) {
   const state = progress.questState(biome.z, v.area);
   if (state.done) return "💬";
   if (v.role === "receiver") return state.have ? "❓" : "💬";
-  if (!state.accepted) return progress.trail(biome.z).gates >= v.area ? "❗" : "💬";
+  if (!state.accepted) return "❗";
   const ready = (step.type === "free" && state.count >= step.count) || (step.type === "find" && state.have) || step.type === "riddle";
   return ready ? "❓" : "💬";
 }
 
-// The status line under the map: where you are and what's next.
+// The status line under the map: where you are and what you've found. It
+// doesn't tell you what to do next: you choose.
 function renderHud(biome) {
   const z = biome.z;
-  const trail = progress.trail(z);
-  const frontier = Math.min(trail.gates, BIOME_AREAS - 1);
-  let next;
-  const step = questFor(biome, frontier);
-  const state = step && progress.questState(z, frontier);
-  const giver = biome.npcs.find((v) => v.area === frontier && v.role === "giver");
-  if (progress.bossBeaten(z)) next = "🏆 Boss beaten! Explore, open chests, and catch creatures.";
-  else if (!step) next = "👑 The boss is waiting at the top!";
-  else if (!state.accepted) next = `❗ Talk to ${giver?.name}`;
-  else if (step.type === "free") next = state.count >= step.count ? `❓ Go back to ${giver.name}` : `📜 ${step.title}: freed ${state.count} / ${step.count}`;
-  else if (step.type === "find") next = state.have ? `❓ Bring ${step.item} back to ${giver.name}` : `📜 ${step.title}`;
-  else next = `📜 ${step.title}`;
+  const here = areaOf(biome.hero.y);
+  const quests = QUESTS[biome.zone.id]?.steps || [];
+  const questsDone = quests.filter((_, a) => progress.questState(z, a).done).length;
+  // The quest you're on that's nearest, if any.
+  const active = quests.map((step, a) => ({ step, a, state: progress.questState(z, a) })).filter((q) => q.state.accepted && !q.state.done);
+  const onQuest = active.find((q) => q.a === here) || active[0];
+  let doing = progress.bossBeaten(z) ? "🏆 Shard found! Free roam" : "🧭 Explore! The 👑 boss is at the top";
+  if (onQuest) {
+    const { step, state } = onQuest;
+    doing = step.type === "free" && state.count < step.count ? `📜 ${step.title}: ${state.count} / ${step.count}` : `📜 ${step.title}`;
+  }
   const opened = biome.chests.filter((c) => c.open).length;
   const beaten = biome.trainers.filter((t) => t.beaten).length;
-  const html = `<span class="goal">📍 Area ${frontier + 1} of ${BIOME_AREAS}</span><span class="goal">${next}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
+  const html = `<span class="goal">📍 Area ${here + 1} of ${BIOME_AREAS}</span><span class="goal">${doing}</span><span class="goal">❗ Side quests ${questsDone} / ${quests.length}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
   if ($("biome-goals").innerHTML !== html) $("biome-goals").innerHTML = html;
 }
 

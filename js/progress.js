@@ -133,14 +133,19 @@ export function zoneStars(zoneIndex) {
   return STAGES.reduce((sum, _, i) => sum + stageStars(zoneIndex, i), 0);
 }
 
+// Go anywhere in the Overworld, in any order. The portal to the Starfall
+// Realm opens once you've collected all of the Overworld's shards; there the
+// zones open one after another, leading up to Malgrath.
 export function zoneUnlocked(zoneIndex) {
-  return zoneIndex === 0 || stageStars(zoneIndex - 1, STAGES.length - 1) > 0;
+  const zone = ZONES[zoneIndex];
+  if (zone.dimension === 0) return true;
+  const first = ZONES.findIndex((zn) => zn.dimension === zone.dimension);
+  if (zoneIndex > first) return bossBeaten(zoneIndex - 1);
+  return ZONES.every((zn, z) => zn.dimension >= zone.dimension || bossBeaten(z));
 }
 
-export function stageUnlocked(zoneIndex, stageIndex) {
-  if (!zoneUnlocked(zoneIndex)) return false;
-  return stageIndex === 0 || stageStars(zoneIndex, stageIndex - 1) > 0;
-}
+// Any battle in an open zone, in any order (bosses included).
+export const stageUnlocked = (zoneIndex) => zoneUnlocked(zoneIndex);
 
 export function recordStage(zoneIndex, stageIndex, { stars, xp, coins }) {
   const id = stageId(zoneIndex, stageIndex);

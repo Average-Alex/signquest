@@ -64,38 +64,64 @@ const GROUND = 0, PATH = 1, WATER_TILE = 2, BRIDGE_TILE = 3, GATE = 4;
 const areaTop = (a) => (BIOME_AREAS - 1 - a) * SH; // first tile row of an area
 const areaOf = (py) => Math.min(BIOME_AREAS - 1, Math.max(0, BIOME_AREAS - 1 - Math.floor(py / (SH * T))));
 
+// ---------- Routes between zones ----------
+// The zones are joined into one world you can walk across, like routes
+// between towns: each pair below is linked by a path off the side of both
+// maps. Zone A's right edge (in area 2) leads to zone B's left edge (in
+// area 3), and back. The world map is still there for fast travel.
+export const ROUTES = [
+  ["meadow", "forest"], ["forest", "caves"], ["caves", "river"], ["river", "castle"], ["castle", "meadow"],
+  ["spires", "clouds"], ["clouds", "void"],
+];
+const EXIT_AREA = { right: 2, left: 3 };
+const exitRow = (side) => areaTop(EXIT_AREA[side]) + 9;
+
+function exitsFor(zoneId) {
+  const out = [];
+  for (const [a, b] of ROUTES) {
+    if (a === zoneId) out.push({ side: "right", to: ZONES.findIndex((zn) => zn.id === b) });
+    if (b === zoneId) out.push({ side: "left", to: ZONES.findIndex((zn) => zn.id === a) });
+  }
+  return out.map((e) => ({ ...e, y: exitRow(e.side) * T + T - 1 }));
+}
+
+// ✨ Secrets: a hidden treasure in each area, out in the wilds away from the
+// path. They only show up when you're close, so you have to go looking.
+const SECRET_SEE = 44; // pixels
+const SECRET_COINS = [20, 45];
+
 const THEMES = {
   meadow: {
     ground: ["#86d35a", "#77c44c"], specks: ["#ff7fc8", "#ffe066", "#ffffff"], speckRate: 0.025,
-    path: ["#e8cf8a", "#d4b874"], obstacles: ["bush", "bush", "pine"], wall: "pine", density: 0.68, water: "pond",
+    path: ["#e8cf8a", "#d4b874"], obstacles: ["bush", "bush", "pine"], wall: "pine", density: 0.75, water: "pond",
   },
   forest: {
     ground: ["#4ea44a", "#449a40"], specks: ["#2a6e30", "#6cc24a"], speckRate: 0.05,
-    path: ["#b08a5a", "#9a7448"], obstacles: ["pine"], wall: "pine", density: 0.55, water: null,
+    path: ["#b08a5a", "#9a7448"], obstacles: ["pine"], wall: "pine", density: 0.62, water: null,
   },
   caves: {
     ground: ["#5e5470", "#544a66"], specks: ["#8a809a", "#3e3650"], speckRate: 0.05,
-    path: ["#8a7a6a", "#7a6a5a"], obstacles: ["rock", "crystal", "rock"], wall: "rock", density: 0.6, water: null,
+    path: ["#8a7a6a", "#7a6a5a"], obstacles: ["rock", "crystal", "rock"], wall: "rock", density: 0.67, water: null,
   },
   river: {
     ground: ["#6cc24a", "#5fb43f"], specks: ["#9be07a", "#ffffff"], speckRate: 0.02,
-    path: ["#f2dc9a", "#e0c880"], obstacles: ["pine", "rock", "bush"], wall: "pine", density: 0.66, water: "river",
+    path: ["#f2dc9a", "#e0c880"], obstacles: ["pine", "rock", "bush"], wall: "pine", density: 0.73, water: "river",
   },
   castle: {
     ground: ["#a89a8a", "#9a8c7c"], specks: ["#8a7e70", "#c4b8a8"], speckRate: 0.05,
-    path: ["#c9b9a0", "#b8a890"], obstacles: ["wall", "bush"], wall: "wall", density: 0.64, water: null,
+    path: ["#c9b9a0", "#b8a890"], obstacles: ["wall", "bush"], wall: "wall", density: 0.71, water: null,
   },
   spires: {
     ground: ["#cfe3f2", "#bcd6ec"], specks: ["#ffffff", "#c58cf0"], speckRate: 0.04,
-    path: ["#9ab8d6", "#88a8c8"], obstacles: ["icecrystal", "crystal", "icecrystal"], wall: "icecrystal", density: 0.62, water: "pond",
+    path: ["#9ab8d6", "#88a8c8"], obstacles: ["icecrystal", "crystal", "icecrystal"], wall: "icecrystal", density: 0.69, water: "pond",
   },
   clouds: {
     ground: ["#f2f4ff", "#e2e6f8"], specks: ["#ffe9a8", "#c8d0f0"], speckRate: 0.03,
-    path: ["#ffe9a8", "#f2d88a"], obstacles: ["cloud", "cloud", "bush"], wall: "cloud", density: 0.6, water: null,
+    path: ["#ffe9a8", "#f2d88a"], obstacles: ["cloud", "cloud", "bush"], wall: "cloud", density: 0.67, water: null,
   },
   void: {
     ground: ["#2a1f3d", "#241a35"], specks: ["#ffffff", "#c58cf0", "#7fffd4"], speckRate: 0.03,
-    path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidrock"], wall: "voidrock", density: 0.62, water: null,
+    path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidrock"], wall: "voidrock", density: 0.69, water: null,
   },
 };
 
@@ -137,6 +163,15 @@ function build(z) {
   for (let ty = 0; ty < TH; ty++) {
     const cx = pathX(ty);
     carve([ty, ty], [cx - 3, cx + 2]);
+  }
+  // Side roads to the neighboring zones, right out to the edge of the map.
+  const exits = exitsFor(zone.id);
+  for (const e of exits) {
+    const row = exitRow(e.side);
+    for (let ty = row - 2; ty <= row + 1; ty++) {
+      const [from, to] = e.side === "right" ? [pathX(ty) - 2, TW - 1] : [0, pathX(ty) + 1];
+      for (let tx = from; tx <= to; tx++) kind[at(tx, ty)] = PATH;
+    }
   }
   // Clearings: in front of each gate for its guard, and at the top for the
   // landmark and boss (with a road over to it from the path).
@@ -216,7 +251,8 @@ function build(z) {
   const hero = { x: pathX(startRow) * T, y: startRow * T, flip: false, moving: false, path: [], trail: [] };
 
   const biome = {
-    z, zone, theme, kind, blocked, decor, landmark, gates, hero,
+    z, zone, theme, kind, blocked, decor, landmark, gates, hero, exits,
+    secrets: [],
     bg: paintGround(theme, kind, seed),
     creatures: [],
     chests: [],
@@ -270,6 +306,8 @@ function build(z) {
       const p = spot(a, 300 + i, false);
       if (p) biome.coins.push(p);
     }
+    const secret = spot(a, 700, false);
+    if (secret) biome.secrets.push({ ...secret, id: `secret-${a}`, found: trail.chests.includes(`secret-${a}`) });
   }
 
   // Villagers: the quest giver near where you come in; whoever you deliver to,
@@ -635,6 +673,30 @@ function checkTouch(biome, now) {
     }
   }
 
+  // ✨ Secrets: walk onto one to dig it up.
+  for (const sc of biome.secrets) {
+    if (!sc.found && near(sc, hero, 8)) {
+      sc.found = true;
+      progress.openChest(biome.z, sc.id);
+      if (Math.random() < 0.5) {
+        const coins = SECRET_COINS[0] + Math.floor(Math.random() * (SECRET_COINS[1] - SECRET_COINS[0]));
+        progress.addCoins(coins);
+        renderCoins();
+        toast(`✨ You found a secret stash! +${coins} 🪙`);
+      } else {
+        const item = CONSUMABLES[1 + Math.floor(Math.random() * (CONSUMABLES.length - 1))];
+        progress.addConsumable(item.id);
+        toast(`✨ You found a secret stash: a ${item.name}!`);
+      }
+      floatText("✨", sc);
+      announce("You found a secret!");
+    }
+  }
+
+  // 🛣️ Walk off the side of the map on a road to go to the next zone.
+  const exit = biome.exits.find((e) => Math.abs(hero.y - e.y) < 3 * T && (e.side === "left" ? hero.x < 1.5 * T : hero.x > W - 1.5 * T));
+  if (exit) return takeRoute(biome, exit);
+
   // 🪧 Signposts: read one when you walk up to it.
   const sign = biome.signposts.find((s) => near(s, hero, 12));
   if (sign && sign !== biome.atSign) toast(`🪧 ${sign.text}`, 6000);
@@ -716,6 +778,26 @@ function runSpot(biome, now, dt) {
       trainer: t,
     }),
   );
+}
+
+function takeRoute(biome, exit) {
+  const to = ZONES[exit.to];
+  if (!progress.zoneUnlocked(exit.to)) {
+    toast(`🔒 A wall of hex blocks the road to the ${to.name}. Beat the ${ZONES[exit.to - 1].name} boss first!`);
+    biome.hero.x += exit.side === "left" ? 2 * T : -2 * T;
+    biome.hero.path = [];
+    keys.clear();
+    return;
+  }
+  // A quick fade, then you're on the matching road in the next zone.
+  current = null;
+  keys.clear();
+  $("biome-wrap").classList.add("travel");
+  announce(`Walking to the ${to.name}...`);
+  setTimeout(() => {
+    $("biome-wrap").classList.remove("travel");
+    enterBiome(exit.to, biome.z);
+  }, 450);
 }
 
 function bumpBack(biome, now) {
@@ -1152,6 +1234,17 @@ function draw(biome, now) {
     ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - 14, html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
     // ❗ has a quest for you, ❓ come back (it's done), 💬 just chatting.
     ...biome.npcs.map((v) => ({ x: v.x, y: v.y - 31, html: `<span class="npc-icon">${npcIcon(biome, v)}</span><small>${v.name}</small>`, cls: " npc" })),
+    // Road signs to the next zones.
+    ...biome.exits.map((e) => ({
+      x: e.side === "left" ? 7 * T : W - 7 * T,
+      y: e.y - 14,
+      html: `<small>${e.side === "left" ? "⬅" : ""} ${ZONES[e.to].icon} ${ZONES[e.to].name}${progress.zoneUnlocked(e.to) ? "" : " 🔒"} ${e.side === "right" ? "➡" : ""}</small>`,
+      cls: " road",
+    })),
+    // Secrets glint only when you're close.
+    ...biome.secrets
+      .filter((sc) => !sc.found)
+      .map((sc) => ({ x: sc.x, y: sc.y - 4, html: Math.hypot(sc.x - hero.x, sc.y - hero.y) < SECRET_SEE ? "✨" : "", cls: " item secret" })),
     // ❗ when a trainer spots you; ⚔️ for ones still waiting to battle.
     ...biome.trainers.map((t) =>
       biome.spotted?.t === t
@@ -1220,7 +1313,8 @@ function renderHud(biome) {
   }
   const opened = biome.chests.filter((c) => c.open).length;
   const beaten = biome.trainers.filter((t) => t.beaten).length;
-  const html = `<span class="goal">📍 Area ${here + 1} of ${BIOME_AREAS}</span><span class="goal">${doing}</span><span class="goal">❗ Side quests ${questsDone} / ${quests.length}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
+  const secrets = biome.secrets.filter((sc) => sc.found).length;
+  const html = `<span class="goal">📍 Area ${here + 1} of ${BIOME_AREAS}</span><span class="goal">${doing}</span><span class="goal">❗ Side quests ${questsDone} / ${quests.length}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">✨ Secrets ${secrets} / ${biome.secrets.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
   if ($("biome-goals").innerHTML !== html) $("biome-goals").innerHTML = html;
 }
 
@@ -1281,10 +1375,23 @@ function frame(now) {
   if (biome === current && !biome.chest) renderHud(biome);
 }
 
-export function enterBiome(z) {
+// `from`: the zone you walked in from, along a road (null from the map).
+export function enterBiome(z, from = null) {
   if (!biomes.has(z)) biomes.set(z, build(z));
   const biome = biomes.get(z);
   biome.last = 0;
+  const road = from !== null && biome.exits.find((e) => e.to === from);
+  if (road) {
+    // Arrive a few steps in from the edge, on the road back.
+    const hero = biome.hero;
+    hero.x = road.side === "left" ? 4 * T : W - 4 * T;
+    hero.y = road.y;
+    hero.flip = road.side === "right";
+    hero.path = [];
+    hero.trail = [];
+    biome.spotted = null;
+    biome.safeUntil = performance.now() + SAFE_MS; // a moment to look around before anything jumps you
+  }
   biome.safeUntil = Math.max(biome.safeUntil, performance.now() + 800);
   const target = cameraTarget(biome);
   biome.camX = target.x;

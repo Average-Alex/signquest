@@ -2,7 +2,7 @@
 // screens. The battle itself lives in game.js.
 
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
-import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
+import { biomeBattleOver, enterBiome, resetBiomes, ROUTES } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
   DIMENSIONS, ELEMENTS, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
@@ -90,6 +90,13 @@ showHooks.map = () => {
   const world = $("zones");
   world.className = `world dim-${dim}`;
   world.innerHTML = `<img class="sprite world-bg" src="${worldMapSrc(dim)}" alt=""><span class="world-title">${DIMENSIONS[dim].icon} ${DIMENSIONS[dim].name}</span>`;
+  // Dotted trails for the roads you can walk between zones.
+  const zoneById = (id) => ZONES.find((zn) => zn.id === id);
+  const lines = ROUTES.map(([a, b]) => [zoneById(a), zoneById(b)])
+    .filter(([a]) => a.dimension === dim)
+    .map(([a, b]) => `<line x1="${a.map.x}" y1="${a.map.y}" x2="${b.map.x}" y2="${b.map.y}"/>`)
+    .join("");
+  world.insertAdjacentHTML("beforeend", `<svg class="routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>`);
   ZONES.forEach((zone, z) => {
     if (zone.dimension !== dim) return;
     const unlocked = progress.zoneUnlocked(z);

@@ -42,6 +42,16 @@ Creatures roam around. Bump into one to battle it:
   Shard. Fight it whenever you're ready. Once it's beaten, it's gone for good.
 - 🌟 rare creatures from other zones, which sometimes wander in
 
+**Roads between zones.** The zones are joined into one world: a road leads
+off the side of each zone's map into the next one (Meadow, Forest, Caves,
+River, Castle, and back to the Meadow), so you can walk all the way around the
+island. Road signs show where each leads, and the world map draws the roads as
+dotted trails. The map is still there for fast travel.
+
+**Secrets.** Every area hides a ✨ secret stash out in the wilds, away from the
+path. It only glints when you get close, so you have to go looking. Stashes
+hold coins or a potion or power-up.
+
 Wherever you go first, learn cards teach any letters that zone's battles need.
 Collect all 5 Overworld shards (in any order) to open the portal to the
 Starfall Realm, where the zones lead one after another up to Malgrath.

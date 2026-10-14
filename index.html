@@ -165,7 +165,17 @@
       </div>
       <div id="buddy-slot-1" class="fighter buddy-slot bottom"></div>
       <div id="spell" class="spell" aria-hidden="true">✨</div>
-      <div class="fighter monster-side">
+      <!-- The other side: a lone creature in the middle, or a trainer with a creature above and below. -->
+      <div id="foe-slot-0" class="fighter foe-slot top" role="button" tabindex="0" hidden>
+        <div class="foe-tag" aria-hidden="true"><span class="foe-tag-name"></span><span class="mini-hp"><span class="mini-fill"></span></span></div>
+        <div id="foe-art-0" class="monster"></div>
+      </div>
+      <div id="foe-slot-2" class="fighter foe-slot bottom" role="button" tabindex="0" hidden>
+        <div class="foe-tag" aria-hidden="true"><span class="foe-tag-name"></span><span class="mini-hp"><span class="mini-fill"></span></span></div>
+        <div id="foe-art-2" class="monster"></div>
+      </div>
+      <div id="foe-slot-1" class="fighter monster-side" role="button" tabindex="0">
+        <div class="foe-tag" aria-hidden="true"><span class="foe-tag-name"></span><span class="mini-hp"><span class="mini-fill"></span></span></div>
         <div id="monster" class="monster"></div>
         <div id="monster-dmg" class="dmg" aria-hidden="true"></div>
       </div>

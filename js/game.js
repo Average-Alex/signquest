@@ -20,7 +20,11 @@
 // right creature they're super effective; the move buttons say which.
 // Sign challenges: some turns are a riddle, a missing letter, or a
 // quick-draw instead of a plain letter, and hit harder.
-// Trainers bring a team: when one creature is beaten, the next comes out.
+// Trainers (and Rook) fight in the same formation as you: the trainer in
+// the middle, a creature above and below, all on the field at once, each with
+// its own HP. Click one to target it; group moves (💥 All) hit every one of
+// them for a bit less each. On their turn, one of them attacks, in turn.
+// A trainer's third creature comes in when one is beaten.
 //
 // Taking too long only brings a hint, then a skip button. Skipping still
 // moves you on, but the monster gets its attack. If your HP runs out you're
@@ -31,7 +35,7 @@ import {
   battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
   CHALLENGE_BONUS, CHALLENGE_CHANCE, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, EVOLVED_POWER,
-  isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
+  GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, LETTERS, LOOT_CHANCE,
   monsterDamage, playerMaxHp, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
@@ -40,7 +44,7 @@ import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } f
 import { battleBackdropSrc } from "./biome.js";
 import * as fx from "./fx.js";
 import { playMusic } from "./music.js";
-import { QUESTS } from "./quests.js";
+import { QUESTS, ROOK } from "./quests.js";
 import { playLines } from "./story.js";
 import { creatureImg, heroImg, itemImg } from "./sprites.js";
 
@@ -80,33 +84,33 @@ function nextTarget(z, type, previous) {
 // ---------- Starting a battle ----------
 
 // `foeId` is the creature you're fighting (see CREATURES in config.js), at `level`.
-// `opts.owner`: a rival's or trainer's name, when it's their creature.
-// `opts.team`: a trainer's whole team, [{ id, level }, ...], fought in order.
+// `opts.owner`: a rival's or trainer's name. They fight beside their
+// creatures (`opts.team`, [{ id, level }, ...], or just this one), looking
+// like `opts.look`.
 export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const zone = ZONES[z];
   const stage = STAGES[s];
+  const party = Boolean(opts.owner);
   const foes = opts.team || [{ id: foeId, level }];
   const targets = planTargets(z, stage.type, foes[0].level);
   const team = progress.team();
   const playerMax = playerMaxHp(progress.level());
   battle = {
     z, s, zone, stage, team, targets, onFinish, opts,
-    foes,
-    foeIndex: 0,
-    foe: null, // set by sendOut()
-    level: 0,
-    hp: 0,
-    maxHp: 0,
+    party, // a trainer or rival battle: several foes on the field
+    foes, // the creatures (for a trainer, their whole team)
+    field: [], // who's fighting on the other side (see makeFoe)
+    reserve: [], // a trainer's creatures still waiting to come out
+    roster: [], // everyone on the other side, for the team balls
+    target: null, // the foe your attacks aim at
+    actorTurn: 0, // whose turn it is next on their side
     mode: "plain", // this turn's sign challenge (see pickChallenge)
     blank: null, // for "blank": { word, index }
     quickUntil: 0,
     revealed: false, // a riddle's answer was shown by a hint
     bonus: 1,
     lastMode: "plain",
-    charging: null, // a big move the monster is winding up (it lands next turn)
     combo: 0, // targets signed fast in a row, without hints: each adds damage
-    phase2Done: false, // bosses surge with power at half health
-    surge: false,
     t: 0, // which target
     i: 0, // which letter in the target
     turn: 1,
@@ -116,9 +120,6 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
     move: HERO_MOVES[0], // the move picked for this turn
     mover: null, // which buddy's move it is (null = your hero's spell)
     tab: 0, // which tab of the move picker is open (0 = you)
-    foeHealed: false, // a wild creature heals at most once a battle
-    stunned: false, // the monster skips its next turn
-    dizzyLastTurn: false, // a monster can't be dizzy two turns in a row
     shield: 0, // hits left to block
     power: false, // next attack does double damage
     hold: new HoldTimer(),
@@ -136,12 +137,13 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
 
   show("battle");
   renderAvatars();
-  $("battle-title").textContent = `${zone.icon} ${zone.name} · ${opts.team ? `${opts.owner}` : stage.name}`;
+  $("battle-title").textContent = `${zone.icon} ${zone.name} · ${party ? opts.owner : stage.name}`;
   $("arena-bg").src = battleBackdropSrc(zone.id);
   $("arena").classList.remove("surge");
-  sendOut(battle);
+  $("arena").classList.toggle("party", party);
+  setUpField(battle);
   // Dramatic music: Malgrath has his own theme, bosses a harder one.
-  playMusic(battle.foe.id === "malgrath" ? "final" : stage.type === "boss" ? "boss" : "battle");
+  playMusic(battle.field[0].id === "malgrath" ? "final" : stage.type === "boss" ? "boss" : "battle");
   renderCombo();
   $("battle-warning").hidden = true;
   const p = progress.get();
@@ -165,42 +167,119 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   requestAnimationFrame(tick);
 }
 
-// Puts the next foe on the field (the first one, or a trainer's next creature).
-function sendOut(b) {
-  const { id, level } = b.foes[b.foeIndex];
-  const foe = creature(id);
-  b.foe = foe;
-  b.level = level;
+// ---------- The other side ----------
+
+// Where foes stand: slot 1 is the middle (the big spot for a lone creature),
+// 0 above and 2 below, like your team.
+const SLOTS = [0, 1, 2].map((n) => ({ box: `foe-slot-${n}`, art: n === 1 ? "monster" : `foe-art-${n}` }));
+
+// A trainer fights with spells, like you.
+const TRAINER_MOVES = [
+  { name: "Spark Bolt", icon: "✨", type: "attack", cost: 0, power: 1 },
+  { name: "Potion", icon: "🧪", type: "heal", cost: 0 },
+  { name: "Signlight Blast", icon: "🌟", type: "attack", cost: 0, power: 4 },
+];
+
+// One fighter on the other side, with its own HP and state.
+function makeFoe(b, { id, level, trainer = null }) {
+  const def = trainer
+    ? { id: "trainer", name: trainer.name, look: trainer.look, catchable: false, element: null, moves: TRAINER_MOVES }
+    : creature(id);
   // HP: room for your signing (with bigger moves), plus your buddies' free
-  // hits, so leveled-up buddies only cut the battle a little short. A
-  // trainer's creatures have less each, since there are several.
+  // hits. With several foes, each has less.
   const plan = planTargets(b.z, b.stage.type, level);
   const letters = plan.reduce((sum, t) => sum + t.length, 0);
-  b.maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.opts.team ? TRAINER_HP : 1));
-  b.hp = b.maxHp;
-  b.charging = null;
-  b.foeHealed = false;
-  b.stunned = false;
-  b.dizzyLastTurn = false;
-  b.phase2Done = false;
-  b.surge = false;
-  $("arena").classList.remove("surge");
-  $("battle-warning").hidden = true;
-  if (foe.catchable !== false) progress.markSeen(foe.id);
+  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.party ? TRAINER_HP : 1));
+  return {
+    def, id: def.id, level, maxHp, hp: maxHp, trainer: Boolean(trainer),
+    charging: null, // a big move it's winding up (it lands on its next turn)
+    healed: false, // heals at most once a battle
+    stunned: false, // skips its next turn
+    dizzyLast: false, // can't be dizzy two turns in a row
+    phase2Done: false, // bosses surge with power at half health
+    surge: false,
+    out: false, // beaten
+    slot: null,
+    art: null, // the element that animates
+    box: null, // its spot on the field
+  };
+}
+
+function setUpField(b) {
+  for (const slot of SLOTS) $(slot.box).hidden = true;
+  if (!b.party) {
+    b.roster = [makeFoe(b, b.foes[0])];
+    place(b, b.roster[0], 1);
+  } else {
+    // The trainer in the middle, their first two creatures above and below.
+    const look = b.opts.look || (b.opts.owner === "Rook" ? ROOK.look : null);
+    const boss = makeFoe(b, { id: "trainer", level: b.foes[0].level, trainer: { name: b.opts.owner, look } });
+    const creatures = b.foes.map((f) => makeFoe(b, f));
+    b.roster = [boss, ...creatures];
+    place(b, boss, 1);
+    creatures.slice(0, 2).forEach((e, n) => place(b, e, n === 0 ? 0 : 2));
+    b.reserve = creatures.slice(2);
+  }
+  setTarget(b.field.find((e) => !e.trainer) || b.field[0], false);
+}
+
+// Puts `entry` in slot `n` on the field.
+function place(b, entry, n) {
+  entry.slot = n;
+  entry.art = $(SLOTS[n].art);
+  entry.box = $(SLOTS[n].box);
+  b.field = b.field.filter((e) => e.slot !== n || e === entry);
+  if (!b.field.includes(entry)) b.field.push(entry);
+  b.field.sort((x, y) => x.slot - y.slot);
+  entry.box.hidden = false;
   // Hexbound creatures look corrupted until you break the hex. (Malgrath is
   // just like that.) A trainer's or rival's creatures aren't hexed.
-  const hexed = foe.catchable !== false && !b.opts.owner;
-  $("monster").innerHTML = creatureImg(foe.id, "", hexed);
-  $("monster").className = `monster${b.stage.type === "boss" ? " boss" : ""}`;
-  $("monster-name").textContent = b.opts.owner ? `${b.opts.owner}'s ${foe.name}` : foe.name;
-  const el = ELEMENTS[foe.element];
-  const kind = b.opts.team ? "Trainer" : b.opts.owner ? "Rival battle" : foe.catchable === false ? "Hollow King" : "Hexbound";
-  $("hud-foe-sub").innerHTML = `${el ? `<span class="el-badge el-${foe.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${level}`;
-  $("hud-foe-portrait").innerHTML = creatureImg(foe.id, "", hexed);
-  // A trainer's team: one ball per creature, dark once beaten.
-  $("foe-team").hidden = b.foes.length < 2;
-  $("foe-team").innerHTML = b.foes.map((_, n) => `<span class="ball${n < b.foeIndex ? " out" : ""}${n === b.foeIndex ? " now" : ""}"></span>`).join("");
+  const hexed = !entry.trainer && entry.def.catchable !== false && !b.party;
+  entry.art.innerHTML = entry.trainer ? heroImg(entry.def.look, null, "foe-hero", true) : creatureImg(entry.id, "", hexed);
+  entry.art.className = `monster${b.stage.type === "boss" ? " boss" : ""}`;
+  entry.box.querySelector(".foe-tag-name").textContent = `${entry.def.name} · Lv ${entry.level}`;
+  entry.box.onclick = () => setTarget(entry);
+  entry.box.onkeydown = (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setTarget(entry));
+  entry.box.setAttribute("aria-label", `Target ${entry.def.name}`);
+  if (!entry.trainer && entry.def.catchable !== false) progress.markSeen(entry.id);
+}
+
+const alive = (b = battle) => b.field.filter((e) => !e.out);
+
+// Aim at `entry`: it gets the 🎯, and the panel at the top right shows it.
+function setTarget(entry, say = true) {
+  const b = battle;
+  if (!b || !entry || entry.out) return;
+  b.target = entry;
+  for (const e of b.field) e.box.classList.toggle("targeted", e === entry && b.party);
+  const def = entry.def;
+  const hexed = !entry.trainer && def.catchable !== false && !b.party;
+  $("monster-name").textContent = b.party && !entry.trainer ? `${b.opts.owner}'s ${def.name}` : def.name;
+  const el = ELEMENTS[def.element];
+  const kind = entry.trainer ? "Signkeeper" : b.opts.team ? "Trainer" : b.party ? "Rival battle" : def.catchable === false ? "Hollow King" : "Hexbound";
+  $("hud-foe-sub").innerHTML = `${el ? `<span class="el-badge el-${def.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${entry.level}`;
+  $("hud-foe-portrait").innerHTML = entry.trainer ? heroImg(def.look, null) : creatureImg(entry.id, "", hexed);
+  renderTeamBalls(b);
   updateHp(b);
+  if (say) {
+    announce(`Targeting ${def.name}.`);
+    if (!b.busy) renderMoves();
+  }
+}
+
+// Up and down arrows (or clicking) pick who to target.
+function cycleTarget(step) {
+  const list = alive();
+  if (!battle?.party || list.length < 2) return;
+  const i = list.indexOf(battle.target);
+  setTarget(list[(i + step + list.length) % list.length]);
+}
+
+// A trainer's team: one ball per creature, dark once beaten.
+function renderTeamBalls(b) {
+  const creatures = b.roster.filter((e) => !e.trainer);
+  $("foe-team").hidden = !b.party || creatures.length < 2;
+  $("foe-team").innerHTML = creatures.map((e) => `<span class="ball${e.out ? " out" : ""}${e.slot !== null && !e.out ? " now" : ""}"></span>`).join("");
 }
 
 const currentTarget = () => battle.targets[battle.t];
@@ -378,32 +457,68 @@ function letterDone(now, skipped) {
   renderTarget();
   renderMoves();
   renderItems();
-  if (battle.hp <= 0) return battle.foeIndex < battle.foes.length - 1 ? nextFoe(battle) : finish(true);
-
-  // Only the one character you picked acts. Then it's the monster's turn.
-  // (At half health, a boss first surges with dark power: phase 2.)
   const b = battle;
+  const downed = alive(b).filter((e) => e.hp <= 0);
+  if (downed.length && alive(b).every((e) => e.hp <= 0) && !b.reserve.length) return finish(true);
+
+  // Only the one character you picked acts. Then it's their turn.
+  // (At half health, a boss first surges with dark power: phase 2.)
+  const theirTurn = () => {
+    if (battle !== b || b.done) return;
+    const boss = b.stage.type === "boss" && !b.party ? b.field[0] : null;
+    if (boss && !boss.phase2Done && boss.hp <= boss.maxHp / 2) phase2(b, boss, () => monsterTurn(fast));
+    else monsterTurn(fast);
+  };
   setTimeout(() => {
     if (battle !== b || b.done) return;
-    if (b.stage.type === "boss" && !b.phase2Done && b.hp <= b.maxHp / 2) phase2(b, () => monsterTurn(fast));
-    else monsterTurn(fast);
+    if (downed.length) knockOut(b, downed, theirTurn);
+    else theirTurn();
   }, ATTACK_FX_MS + 700);
 }
 
+// Beaten foes leave the field; a trainer's next creature takes the spot.
+function knockOut(b, downed, next) {
+  for (const e of downed) {
+    e.out = true;
+    restartAnimation(e.art, "faint");
+    e.box.classList.remove("targeted");
+  }
+  popText(downed.length > 1 ? `${downed.length} knocked out!` : `${downed[0].def.name} is out!`);
+  announce(`${downed.map((e) => e.def.name).join(" and ")} ${downed.length > 1 ? "are" : "is"} out of the fight!`);
+  renderTeamBalls(b);
+  setTimeout(() => {
+    if (battle !== b || b.done) return;
+    for (const e of downed) {
+      const fresh = b.reserve.shift();
+      if (!fresh) continue;
+      place(b, fresh, e.slot);
+      restartAnimation(fresh.art, "send-in");
+      fx.burst(at.foe(fresh), "light", { count: 30, speed: 1.6 });
+      fx.ring(at.foe(fresh), "light", { maxR: 30 });
+      popText(`${b.opts.owner} sends out ${fresh.def.name}!`, true);
+      announce(`${b.opts.owner} sends out ${fresh.def.name}!`);
+    }
+    if (b.target.out) setTarget(alive(b).find((e) => !e.trainer) || alive(b)[0], false);
+    renderTeamBalls(b);
+    updateHp(b);
+    setTimeout(next, 900);
+  }, 1000);
+}
+
 // Phase 2: Malgrath's voice cuts in, and the boss heals a little and hits harder.
-function phase2(b, next) {
-  b.phase2Done = true;
-  b.surge = true;
-  b.hp = Math.min(b.maxHp, b.hp + Math.round(b.maxHp * 0.1));
+function phase2(b, boss, next) {
+  boss.phase2Done = true;
+  boss.surge = true;
+  boss.hp = Math.min(boss.maxHp, boss.hp + Math.round(boss.maxHp * 0.1));
   updateHp(b);
   $("arena").classList.add("surge");
   fx.flash("#5a1f8a", 500, 0.6);
-  fx.burst(at.foe(), "hex", { count: 70, speed: 2.4, life: 900 });
-  fx.ring(at.foe(), "hex", { maxR: 50, life: 600, width: 3 });
+  fx.burst(at.foe(boss), "hex", { count: 70, speed: 2.4, life: 900 });
+  fx.ring(at.foe(boss), "hex", { maxR: 50, life: 600, width: 3 });
   fx.shake(8, 500);
-  $("hud-foe-sub").textContent = `⚡ Powered up! · Lv ${b.level}`;
+  $("hud-foe-sub").textContent = `⚡ Powered up! · Lv ${boss.level}`;
   popText("⚡ PHASE 2!", true);
-  announce(`${b.foe.name} surges with dark power!`);
+  announce(`${boss.def.name} surges with dark power!`);
   const lines = QUESTS[b.zone.id]?.phase2 || [];
   setTimeout(() => (lines.length ? playLines(lines, next) : next()), 900);
 }
@@ -419,48 +534,43 @@ function gainEnergy(n) {
 const at = {
   hero: () => fx.centerOf($("hero-sprite"), 0.45),
   buddy: (n) => fx.centerOf(buddyEl(n), 0.5),
-  foe: () => fx.centerOf($("monster"), 0.5),
+  foe: (entry = battle.target) => fx.centerOf(entry.art, 0.5),
 };
 
 // How long an attack takes from wind-up to impact (the hit lands at the end).
 const ATTACK_FX_MS = 560;
+
+// Who a move hits: everyone left for a group move (💥 All), else your target.
+const isAttack = (move) => !move.type || move.type === "attack";
+const spreads = (move) => Boolean(move.all) && alive().length > 1;
+const targetsFor = (move) => (move.all ? alive() : [battle.target]);
 
 // Fires the move picked for this turn. `letters` is how many letters you just signed.
 function fireMove(letters, fast) {
   const { move, mover } = battle;
   battle.energy -= move.cost;
   renderEnergy();
-  // A streak of fast signs makes every attack hit harder, and so does a
-  // challenge, and a move the foe is weak to.
-  const eff = effectiveness(move.element, battle.foe.element);
-  const comboBoost = (1 + Math.min(battle.combo, COMBO_MAX) * COMBO_BONUS) * battle.bonus * eff;
+  // A streak of fast signs makes every attack hit harder, and so does a challenge.
+  const boost = (1 + Math.min(battle.combo, COMBO_MAX) * COMBO_BONUS) * battle.bonus;
   if (battle.bonus > 1) popText(battle.mode === "quick" ? `⚡ QUICK-DRAW! ×${QUICK_BONUS}` : "🧩 Solved! Bonus damage!", true);
-  if (eff !== 1 && (!move.type || move.type === "attack")) {
-    setTimeout(() => {
-      popText(eff > 1 ? "It's super effective! ▲" : "Not very effective... ▼", eff > 1);
-      announce(eff > 1 ? "It's super effective!" : "It's not very effective.");
-    }, ATTACK_FX_MS + 450);
-  }
+  // Group moves hit everyone, a bit softer each.
+  const spread = spreads(move) ? GROUP_POWER : 1;
 
   if (!mover) {
     // One of your hero's spells: more letters signed and stronger spells hit harder.
-    heroAttack(letters * SIGN_DAMAGE * move.power * comboBoost, move, fast);
+    flashCamera("good");
+    strike({ from: at.hero(), attacker: $("hero-slot"), move, base: letters * SIGN_DAMAGE * move.power * spread * boost, fast, hero: true });
   } else {
     // A buddy's move.
     const pet = creature(mover.id);
     const n = battle.team.indexOf(mover);
     const el = buddyEl(n);
+    const who = creatureName(pet.id, mover.level);
     flashCamera("good");
-    if (move.type === "attack") {
+    if (isAttack(move)) {
       // Like your signing, scaled by the move's power and the buddy's level.
-      const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE);
       const evolved = isEvolved(mover.level) ? EVOLVED_POWER : 1;
-      const damage = Math.round(letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * evolved * comboBoost * (crit ? CRIT_MULTIPLIER : 1));
-      attackFx({ from: at.buddy(n), attacker: el, move, crit });
-      hitMonster(damage, crit, ATTACK_FX_MS);
-      popText(`${move.icon} ${move.name}!`, true);
-      if (crit) setTimeout(() => popText("CRITICAL HIT!", true), ATTACK_FX_MS);
-      announce(`${creatureName(pet.id, mover.level)} uses ${move.name}!${crit ? " Critical hit!" : ""} ${damage} damage.`);
+      strike({ from: at.buddy(n), attacker: el, move, base: letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * evolved * spread * boost, fast, who });
     } else {
       restartAnimation(el, "boost");
       fx.gather(at.buddy(n), fx.elementOf(move), { ms: 260 });
@@ -472,7 +582,7 @@ function fireMove(letters, fast) {
           fx.burst(at.hero(), "shield", { count: 18, speed: 0.8, gravity: 0 });
         }, 260);
         popText(`${move.icon} ${move.name}!`);
-        announce(`${creatureName(pet.id, mover.level)} uses ${move.name}! It will block the next hit.`);
+        announce(`${who} uses ${move.name}! It will block the next hit.`);
       } else if (move.type === "heal") {
         const before = battle.playerHp;
         battle.playerHp = Math.min(battle.playerMax, before + Math.round(battle.playerMax * HEAL_FRACTION));
@@ -482,17 +592,20 @@ function fireMove(letters, fast) {
           fx.number(at.hero(), `+${healed}`, "good");
         }, 260);
         popText(`${move.icon} ${move.name}!`);
-        announce(`${creatureName(pet.id, mover.level)} uses ${move.name}! You heal ${healed} HP.`);
+        announce(`${who} uses ${move.name}! You heal ${healed} HP.`);
       } else if (move.type === "stun") {
-        battle.stunned = true;
-        fx.projectile(at.buddy(n), at.foe(), fx.elementOf(move), { ms: 300, size: 2 }).then(() => {
-          fx.burst(at.foe(), fx.elementOf(move), { count: 26, speed: 1.4 });
-          fx.ring(at.foe(), fx.elementOf(move), { maxR: 26 });
-          fx.orbit(fx.centerOf($("monster"), 0.15), { ms: 1600 });
-          restartAnimation($("monster"), "dizzy");
-        });
+        const hit = targetsFor(move);
+        for (const t of hit) {
+          t.stunned = true;
+          fx.projectile(at.buddy(n), at.foe(t), fx.elementOf(move), { ms: 300, size: 2 }).then(() => {
+            fx.burst(at.foe(t), fx.elementOf(move), { count: 26, speed: 1.4 });
+            fx.ring(at.foe(t), fx.elementOf(move), { maxR: 26 });
+            fx.orbit(fx.centerOf(t.art, 0.15), { ms: 1600 });
+            restartAnimation(t.art, "dizzy");
+          });
+        }
         popText(`${move.icon} ${move.name}!`);
-        announce(`${creatureName(pet.id, mover.level)} uses ${move.name}! ${battle.foe.name} is stunned.`);
+        announce(`${who} uses ${move.name}! ${hit.map((t) => t.def.name).join(" and ")} ${hit.length > 1 ? "are" : "is"} stunned.`);
       }
       setTimeout(() => {
         updateHp();
@@ -506,61 +619,81 @@ function fireMove(letters, fast) {
   battle.mover = null;
 }
 
-// The look of an attack, from wind-up to impact. Elemental moves fire a
-// projectile; physical ones dash in. Bigger moves and crits hit harder.
-function attackFx({ from, attacker, move, crit }) {
-  const element = fx.elementOf(move);
-  const power = move.power || 1;
-  const scale = Math.min(2.4, 0.7 + power * 0.35) * (crit ? 1.35 : 1);
-  const big = power >= 3.5;
-  restartAnimation(attacker, fx.isPhysical(move) ? "pounce" : "cast");
-  fx.gather(from, element, { ms: 220, count: Math.round(10 * scale) });
-  const impact = () => {
-    const target = at.foe();
-    if (crit || big) fx.hitStop(crit ? 140 : 90);
-    if (crit) {
-      fx.zoom(target, 1.08);
-      fx.rays(target, "light");
-    }
-    if (big) fx.flash("#ffffff", 260, 0.55);
-    restartAnimation($("monster"), "hit");
-    fx.burst(target, element, { count: Math.round(22 * scale), speed: 1.3 * scale, life: 700 });
-    fx.burst(target, "impact", { count: Math.round(8 * scale), speed: 0.8 * scale, life: 300 });
-    fx.ring(target, element, { maxR: 16 * scale, life: 420, width: 2 + scale });
-    fx.shake(3 * scale, 260 + scale * 80);
-  };
-  setTimeout(() => {
-    if (fx.isPhysical(move)) setTimeout(impact, ATTACK_FX_MS - 220 - 40);
-    else fx.projectile(from, at.foe(), element, { ms: ATTACK_FX_MS - 220, size: Math.round(2 + scale * 1.5), arc: -10 - 8 * scale }).then(impact);
-  }, 220);
-}
-
-function heroAttack(damage, move, fast) {
+// An attack on one foe, or on all of them for a group move. Each takes its
+// own type matchup. `hero`: your hero's spell (power-ups apply).
+function strike({ from, attacker, move, base, fast, hero = false, who = null }) {
   const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE);
-  if (crit) damage *= CRIT_MULTIPLIER;
+  let mult = crit ? CRIT_MULTIPLIER : 1;
   let big = move.power > 1;
-  if (battle.power) {
-    damage *= 2;
+  if (hero && battle.power) {
+    mult *= 2;
     big = true;
     battle.power = false;
     updateStatus();
   }
-  damage = Math.round(damage);
-  attackFx({ from: at.hero(), attacker: $("hero-slot"), move, crit });
-  hitMonster(damage, crit, ATTACK_FX_MS);
-  flashCamera("good");
-  if (big) popText(`${move.icon} ${move.name.toUpperCase()}!`, true);
-  setTimeout(() => popText(crit ? "CRITICAL HIT!" : big ? `${move.icon} ${move.name.toUpperCase()}!` : "Hit!", crit || big), ATTACK_FX_MS);
-  announce(`${crit ? "Critical hit! " : ""}${move.name}! ${damage} damage.`);
+  const hits = targetsFor(move);
+  let best = 1, worst = 1;
+  const amounts = hits.map((t, k) => {
+    const eff = effectiveness(move.element, t.def.element);
+    best = Math.max(best, eff);
+    worst = Math.min(worst, eff);
+    const damage = Math.round(base * mult * eff);
+    attackFx({ from, attacker: k === 0 ? attacker : null, move, crit, target: t, delay: k * 110 });
+    hitFoe(t, damage, crit, ATTACK_FX_MS + k * 110);
+    return `${t.def.name} ${damage}`;
+  });
+  const group = hits.length > 1;
+  if (big || group) popText(`${move.icon} ${move.name.toUpperCase()}!${group ? " 💥" : ""}`, true);
+  setTimeout(() => popText(crit ? "CRITICAL HIT!" : big || group ? `${move.icon} ${move.name.toUpperCase()}!` : "Hit!", crit || big), ATTACK_FX_MS);
+  // Type matchups: say the best news (or the bad news if it's all bad).
+  const eff = best > 1 ? best : worst;
+  if (eff !== 1) {
+    setTimeout(() => {
+      popText(eff > 1 ? `It's super effective! ▲` : "Not very effective... ▼", eff > 1);
+      announce(eff > 1 ? "It's super effective!" : "It's not very effective.");
+    }, ATTACK_FX_MS + 450 + hits.length * 110);
+  }
+  announce(`${who ? `${who} uses ` : ""}${move.name}!${crit ? " Critical hit!" : ""} ${group ? `Hits everyone: ${amounts.join(", ")}.` : `${amounts[0].split(" ").pop()} damage.`}`);
 }
 
-function hitMonster(damage, crit, delay) {
+// The look of an attack, from wind-up to impact. Elemental moves fire a
+// projectile; physical ones dash in. Bigger moves and crits hit harder.
+function attackFx({ from, attacker, move, crit, target = battle.target, delay = 0 }) {
+  const element = fx.elementOf(move);
+  const power = move.power || 1;
+  const scale = Math.min(2.4, 0.7 + power * 0.35) * (crit ? 1.35 : 1);
+  const big = power >= 3.5;
+  if (attacker) {
+    restartAnimation(attacker, fx.isPhysical(move) ? "pounce" : "cast");
+    fx.gather(from, element, { ms: 220, count: Math.round(10 * scale) });
+  }
+  const impact = () => {
+    const spot = at.foe(target);
+    if (crit || big) fx.hitStop(crit ? 140 : 90);
+    if (crit) {
+      fx.zoom(spot, 1.08);
+      fx.rays(spot, "light");
+    }
+    if (big && !delay) fx.flash("#ffffff", 260, 0.55);
+    restartAnimation(target.art, "hit");
+    fx.burst(spot, element, { count: Math.round(22 * scale), speed: 1.3 * scale, life: 700 });
+    fx.burst(spot, "impact", { count: Math.round(8 * scale), speed: 0.8 * scale, life: 300 });
+    fx.ring(spot, element, { maxR: 16 * scale, life: 420, width: 2 + scale });
+    fx.shake(3 * scale, 260 + scale * 80);
+  };
+  setTimeout(() => {
+    if (fx.isPhysical(move)) setTimeout(impact, ATTACK_FX_MS - 220 - 40);
+    else fx.projectile(from, at.foe(target), element, { ms: ATTACK_FX_MS - 220, size: Math.round(2 + scale * 1.5), arc: -10 - 8 * scale }).then(impact);
+  }, 220 + delay);
+}
+
+function hitFoe(entry, damage, crit, delay) {
   const b = battle;
-  b.hp = Math.max(0, b.hp - damage);
+  entry.hp = Math.max(0, entry.hp - damage);
   setTimeout(() => {
     // Still show it if this hit just won the battle (the battle may already be wrapping up).
     if (battle && battle !== b) return;
-    fx.number(at.foe(), `-${damage}${crit ? "!" : ""}`, crit ? "crit" : "bad");
+    fx.number(at.foe(entry), `-${damage}${crit ? "!" : ""}`, crit ? "crit" : "bad");
     updateHp(b);
   }, delay);
 }
@@ -616,8 +749,9 @@ function renderMoves() {
     button.className = `move-btn${picked ? " picked" : ""} type-${move.type || "attack"}`;
     button.disabled = battle.busy || battle.done || move.cost > battle.energy;
     button.setAttribute("aria-pressed", String(picked));
-    const eff = !move.type || move.type === "attack" ? effectiveness(move.element, battle.foe.element) : 1;
-    const tag = eff > 1 ? `<span class="move-eff up">▲ Super</span>` : eff < 1 ? `<span class="move-eff down">▼ Weak</span>` : "";
+    const eff = isAttack(move) ? effectiveness(move.element, battle.target.def.element) : 1;
+    const tag = (eff > 1 ? `<span class="move-eff up">▲ Super</span>` : eff < 1 ? `<span class="move-eff down">▼ Weak</span>` : "") +
+      (move.all && battle.party ? `<span class="move-eff all">💥 All</span>` : "");
     const el = ELEMENTS[move.element];
     button.innerHTML = `
       <span class="move-icon">${move.icon}</span>
@@ -631,7 +765,11 @@ function renderMoves() {
 }
 
 function moveDescription(move) {
-  if (!move.type || move.type === "attack") return move.power > 1 ? `${move.power}x damage` : "Normal hit";
+  if (isAttack(move)) {
+    if (spreads(move)) return `${Math.round(move.power * GROUP_POWER * 10) / 10}x to everyone`;
+    return move.power > 1 ? `${move.power}x damage` : "Normal hit";
+  }
+  if (move.type === "stun" && spreads(move)) return "Stuns everyone";
   return { shield: "Blocks a hit", heal: "Heals you", stun: "Skips their turn" }[move.type];
 }
 
@@ -650,11 +788,15 @@ function renderEnergy(b = battle) {
   $("move-energy").textContent = `⚡ ${b.energy} / ${ENERGY_MAX}`;
 }
 
-// Keys: 1-3 pick a move from the open tab; left/right arrows switch tabs.
-// (Letters are for signing in test mode.)
+// Keys: 1-3 pick a move from the open tab; left/right arrows switch tabs;
+// up/down arrows pick who to target. (Letters are for signing in test mode.)
 addEventListener("keydown", (e) => {
   if (!battle || !isShowing("battle")) return;
   if (/^[1-3]$/.test(e.key)) $("battle-moves").children[Number(e.key) - 1]?.click();
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    e.preventDefault();
+    cycleTarget(e.key === "ArrowDown" ? 1 : -1);
+  }
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
     const tabs = $("move-tabs").children.length;
     battle.tab = (battle.tab + (e.key === "ArrowRight" ? 1 : tabs - 1)) % tabs;
@@ -673,60 +815,65 @@ $("bag-btn").onclick = () => toggleBag();
 // ---------- The monster's turn ----------
 
 // `fast`: you signed fast without a hint, which gives a chance to daze it.
+// With several foes, they take turns: one attacks each time.
 function monsterTurn(fast) {
   const b = battle;
   b.busy = true;
-  const dazed = !b.stunned && fast && !b.dizzyLastTurn && Math.random() < dizzyChance(b.level);
-  b.dizzyLastTurn = dazed;
-  setTurn("monster");
-  const name = b.foe.name;
+  const list = alive(b);
+  const a = list[b.actorTurn++ % list.length];
+  const dazed = !a.stunned && fast && !a.dizzyLast && Math.random() < dizzyChance(a.level);
+  a.dizzyLast = dazed;
+  setTurn("monster", a);
+  for (const e of b.field) e.box.classList.toggle("acting", e === a);
+  const name = a.def.name;
+  const spot = () => at.foe(a);
   // Which of its moves it uses: usually the quick one; sometimes (from turn 2)
   // its big signature move; and once a battle, a heal if it's hurt and has one.
-  const [quickMove, , bigMove] = b.foe.moves;
-  const healMove = b.foe.moves.find((mv) => mv.type === "heal");
+  const [quickMove, , bigMove] = a.def.moves;
+  const healMove = a.def.moves.find((mv) => mv.type === "heal");
   // Big signature moves are telegraphed: it spends a turn charging up, and
-  // the hit lands next turn, unless you stun it, it gets dizzy, or you shield.
-  const unleashing = b.charging;
-  b.charging = null;
-  $("battle-warning").hidden = true;
-  const healing = !unleashing && healMove && !b.foeHealed && b.hp < b.maxHp * 0.4 && Math.random() < 0.5;
+  // the hit lands on its next turn, unless you stun it, it gets dizzy, or you shield.
+  const unleashing = a.charging;
+  a.charging = null;
+  $("battle-warning").hidden = !b.field.some((e) => e.charging && !e.out);
+  const healing = !unleashing && healMove && !a.healed && a.hp < a.maxHp * 0.4 && Math.random() < 0.5;
   const startCharge = !unleashing && !healing && b.turn >= 2 && Math.random() < ENEMY_BIG_CHANCE;
   const move = unleashing || quickMove;
 
-  if (b.stunned) {
-    b.stunned = false;
-    restartAnimation($("monster"), "dizzy");
-    fx.orbit(fx.centerOf($("monster"), 0.15), { ms: 1200 });
+  if (a.stunned) {
+    a.stunned = false;
+    restartAnimation(a.art, "dizzy");
+    fx.orbit(fx.centerOf(a.art, 0.15), { ms: 1200 });
     popText(unleashing ? "Stunned! The charge fizzled! 💫" : "Stunned! 💫");
     announce(`${name} is stunned and can't attack!`);
   } else if (dazed) {
-    restartAnimation($("monster"), "dizzy");
-    fx.orbit(fx.centerOf($("monster"), 0.15), { ms: 1200 });
+    restartAnimation(a.art, "dizzy");
+    fx.orbit(fx.centerOf(a.art, 0.15), { ms: 1200 });
     popText(unleashing ? "Dizzy! The charge fizzled! 💫" : "Dizzy! 💫");
     announce(`You signed so fast, ${name} is too dizzy to attack!`);
   } else if (startCharge) {
-    b.charging = bigMove;
-    restartAnimation($("monster"), "charging");
-    fx.gather(at.foe(), "danger", { ms: 900, count: 40, radius: 40 });
-    fx.gather(at.foe(), fx.elementOf(bigMove), { ms: 700, count: 20, radius: 30 });
+    a.charging = bigMove;
+    restartAnimation(a.art, "charging");
+    fx.gather(spot(), "danger", { ms: 900, count: 40, radius: 40 });
+    fx.gather(spot(), fx.elementOf(bigMove), { ms: 700, count: 20, radius: 30 });
     popText(`⚠️ Charging ${bigMove.name}!`, true);
     $("battle-warning").textContent = `⚠️ ${name} is charging up ${bigMove.icon} ${bigMove.name}! Shield, heal, or stun it now!`;
     $("battle-warning").hidden = false;
-    announce(`Watch out! ${name} is charging ${bigMove.name}. Next turn it hits hard, unless you shield, heal, or stun it.`);
+    announce(`Watch out! ${name} is charging ${bigMove.name}. Next time it attacks, it hits hard, unless you shield, heal, or stun it.`);
   } else if (healing) {
-    b.foeHealed = true;
-    const amount = Math.round(b.maxHp * ENEMY_HEAL_FRACTION);
-    b.hp = Math.min(b.maxHp, b.hp + amount);
-    restartAnimation($("monster"), "boost");
-    fx.rise(at.foe(), "heal", { count: 26, width: 30 });
+    a.healed = true;
+    const amount = Math.round(a.maxHp * ENEMY_HEAL_FRACTION);
+    a.hp = Math.min(a.maxHp, a.hp + amount);
+    restartAnimation(a.art, "boost");
+    fx.rise(spot(), "heal", { count: 26, width: 30 });
     popText(`${healMove.icon} ${healMove.name}!`);
-    fx.number(at.foe(), `+${amount}`, "good");
+    fx.number(spot(), `+${amount}`, "good");
     updateHp();
     announce(`${name} uses ${healMove.name} and heals ${amount}!`);
   } else if (b.shield > 0) {
     b.shield--;
     updateStatus();
-    restartAnimation($("monster"), "lunge");
+    restartAnimation(a.art, "lunge");
     setTimeout(() => {
       fx.ring(at.hero(), "shield", { maxR: 24, life: 500, width: 3, squash: 1 });
       fx.burst(at.hero(), "shield", { count: 20, speed: 1.4, angle: Math.PI, spread: 1.6 });
@@ -736,12 +883,12 @@ function monsterTurn(fast) {
     announce(`${name} uses ${move.name}, but your shield blocks it!`);
   } else {
     const big = move === bigMove;
-    const base = monsterDamage(b.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
-    const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE) * (b.surge ? 1.3 : 1)));
+    const base = monsterDamage(a.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
+    const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE) * (a.surge ? 1.3 : 1)));
     b.playerHp = Math.max(0, b.playerHp - damage);
     const element = fx.elementOf(move);
     popText(`${move.icon} ${move.name}!`, big);
-    // The monster's attack: a lunge, or a projectile at you, then the hit.
+    // The attack: a lunge, or a projectile at you, then the hit.
     const landed = () => {
       if (battle !== b) return;
       restartAnimation($("hero-sprite"), "hurt");
@@ -757,17 +904,20 @@ function monsterTurn(fast) {
       updateHp();
     };
     if (fx.isPhysical(move)) {
-      restartAnimation($("monster"), "lunge");
+      restartAnimation(a.art, "lunge");
       setTimeout(landed, 260);
     } else {
-      restartAnimation($("monster"), "charging");
-      fx.projectile(at.foe(), at.hero(), element, { ms: 300, size: big ? 5 : 3, arc: -14 }).then(landed);
+      restartAnimation(a.art, "charging");
+      fx.projectile(spot(), at.hero(), element, { ms: 300, size: big ? 5 : 3, arc: -14 }).then(landed);
     }
     announce(`${name} uses ${move.name}! You lose ${damage} HP.`);
     if (b.playerHp <= 0) return setTimeout(() => battle === b && finish(false), 900);
   }
 
-  setTimeout(() => nextTurn(b), MONSTER_TURN_MS);
+  setTimeout(() => {
+    for (const e of b.field) e.box.classList.remove("acting");
+    nextTurn(b);
+  }, MONSTER_TURN_MS);
 }
 
 // Back to you, with the next target. If the planned ones ran out, the hex
@@ -786,32 +936,9 @@ function nextTurn(b) {
   startLetter(performance.now());
 }
 
-// A trainer's creature is beaten: it goes back, and the next one comes out.
-// Then it's your turn again.
-function nextFoe(b) {
-  const out = b.foe;
-  setTimeout(() => {
-    if (battle !== b || b.done) return;
-    restartAnimation($("monster"), "faint");
-    popText(`${out.name} is out!`);
-    announce(`${b.opts.owner}'s ${out.name} is out of the fight!`);
-    setTimeout(() => {
-      if (battle !== b || b.done) return;
-      b.foeIndex++;
-      sendOut(b);
-      restartAnimation($("monster"), "send-in");
-      fx.burst(at.foe(), "light", { count: 30, speed: 1.6 });
-      fx.ring(at.foe(), "light", { maxR: 30 });
-      popText(`${b.opts.owner} sends out ${b.foe.name}!`, true);
-      announce(`${b.opts.owner} sends out ${b.foe.name}!${b.foeIndex === b.foes.length - 1 ? " It's their last one!" : ""}`);
-      setTimeout(() => nextTurn(b), 1100);
-    }, 1000);
-  }, ATTACK_FX_MS + 700);
-}
-
-function setTurn(who) {
+function setTurn(who, foe = null) {
   const banner = $("turn");
-  banner.textContent = who === "you" ? "Your turn!" : `${battle.foe.name}'s turn!`;
+  banner.textContent = who === "you" ? "Your turn!" : `${foe.def.name}'s turn!`;
   banner.className = `turn-banner ${who === "you" ? "yours" : "theirs"}`;
 }
 
@@ -871,8 +998,11 @@ function updateStatus() {
 // ---------- Bits ----------
 
 function updateHp(b = battle) {
-  $("monster-hp").style.width = `${(b.hp / b.maxHp) * 100}%`;
-  $("monster-hp-text").textContent = `${b.hp} / ${b.maxHp}`;
+  // The panel at the top right shows your target; each foe has a small bar too.
+  const t = b.target;
+  $("monster-hp").style.width = `${(t.hp / t.maxHp) * 100}%`;
+  $("monster-hp-text").textContent = `${t.hp} / ${t.maxHp}`;
+  for (const e of b.field) e.box.querySelector(".mini-fill").style.width = `${(e.hp / e.maxHp) * 100}%`;
   $("player-hp").style.width = `${(b.playerHp / b.playerMax) * 100}%`;
   $("player-hp").classList.toggle("low", b.playerHp <= b.playerMax * 0.3);
   $("player-hp-text").textContent = `${b.playerHp} / ${b.playerMax}`;
@@ -913,13 +1043,15 @@ function finish(won) {
   const boss = battle.stage.type === "boss";
   let result;
 
+  const main = battle.field[0]; // a lone foe (or the first one standing)
+  const firstCreature = battle.roster.find((e) => !e.trainer) || main;
   if (won) {
-    if (battle.opts.owner) {
-      // A trainer's or rival's creature isn't hexed: it just gives up.
-      restartAnimation($("monster"), "faint");
-      popText(battle.opts.team ? `${battle.opts.owner} is out of creatures!` : "VICTORY!", true);
-      fx.rays(at.foe(), "light");
-    } else if (battle.foe.catchable === false) {
+    if (battle.party) {
+      // A trainer's or rival's side isn't hexed: they just give up.
+      for (const e of battle.field) restartAnimation(e.art, "faint");
+      popText(`${battle.opts.owner} is out of moves! VICTORY!`, true);
+      fx.rays(at.foe(main), "light");
+    } else if (main.def.catchable === false) {
       // Malgrath isn't hexed - he's sealed away.
       $("monster").classList.add("sealed");
       popText("SEALED AWAY!", true);
@@ -929,18 +1061,18 @@ function finish(won) {
       $("monster").classList.add("healing");
       fx.hitStop(160);
       fx.flash("#ffffff", 400, 0.8);
-      fx.burst(at.foe(), "hex", { count: 90, speed: 2.6, life: 1000, gravity: 0.05 });
-      fx.ring(at.foe(), "hex", { maxR: 60, life: 700, width: 4 });
+      fx.burst(at.foe(main), "hex", { count: 90, speed: 2.6, life: 1000, gravity: 0.05 });
+      fx.ring(at.foe(main), "hex", { maxR: 60, life: 700, width: 4 });
       fx.shake(9, 450);
-      const foeId = battle.foe.id;
+      const foeId = main.id;
       setTimeout(() => {
         $("monster").innerHTML = creatureImg(foeId);
         $("hud-foe-portrait").innerHTML = creatureImg(foeId);
         $("hud-foe-sub").textContent = "Freed!";
         $("monster").classList.remove("healing");
         $("monster").classList.add("healed");
-        fx.rise(at.foe(), "light", { count: 40, width: 40 });
-        fx.burst(at.foe(), "heal", { count: 30, speed: 1.2, gravity: -0.01 });
+        fx.rise(at.foe(main), "light", { count: 40, width: 40 });
+        fx.burst(at.foe(main), "heal", { count: 30, speed: 1.2, gravity: -0.01 });
         popText("Healed! 💚");
         announce("The hex is broken! It's healed.");
       }, 450);
@@ -961,7 +1093,7 @@ function finish(won) {
       practice: [...battle.practice],
       boss,
       loot: rollLoot(boss),
-      caught: battle.foe.catchable !== false && !battle.opts.owner && progress.catchCreature(battle.foe.id) ? battle.foe : null,
+      caught: !battle.party && main.def.catchable !== false && progress.catchCreature(main.id) ? main.def : null,
     };
   } else {
     $("hero-sprite").classList.add("knocked");
@@ -969,8 +1101,8 @@ function finish(won) {
     result = { won: false, stars: 0, xp: letters * 5, coins: 0, practice: [...battle.practice], boss, loot: null, caught: null };
   }
   playMusic(won ? "victory" : "defeat");
-  result.foe = battle.foe;
-  result.level = battle.level;
+  result.foe = firstCreature.def;
+  result.level = firstCreature.level;
   result.opts = battle.opts;
   result.zone = battle.zone;
   // Level-ups, and buddies that just reached their evolution level.

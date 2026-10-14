@@ -784,6 +784,7 @@ function runSpot(biome, now, dt) {
       owner: t.name,
       team: t.team,
       prize: t.prize,
+      look: t.look,
       trainer: t,
     }),
   );
@@ -823,7 +824,7 @@ function startEncounter(biome, creature) {
   $("biome-wrap").classList.add("encounter");
   setTimeout(() => {
     $("biome-wrap").classList.remove("encounter");
-    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner, team: creature.team, prize: creature.prize });
+    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner, team: creature.team, prize: creature.prize, look: creature.look });
     if (creature.boss) playScene(`boss-${creature.id}`, fight);
     else fight();
   }, 600);

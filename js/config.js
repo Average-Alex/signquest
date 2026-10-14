@@ -173,6 +173,15 @@ export const CREATURES = [
 ];
 for (const c of CREATURES) c.moves[2].element = c.element;
 
+// Group moves (💥 All) hit every foe on the field, at GROUP_POWER of their
+// power each. Against a lone foe they hit it at full power.
+export const GROUP_POWER = 0.6;
+const GROUP_MOVES = new Set([
+  "Slime Wave", "Mushroom Rain", "Gloop Flood", "Eight-Arm Spin", "Fire Breath", "Avalanche", "Blizzard",
+  "Spore Storm", "Void Wave", "Inferno", "Pounce Storm", "Eclipse", "Echo Screech", "Sky Sovereign",
+]);
+for (const c of CREATURES) for (const mv of c.moves) if (GROUP_MOVES.has(mv.name)) mv.all = true;
+
 // ---------- Evolution ----------
 // Buddies evolve when they reach EVOLVE_LEVEL: a new name, a bigger, brighter
 // look, and harder-hitting moves.
@@ -204,7 +213,7 @@ export const TEAM_SIZE = 2; // buddies that fight beside you
 export const HERO_MOVES = [
   { id: "spark", name: "Spark", icon: "✨", cost: 0, power: 1 },
   { id: "blast", name: "Blast", icon: "💥", cost: 3, power: 2, element: "fire" },
-  { id: "nova", name: "Nova", icon: "🌟", cost: 6, power: 3.5, element: "light" },
+  { id: "nova", name: "Nova", icon: "🌟", cost: 6, power: 3.5, element: "light", all: true },
 ];
 export const ENERGY_START = 2;
 export const ENERGY_MAX = 10;

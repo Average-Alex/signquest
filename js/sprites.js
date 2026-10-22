@@ -1319,36 +1319,7 @@ const KEEP_CREATURES = {
       ".....KKKKK..",
     ]),
   },
-  // A royal beetle with a little gold crown and a jeweled shell.
-  crownbug: {
-    colors: { P: "#9a5ae0", p: "#6a3aa8", Y: "#ffd23f", k: "#2a2040", W: "#ffffff" },
-    rows: mirror([
-      "............",
-      "............",
-      "........K..K",
-      "........KYKY",
-      "........KYYY",
-      "........KKKK",
-      ".......KkWkk",
-      ".......Kkkkk",
-      "......KKKKKK",
-      ".....KPYPPPK",
-      "....KPPPPPPK",
-      "...KPPPYPPPK",
-      "...KPPPPPPPK",
-      "..KPYPPPPPPK",
-      "..KPPPPPYPPK",
-      "..KPPPPPPPPK",
-      "..KpPPPYPPPK",
-      "...KpPPPPPPK",
-      "...KppPPPPPK",
-      "....KppppppK",
-      ".....KKKKKKK",
-      "....K.K..K..",
-      "...K..K..K..",
-      "............",
-    ]),
-  },
+
   // Aurelion, the Queen's royal gryphon: an eagle's head and wings on a golden lion's body.
   gryphon: {
     colors: { W: "#fff6e0", w: "#d8c8a8", G: "#ffc93c", g: "#c9941a", O: "#f08a24", E: "#3a7fd6" },
@@ -1385,21 +1356,13 @@ const CREATURE_ART = {
   ...MONSTERS,
   ...NEW_CREATURES,
   ...KEEP_CREATURES,
-  gloop: { ...NEW_CREATURES.slime, colors: { G: "#b06aff", g: "#7a3fd0", W: "#f2e0ff" } },
-  splash: { ...MONSTERS.frog, colors: { G: "#4fb3ff", g: "#2a7fc0", y: "#d4f0ff", W: "#ffffff", r: "#ff7a8a" } },
-  bunny: PETS["pet-bunny"],
-  pup: PETS["pet-dog"],
-  unicorn: PETS["pet-unicorn"],
   cat: PETS["pet-cat"],
   drake: PETS["pet-dragon"],
   // Starfall Realm creatures: recolors with an icy, sky, or void look.
   frostling: { ...NEW_CREATURES.slime, colors: { G: "#bfe8ff", g: "#7fb8e0", W: "#ffffff" } },
   shardgolem: { ...NEW_CREATURES.golem, colors: { R: "#b48ce0", r: "#7a5aa8", Y: "#ff8af0", M: "#7fe3ff" } },
   icewyrm: { ...MONSTERS.dragon, colors: { D: "#7fc8f0", d: "#3a8ac0", y: "#e8f7ff", h: "#ffffff", Y: "#4f6bff", W: "#ffffff" } },
-  puffcap: { ...NEW_CREATURES.shroom, colors: { R: "#ff9ad5", r: "#d9609f", W: "#ffffff", C: "#fff4e0", c: "#e8d4b8" } },
-  skyhop: { ...PETS["pet-bunny"], colors: { W: "#dfe8ff", p: "#9ab8ff", w: "#b8c4e8" } },
   stormowl: { ...MONSTERS.owl, colors: { B: "#6a7894", b: "#465068", c: "#d8e0f0", Y: "#7fe3ff", O: "#ffd23f" } },
-  voidghost: { ...NEW_CREATURES.ghost, colors: { W: "#8a6ac0", w: "#5a3f8a", p: "#ff7ad9" } },
   shadowbat: { ...MONSTERS.bat, colors: { P: "#4a4060", p: "#2c2638", R: "#ff4df0", W: "#ffffff" } },
   voidkraken: { ...MONSTERS.octopus, colors: { O: "#8a4fd6", o: "#5a2fa0", W: "#7fffd4" } },
 };
@@ -1589,6 +1552,257 @@ Object.assign(CREATURE_ART, {
   },
 });
 
+// Classic RPG enemies (the second roster).
+Object.assign(CREATURE_ART, {
+  // A hooded bandit with a red bandana over the face.
+  bandit: {
+    colors: { H: "#6b4a2e", h: "#4e3420", S: "#e0a878", E: "#ffffff", M: "#c0392b", m: "#8e2a20", T: "#c9a24a", b: "#3a2a20", P: "#4a4a5a" },
+    rows: mirror([
+      "............",
+      ".......KKKKK",
+      ".....KKHHHHH",
+      "....KHHHHHHH",
+      "...KHHhHHHHH",
+      "...KHhKKKKKK",
+      "...KHhKSSSSS",
+      "...KHKSSSEKS",
+      "...KHKMMMMMM",
+      "...KHKMMMMMM",
+      "....KHKMMmMM",
+      ".....KKKKKKK",
+      "....KHHHHTTT",
+      "...KHHHHHHTT",
+      "..KSKHHHHhHH",
+      "..KSKHHHHhHH",
+      "...KKHbbbbbb",
+      "....KHHHHHHH",
+      "....KPPPPPPP",
+      "....KPPPPKKK",
+      "....KPPPK...",
+      "....KbbbK...",
+      "...KbbbbK...",
+      "...KKKKKK...",
+    ]),
+  },
+  // A giant spider: round body, eight legs, four red eyes, little fangs.
+  spider: {
+    colors: { B: "#4a3a5e", b: "#2e2440", R: "#ff4d6d", W: "#f2eee0", P: "#c58cf0" },
+    rows: mirror([
+      "............",
+      "............",
+      "............",
+      "............",
+      ".K......KKKK",
+      "KBK...KKBBBB",
+      "KBK..KBBBBBB",
+      ".KBKKBBBBBBB",
+      "..KBBBBRBBRB",
+      "..KBBBBBBBBB",
+      "KK.KBBBBBRRB",
+      "KBKKBBBBBBBB",
+      "KBBBBBBBWBWB",
+      ".KKBBBBBBBBB",
+      "..KBKBBBBBBB",
+      ".KBKKBBBBBBB",
+      "KBK.KBbBBBBB",
+      "KBK.KBbBBPBB",
+      ".K..KBbBBBBB",
+      "....KBbBBBBB",
+      ".....KBBBBBB",
+      "......KKKKKK",
+      "............",
+      "............",
+    ]),
+  },
+  // A lizardman: orange head fin, slit yellow eyes, pale scaly belly.
+  lizardman: {
+    colors: { G: "#4caf6a", g: "#2f7f48", Y: "#ffd23f", O: "#ff8a2a", L: "#d8e08a", l: "#b8c070" },
+    rows: mirror([
+      "...........K",
+      "..........KO",
+      ".........KOO",
+      "......KKKKKK",
+      ".....KGGGGGG",
+      "....KGGGGGGG",
+      "...KGGYKGGGG",
+      "...KGGYKGGGG",
+      "...KGGGGGGGG",
+      "...KGGGGGGKG",
+      "....KGGGGGGG",
+      "....KKKKKKKK",
+      ".....KLLLLLL",
+      "......KKKKKK",
+      "....KKGGGGGG",
+      "...KGGGLLLLL",
+      "..KGKGGLLLLL",
+      "..KGKGGLlLLL",
+      "..KGKGGLLLLL",
+      "...KKGGGGGGG",
+      "....KGGGKKKK",
+      "....KGGGK...",
+      "...KGGGGK...",
+      "...KKKKKK...",
+    ]),
+  },
+  // A basilisk: a coiled serpent with a red crest and a stony stare.
+  basilisk: {
+    colors: { G: "#6a9e3f", g: "#4a7a2a", L: "#d9d58a", Y: "#ffd23f", C: "#d6453d", R: "#ff5a7a" },
+    rows: mirror([
+      "............",
+      ".......K..KK",
+      "......KCKKCC",
+      "......KCCCCC",
+      ".....KKKKKKK",
+      "....KGGGGGGG",
+      "...KGGGGGGGG",
+      "...KGYYKGGGG",
+      "...KGYYYGGGG",
+      "...KGGGGGGGG",
+      "....KGGGGGLL",
+      ".....KKGGGRR",
+      "........KGLL",
+      "........KGLL",
+      ".....KKKKGLL",
+      "...KKGGGGGLL",
+      "..KGGgGGGGLL",
+      ".KGGgGGGGGGG",
+      ".KGgKKKKKKKK",
+      "KGGgGGGGGGGG",
+      "KGgGGGGGgGGG",
+      "KGGgGGGGGGGG",
+      ".KKKKKKKKKKK",
+      "............",
+    ]),
+  },
+  // A wraith: a tattered hood with glowing eyes in the dark, and bony hands.
+  wraith: {
+    colors: { R: "#5a6b7a", r: "#3a4652", k: "#14101c", E: "#7fffe0", W: "#d8d4c8" },
+    rows: mirror([
+      "............",
+      "........KKKK",
+      "......KKRRRR",
+      ".....KRRRRRR",
+      "....KRRrRRRR",
+      "...KRRrKKKKK",
+      "...KRrKkkkkk",
+      "...KRrKkkEkk",
+      "...KRrKkkEkk",
+      "...KRrKkkkkk",
+      "...KRRrKkkkk",
+      "..KRRRrrKKKK",
+      "..KRRRRRRRRR",
+      ".KRRKRRRRRRR",
+      "KRRKRRRRRRRR",
+      "KWWKRRRrRRRR",
+      ".KK.KRRrRRRR",
+      "....KRRrRRRR",
+      "....KRRRrRRR",
+      "....KRRRRRRR",
+      "....KRRKRRKR",
+      "....KRK.KR.K",
+      ".....K...K..",
+      "............",
+    ]),
+  },
+  // A stone gargoyle: bat wings, little horns, red eyes, crouched to pounce.
+  gargoyle: {
+    colors: { S: "#8c8a96", s: "#6a6876", R: "#ff4d4d", W: "#e8e4d8" },
+    rows: mirror([
+      "............",
+      "KK.....KK...",
+      "KSK.....KK..",
+      "KSSK...KSKKK",
+      "KSsSK.KSSSSS",
+      "KSssSKSSSSSS",
+      "KSsSSKSSRKSS",
+      "KSssSKSSRKSS",
+      "KSsSSKSSSSSS",
+      "KSSsSKSSKKKK",
+      ".KSsSKSKWKWK",
+      "..KSSKKSSSSS",
+      "...KKSSSSSSS",
+      "...KSSSSsSSS",
+      "..KSKSSSsSSS",
+      "..KSKSSSSSSS",
+      "..KSKKSSSSSS",
+      "..KKSKSSSSSS",
+      "...KSSKSSSSS",
+      "..KSSSKSSSSS",
+      "..KSSSSKSSSS",
+      "..KSSSSKKKKK",
+      "...KKKKK....",
+      "............",
+    ]),
+  },
+  // A harpy: feathered hair and wings, big eyes, yellow bird feet.
+  harpy: {
+    colors: { F: "#4fa8c8", f: "#2f7898", S: "#f0c8a0", E: "#ffffff", B: "#2f6be0", W: "#e8f4ff", Y: "#ffc93c" },
+    rows: mirror([
+      "............",
+      "......KKKKKK",
+      "....KKFFFFFF",
+      "...KFFFFFFFF",
+      "..KFFfFFFFFF",
+      "..KFFKSSSSSS",
+      "..KFKSSSSSSS",
+      "..KFKSSEBSSS",
+      "..KFKSSSSSSS",
+      "...KFKSSSSKK",
+      "...KFKKSSSSS",
+      "..KFFFKKKKKK",
+      "KKFFFKWWWWWW",
+      "KFFfFKWWWWWW",
+      "KFfFFFKWWWWW",
+      "KFFfFFKWWWWW",
+      ".KFFfFFKWWWW",
+      "..KFFFFKFFFF",
+      "...KKKKKFFFF",
+      "......KKFFKK",
+      ".......KYK..",
+      ".......KYK..",
+      "......KYYYK.",
+      "......KKKKK.",
+    ]),
+  },
+  // A thunder hawk: wings spread, a lightning crest, a bright white chest.
+  thunderhawk: {
+    colors: { B: "#3a4a8a", b: "#26306a", W: "#e8ecf8", Y: "#ffe066", O: "#ffb020" },
+    rows: mirror([
+      "..........KY",
+      ".........KYK",
+      "........KYK.",
+      "......KKKKKK",
+      ".....KBBBBBB",
+      "....KBBBBBBB",
+      "....KBBYKBBB",
+      "....KBBBBBKO",
+      "KK...KBBBKOO",
+      "KBKK.KWBBBKO",
+      "KBBBKKWWBBBB",
+      "KBbBBKWWWBBB",
+      ".KBbBBKWWWWB",
+      "..KBbBKWWWWW",
+      "...KBBKWWWWW",
+      "....KKKWWWWW",
+      "......KWWWWW",
+      "......KBBBBB",
+      ".......KKYKK",
+      "........KY..",
+      ".......KYYK.",
+      ".......KKKK.",
+      "............",
+      "............",
+    ]),
+  },
+});
+// Recolors of other creatures.
+Object.assign(CREATURE_ART, {
+  hobgoblin: { ...CREATURE_ART.goblin, colors: { G: "#c87a3a", g: "#8a5020", E: "#fff6c8", B: "#5a5a6a", b: "#3a3a48", W: "#ffffff" } },
+  voidslime: { ...NEW_CREATURES.slime, colors: { G: "#3a2060", g: "#22123e", W: "#e06bff" } },
+  darkwisp: { ...NEW_CREATURES.ghost, colors: { W: "#7a5ac0", w: "#4a3088", p: "#ffd23f" } },
+  dragonling: { ...MONSTERS.dragon, colors: { D: "#e0902a", d: "#a8601a", y: "#fff2b0", h: "#ffffff", Y: "#3fbf6a", W: "#ffffff" } },
+});
+
 // Pip, the fox-moth who travels with you (and the Beacon's lost spirit).
 CREATURE_ART.pip = {
   colors: { O: "#f08a24", o: "#b85f12", W: "#fff4e0", M: "#c58cf0", m: "#8a5ad6", L: "#ffe066", l: "#ffb020" },
@@ -1673,9 +1887,8 @@ function hexedColors(art) {
   return out;
 }
 
-// Two jagged cracks, running down from the upper half of the body. `scale`:
-// longer, thicker cracks for big painted sprites.
-function hexCracks(ctx, w, h, id, scale = 1) {
+// Two jagged cracks, running down from the upper half of the body.
+function hexCracks(ctx, w, h, id) {
   const image = ctx.getImageData(0, 0, w, h);
   const d = image.data;
   const [or, og, ob] = rgbOf(HEX_OUTLINE);
@@ -1698,8 +1911,9 @@ function hexCracks(ctx, w, h, id, scale = 1) {
       y = Math.floor(h * 0.3 + rand() * h * 0.3);
       found = body(x, y);
     }
-    for (let step = 0; found && step < (4 + Math.floor(rand() * 5)) * scale; step++) {
-      for (let t = 0; t < scale && x + t < w; t++) if (body(x + t, y)) d.set([cr, cg, cb], at(x + t, y));
+    for (let step = 0; found && step < 4 + Math.floor(rand() * 5); step++) {
+      const i = at(x, y);
+      d.set([cr, cg, cb], i);
       y++;
       x += Math.floor(rand() * 3) - 1;
       if (!body(x, y)) break;
@@ -1881,114 +2095,9 @@ function glow(ctx, w, h) {
   ctx.putImageData(image, 0, 0);
 }
 
-// ---------- Painted creature art ----------
-// Creatures with a picture in assets/creatures/<id>.png (detailed pixel art,
-// made with tools/pixelize_creature.py) use it instead of their text sprite.
-// The pictures are much finer than the text sprites, so each also has a size
-// in game pixels (what the biome draws it at), kept separately.
-const PAINTED = new Map(); // id -> canvas
-const GAME_SIZE = new Map(); // sprite canvas -> { w, h } in game pixels
-const PAINTED_GAME_PX = 26;
-
-// Loads every picture that exists (missing ones keep their text sprite).
-// Call once at startup, before anything draws a creature.
-export function loadCreatureArt(ids) {
-  return Promise.all(
-    ids.map(
-      (id) =>
-        new Promise((resolve) => {
-          const im = new Image();
-          im.onload = () => {
-            const c = document.createElement("canvas");
-            c.width = im.width;
-            c.height = im.height;
-            c.getContext("2d").drawImage(im, 0, 0);
-            PAINTED.set(id, c);
-            resolve();
-          };
-          im.onerror = () => resolve();
-          im.src = `assets/creatures/${id}.png`;
-        }),
-    ),
-  );
-}
-
-// A sprite's size in game pixels (the biome draws sprites at this size).
-export function gameSize(canvas) {
-  return GAME_SIZE.get(canvas) || { w: canvas.width / SPRITE_SCALE, h: canvas.height / SPRITE_SCALE };
-}
-
-// Hexbound version of a painted creature, pixel by pixel: drained and tinted
-// purple like hexedColors(), with its brightest glints glowing red.
-function hexPixels(ctx, w, h) {
-  const image = ctx.getImageData(0, 0, w, h);
-  const d = image.data;
-  const outline = rgbOf(PAINTED_OUTLINE);
-  const hexOutline = rgbOf(HEX_OUTLINE);
-  const eyes = rgbOf(HEX_EYES);
-  for (let i = 0; i < d.length; i += 4) {
-    if (!d[i + 3]) continue;
-    const [r, g, b] = [d[i], d[i + 1], d[i + 2]];
-    if (r === outline[0] && g === outline[1] && b === outline[2]) {
-      d.set(hexOutline, i);
-      continue;
-    }
-    const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    if (light > 0.9) {
-      d.set(eyes, i);
-      continue;
-    }
-    const grey = (r + g + b) / 3;
-    d.set([r, g, b].map((v, k) => (v * 0.35 + grey * 0.65) * 0.55 * 0.85 + HEX_TINT[k] * 0.45 * 0.85), i);
-  }
-  ctx.putImageData(image, 0, 0);
-}
-
-// Evolved version of a painted creature: richer colors (glow added after).
-function evolvePixels(ctx, w, h) {
-  const image = ctx.getImageData(0, 0, w, h);
-  const d = image.data;
-  for (let i = 0; i < d.length; i += 4) {
-    if (!d[i + 3]) continue;
-    const grey = (d[i] + d[i + 1] + d[i + 2]) / 3;
-    for (let k = 0; k < 3; k++) d[i + k] = (grey + (d[i + k] - grey) * 1.45) * 0.95;
-  }
-  ctx.putImageData(image, 0, 0);
-}
-
-const PAINTED_OUTLINE = "#1a1226"; // the outline pixelize_creature.py draws
-
-function paintedSrc(id, hexed, frame, evolved) {
-  const pic = PAINTED.get(id);
-  const pad = hexed || evolved ? 1 : 0;
-  const w = pic.width + pad * 2, h = pic.height + pad * 2;
-  const key = `painted:${id}:${hexed}:${evolved}:${frame}`;
-  if (!cache.has(key)) {
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(pic, pad, pad);
-    if (hexed) {
-      hexPixels(ctx, w, h);
-      hexCracks(ctx, w, h, id, Math.round(h / 24));
-    } else if (evolved) evolvePixels(ctx, w, h);
-    liftFoot(ctx, w, h, frame);
-    if (hexed) hexAura(ctx, w, h);
-    else if (evolved) glow(ctx, w, h);
-    const url = canvas.toDataURL();
-    cache.set(key, url);
-    canvases.set(url, canvas);
-    const s = PAINTED_GAME_PX / Math.max(pic.width, pic.height);
-    GAME_SIZE.set(canvas, { w: w * s, h: h * s });
-  }
-  return cache.get(key);
-}
-
 // `hexed`: draw the corrupted Hexbound version. `frame`: a walking frame.
 // `evolved`: the evolved version (see EVOLUTIONS in config.js).
 export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
-  if (PAINTED.has(id)) return paintedSrc(id, hexed, frame, evolved);
   const art = CREATURE_ART[id];
   const w = art.rows[0].length, h = art.rows.length;
   if (evolved && !hexed) {
@@ -2019,13 +2128,30 @@ export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.
 export function creatureImg(id, cls = "", hexed = false, evolved = false) {
-  const small = !PAINTED.has(id) && CREATURE_ART[id].rows.length <= 12;
+  const small = CREATURE_ART[id].rows.length <= 12;
   return img(creatureSrc(id, hexed, 0, evolved), `creature ${small ? "small" : ""}${evolved ? " evolved" : ""}${hexed ? " hexed" : ""} ${cls}`, id);
+}
+
+// Scenery is toned down (less saturated, a little darker) so the world looks
+// calmer and the creatures stand out against it.
+function mute(ctx, w, h, saturation = 0.7, brightness = 0.9) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const grey = (d[i] + d[i + 1] + d[i + 2]) / 3;
+    for (let k = 0; k < 3; k++) d[i + k] = (grey + (d[i + k] - grey) * saturation) * brightness;
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 export function decorSrc(id) {
   const art = DECOR[id];
-  return draw(`decor:${id}`, art.rows[0].length, art.rows.length, (ctx) => paint(ctx, art.rows, art.colors));
+  const w = art.rows[0].length, h = art.rows.length;
+  return draw(`decor:${id}`, w, h, (ctx) => {
+    paint(ctx, art.rows, art.colors);
+    mute(ctx, w, h);
+  });
 }
 
 const img = (src, cls, alt = "") => `<img class="sprite ${cls}" src="${src}" alt="${alt}" draggable="false">`;
@@ -2054,6 +2180,7 @@ export function landmarkSrc(zoneId) {
   const lm = LANDMARKS[zoneId];
   return draw(`landmark:${zoneId}`, lm.w, lm.h, (ctx) => {
     for (const part of lm.parts) paint(ctx, part.rows, part.colors, part.x || 0, part.y || 0);
+    mute(ctx, lm.w, lm.h, 0.75, 0.92);
   });
 }
 

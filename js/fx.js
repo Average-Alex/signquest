@@ -48,9 +48,6 @@ export const isPhysical = (move) => PHYSICAL.has(move.icon);
 
 let canvas = null;
 let ctx = null;
-// A blurred copy of the effects, drawn behind them, so everything glows.
-let glowCanvas = null;
-let glowCtx = null;
 let particles = [];
 let rings = [];
 let projectiles = [];
@@ -68,9 +65,6 @@ function fit() {
   const r = arena().getBoundingClientRect();
   const w = Math.max(1, Math.round(r.width / PIX)), h = Math.max(1, Math.round(r.height / PIX));
   if (canvas.width !== w || canvas.height !== h) (canvas.width = w), (canvas.height = h);
-  glowCanvas ||= $("fx-glow");
-  glowCtx ||= glowCanvas?.getContext("2d");
-  if (glowCanvas && (glowCanvas.width !== w || glowCanvas.height !== h)) (glowCanvas.width = w), (glowCanvas.height = h);
 }
 
 // The middle of an element, in effect pixels. `yFrac` 0 = its top, 1 = its bottom.
@@ -94,7 +88,6 @@ function loop(now) {
   if (!particles.length && !rings.length && !projectiles.length && !slashes.length) {
     running = false;
     if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (glowCtx) glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
     return;
   }
   requestAnimationFrame(loop);
@@ -183,11 +176,6 @@ function loop(now) {
   }
   slashes = slashes.filter((s) => s.age < s.life);
   ctx.globalAlpha = 1;
-
-  if (glowCtx) {
-    glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
-    glowCtx.drawImage(canvas, 0, 0);
-  }
 }
 
 // A projectile's look depends on its element, with a fading comet tail behind it.

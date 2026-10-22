@@ -138,7 +138,7 @@ export const QUESTS = {
         after: [["rook", "Tch. Lucky. This isn't over, apprentice."], ["pip", "Who WAS that? Why would a Signkeeper want the shards?"]],
       },
       {
-        area: 3, type: "malgrath", creature: "shroom",
+        area: 3, type: "malgrath", creature: "hobgoblin",
         lines: [["malgrath", "Reading old spellbooks? How sweet."], ["malgrath", "The Owlery belongs to me now. Spores, smother them!"]],
         after: [["pip", "His hex gets stronger the closer we get to a shard. We have to hurry!"]],
       },
@@ -188,8 +188,8 @@ export const QUESTS = {
         lines: [["pip", "Wait... I know this place. I've been somewhere like this before."], ["pip", "When the Beacon shattered, I fell. Deep, deep down into the dark. Then I woke up next to you."], ["pip", "Let's keep going. I want to remember more."]],
       },
       {
-        area: 3, type: "malgrath", creature: "gloop",
-        lines: [["malgrath", "You chase my shards like a moth chases a flame."], ["malgrath", "And your little friend glows brighter near them, doesn't it? How... interesting."], ["malgrath", "Gloop! Drown them in the dark!"]],
+        area: 3, type: "malgrath", creature: "darkwisp",
+        lines: [["malgrath", "You chase my shards like a moth chases a flame."], ["malgrath", "And your little friend glows brighter near them, doesn't it? How... interesting."], ["malgrath", "Dark Wisp! Burn them with shadow fire!"]],
         after: [["pip", "Why did he look at me like that, {name}?"], ["pip", "Never mind. Let's just get the shard."]],
       },
     ],
@@ -239,7 +239,7 @@ export const QUESTS = {
         after: [["rook", "...Fine. You win. But I can't stop. I CAN'T."], ["pip", "He didn't sound mean this time, {name}. He sounded scared."]],
       },
       {
-        area: 3, type: "malgrath", creature: "splash",
+        area: 3, type: "malgrath", creature: "lizardman",
         lines: [["malgrath", "Rook works for ME, little apprentice. Didn't he tell you?"], ["malgrath", "He'll bring me every shard. Or his little sister Robin stays hexed. Forever."], ["malgrath", "Now... ink beasts, take them!"]],
         after: [["pip", "His sister?! THAT'S why Rook is doing this!"], ["pip", "{name}, we have to help them both."]],
       },
@@ -285,8 +285,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "ghost",
-        lines: [["malgrath", "Welcome home, apprentice. Your little school is MY fortress now."], ["malgrath", "Did you really think you could just walk back in? Boo! Haunt them!"]],
+        area: 1, type: "malgrath", creature: "wraith",
+        lines: [["malgrath", "Welcome home, apprentice. Your little school is MY fortress now."], ["malgrath", "Did you really think you could just walk back in? Wraith! Haunt them!"]],
         after: [["pip", "He's turning everything we love against us. We won't let him win!"]],
       },
       {
@@ -385,8 +385,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "puffcap",
-        lines: [["malgrath", "Seven shards, apprentice. You have done my work for me."], ["malgrath", "But you won't get the last one. Puffcap! Put them to sleep... forever."]],
+        area: 1, type: "malgrath", creature: "harpy",
+        lines: [["malgrath", "Seven shards, apprentice. You have done my work for me."], ["malgrath", "But you won't get the last one. Harpy! Blow them off my mountain!"]],
         after: [["pip", "He's scared. I can feel it. We're getting close!"]],
       },
       {
@@ -435,8 +435,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "voidghost",
-        lines: [["malgrath", "So you made it to the Rift. Nobody has made it this far in a thousand years."], ["malgrath", "Wisps! Show them what the Void really is!"]],
+        area: 1, type: "malgrath", creature: "voidslime",
+        lines: [["malgrath", "So you made it to the Rift. Nobody has made it this far in a thousand years."], ["malgrath", "Void Slimes! Show them what the Void really is!"]],
         after: [["pip", "Stay close, everyone. The shards are calling me. The last one is right up there."]],
       },
       {

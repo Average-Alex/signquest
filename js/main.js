@@ -2,8 +2,6 @@
 
 import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
-import { CREATURES } from "./config.js";
-import { loadCreatureArt } from "./sprites.js";
 import * as progress from "./progress.js";
 import { ENOUGH, openCalibration } from "./calibrate.js";
 import { playCutscene } from "./cutscene.js";
@@ -24,8 +22,6 @@ document.addEventListener("click", (e) => {
   if (button) show(button.dataset.go);
 });
 
-// Detailed creature pictures first, so nothing draws an old sprite before they're in.
-await loadCreatureArt(CREATURES.map((c) => c.id));
 await initClassifier();
 initRecordPage();
 await initMotionTest();

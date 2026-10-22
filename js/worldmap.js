@@ -10,24 +10,26 @@ import { ZONES } from "./config.js";
 export const MAP_W = 192;
 export const MAP_H = 120;
 
+// Muted, slightly dusky colors: a world under a hex, not a sunny cartoon.
+// Specks are sparse and close to the ground color, so the land reads calm.
 const GROUND = {
-  meadow: { base: "#86d35a", dark: "#71c04a", specks: ["#ff7fc8", "#ffe066", "#ffffff"], rate: 0.05 },
-  forest: { base: "#4ea44a", dark: "#3f923f", specks: ["#2a6e30", "#2a6e30", "#6cc24a"], rate: 0.14 },
-  caves: { base: "#a39ab0", dark: "#918aa0", specks: ["#6e6480", "#c4bcd0"], rate: 0.1 },
-  river: { base: "#6cc24a", dark: "#5cb03e", specks: ["#9be07a"], rate: 0.04 },
-  castle: { base: "#93c25a", dark: "#80ae4a", specks: ["#c9b277", "#ffe066"], rate: 0.04 },
-  keep: { base: "#b8d97a", dark: "#a6c86a", specks: ["#ffd23f", "#ffffff", "#d64f86"], rate: 0.06 },
-  spires: { base: "#cfe3f2", dark: "#b8d4ea", specks: ["#ffffff", "#c58cf0"], rate: 0.08 },
-  clouds: { base: "#f2f4ff", dark: "#dfe4f8", specks: ["#ffe9a8", "#c8d0f0"], rate: 0.05 },
-  void: { base: "#3a2a5e", dark: "#30224f", specks: ["#c58cf0", "#ffffff", "#7fffd4"], rate: 0.08 },
+  meadow: { base: "#7a9c58", dark: "#6c8d4d", specks: ["#869f5f", "#5f7f45"], rate: 0.03 },
+  forest: { base: "#46714a", dark: "#3c6541", specks: ["#33573a", "#507d52"], rate: 0.08 },
+  caves: { base: "#8b8494", dark: "#7c7586", specks: ["#6c6578", "#9a93a2"], rate: 0.06 },
+  river: { base: "#6a9256", dark: "#5e854c", specks: ["#77a062"], rate: 0.025 },
+  castle: { base: "#80975e", dark: "#728852", specks: ["#9a9070"], rate: 0.025 },
+  keep: { base: "#97a872", dark: "#889966", specks: ["#a89d6e"], rate: 0.03 },
+  spires: { base: "#b3c2cf", dark: "#a3b3c2", specks: ["#c6d2dc"], rate: 0.04 },
+  clouds: { base: "#d6d9e3", dark: "#c8ccd8", specks: ["#bfc4d2"], rate: 0.03 },
+  void: { base: "#352a52", dark: "#2c2346", specks: ["#4e3d74", "#8a6abf"], rate: 0.04 },
 };
 
 // Sea and shore colors for each dimension.
 const PALETTES = [
-  { deep: "#2a7fc0", water: "#3a95d4", shallow: "#5cc4e8", wave: "#a8e0ff", sand: "#f2dc9a", cliff: "#3f7a34", islets: 2 },
+  { deep: "#24506e", water: "#2e6385", shallow: "#457d9a", wave: "#7fa6ba", sand: "#c4b488", cliff: "#365a36", islets: 2 },
   { deep: "#120a24", water: "#1c1236", shallow: "#2e2052", wave: "#ffffff", sand: "#b8a8e8", cliff: "#5a3f8a", islets: 5 },
 ];
-const RIVER = "#4fb3ff";
+const RIVER = "#4d86a8";
 
 // Repeatable "random" numbers, so the map looks the same every time.
 export function hash(x, y, seed = 0) {
@@ -135,7 +137,7 @@ export function worldMapSrc(dimension = 0) {
         dot(x, y, pal.wave, 3, 1);
         dot(x + 1, y - 1, pal.wave);
       } else if (dimension === 1 && hash(x, y, 8) < 0.012) {
-        dot(x, y, hash(x, y, 9) < 0.3 ? "#c58cf0" : pal.wave);
+        dot(x, y, pal.wave);
         if (hash(x, y, 10) < 0.15) (dot(x - 1, y, pal.wave), dot(x + 1, y, pal.wave), dot(x, y - 1, pal.wave), dot(x, y + 1, pal.wave));
       }
     }

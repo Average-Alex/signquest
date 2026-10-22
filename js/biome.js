@@ -36,7 +36,7 @@ import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
 import { QUESTS, ROOK } from "./quests.js";
 import { trainersFor } from "./trainers.js";
-import { creatureSrc, decorSrc, gameSize, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
+import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { playCutscene } from "./cutscene.js";
 import { playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
@@ -96,11 +96,11 @@ const SECRET_COINS = [20, 45];
 
 const THEMES = {
   meadow: {
-    ground: ["#86d35a", "#77c44c"], specks: ["#ff7fc8", "#ffe066", "#ffffff"], speckRate: 0.025,
-    path: ["#e8cf8a", "#d4b874"], obstacles: ["bush", "bush", "pine"], wall: "pine", density: 0.75, water: "pond",
+    ground: ["#7a9c58", "#71924f"], specks: ["#869f5f", "#5f7f45"], speckRate: 0.02,
+    path: ["#b8a57a", "#a8966c"], obstacles: ["bush", "bush", "pine"], wall: "pine", density: 0.75, water: "pond",
   },
   forest: {
-    ground: ["#4ea44a", "#449a40"], specks: ["#2a6e30", "#6cc24a"], speckRate: 0.05,
+    ground: ["#46714a", "#406a44"], specks: ["#33573a", "#507d52"], speckRate: 0.035,
     path: ["#b08a5a", "#9a7448"], obstacles: ["pine"], wall: "pine", density: 0.62, water: null,
   },
   caves: {
@@ -108,8 +108,8 @@ const THEMES = {
     path: ["#8a7a6a", "#7a6a5a"], obstacles: ["rock", "crystal", "rock"], wall: "rock", density: 0.67, water: null,
   },
   river: {
-    ground: ["#6cc24a", "#5fb43f"], specks: ["#9be07a", "#ffffff"], speckRate: 0.02,
-    path: ["#f2dc9a", "#e0c880"], obstacles: ["pine", "rock", "bush"], wall: "pine", density: 0.73, water: "river",
+    ground: ["#6a9256", "#62894f"], specks: ["#77a062"], speckRate: 0.015,
+    path: ["#c4b488", "#b4a47a"], obstacles: ["pine", "rock", "bush"], wall: "pine", density: 0.73, water: "river",
   },
   castle: {
     ground: ["#a89a8a", "#9a8c7c"], specks: ["#8a7e70", "#c4b8a8"], speckRate: 0.05,
@@ -117,25 +117,25 @@ const THEMES = {
   },
   // Crown Keep: pale royal stone, a red carpet for a path, hedges, and moat ponds.
   keep: {
-    ground: ["#c9bfdc", "#bdb2d2"], specks: ["#ffd23f", "#ffffff", "#a89cc4"], speckRate: 0.03,
+    ground: ["#b4adc2", "#aaa2b9"], specks: ["#9c94ad"], speckRate: 0.02,
     path: ["#c8414b", "#b3343e"], obstacles: ["wall", "bush", "bush"], wall: "wall", density: 0.72, water: "pond",
   },
   spires: {
-    ground: ["#cfe3f2", "#bcd6ec"], specks: ["#ffffff", "#c58cf0"], speckRate: 0.04,
+    ground: ["#b3c2cf", "#a8b8c6"], specks: ["#c6d2dc"], speckRate: 0.025,
     path: ["#9ab8d6", "#88a8c8"], obstacles: ["icecrystal", "crystal", "icecrystal"], wall: "icecrystal", density: 0.69, water: "pond",
   },
   clouds: {
-    ground: ["#f2f4ff", "#e2e6f8"], specks: ["#ffe9a8", "#c8d0f0"], speckRate: 0.03,
+    ground: ["#d6d9e3", "#cdd1dc"], specks: ["#bfc4d2"], speckRate: 0.02,
     path: ["#ffe9a8", "#f2d88a"], obstacles: ["cloud", "cloud", "bush"], wall: "cloud", density: 0.67, water: null,
   },
   void: {
-    ground: ["#2a1f3d", "#241a35"], specks: ["#ffffff", "#c58cf0", "#7fffd4"], speckRate: 0.03,
+    ground: ["#2a1f3d", "#241a35"], specks: ["#4e3d74", "#8a6abf"], speckRate: 0.02,
     path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidrock"], wall: "voidrock", density: 0.69, water: null,
   },
 };
 
-const WATER = ["#3a95d4", "#4fa8e0"];
-const SHORE = "#f2dc9a";
+const WATER = ["#2e6385", "#376e90"];
+const SHORE = "#c4b488";
 const BRIDGE = ["#a8743a", "#8a5a2a"];
 
 // One saved biome per zone, so creatures and your spot stay put while you battle.
@@ -393,7 +393,7 @@ function paintGround(theme, kind, seed) {
       let c;
       if (k === WATER_TILE) {
         c = WATER[noise(x, y, 6, seed + 5) > 0.6 ? 1 : 0];
-        if (hash(x, y, seed + 6) < 0.01) c = "#a8e0ff";
+        if (hash(x, y, seed + 6) < 0.01) c = "#7fa6ba";
         // Sandy edge where water meets land.
         if ([kindAt(x - 1, y), kindAt(x + 1, y), kindAt(x, y - 1), kindAt(x, y + 1)].some((n) => n === GROUND || n === PATH)) c = SHORE;
       } else if (k === BRIDGE_TILE) {
@@ -455,7 +455,7 @@ export function battleBackdropSrc(zoneId) {
         const d = blob(x, y, pond.cx, pond.cy, pond.rx, pond.ry, 9);
         if (d < 1.08) c = SHORE;
         if (d < 1) c = WATER[noise(x, y, 6, seed + 4) > 0.6 ? 1 : 0];
-        if (d < 1 && hash(x, y, seed + 5) < 0.012) c = "#a8e0ff";
+        if (d < 1 && hash(x, y, seed + 5) < 0.012) c = "#7fa6ba";
       }
       const [r, g, b] = rgb(c);
       const i = (y * FIELD_W + x) * 4;
@@ -1217,7 +1217,7 @@ function draw(biome, now) {
 
   things.sort((a, b) => a.y - b.y);
   for (const t of things) {
-    const { w: iw, h: ih } = gameSize(t.img); // size in game pixels
+    const iw = t.img.width / SPRITE_SCALE, ih = t.img.height / SPRITE_SCALE; // size in game pixels
     let w = iw * (t.scale || 1), h = ih * (t.scale || 1);
     if (t.small && iw > 12) (w = iw * 0.75), (h = ih * 0.75);
     if (t.y < camY - 4 || t.y - h > camY + VIEW_H + 4 || t.x + w / 2 < camX || t.x - w / 2 > camX + VIEW_W) continue; // off screen
@@ -1245,11 +1245,11 @@ function draw(biome, now) {
     ...biome.creatures.map((c) => {
       let icon = STAGES[c.stage].icon;
       if (c.freed) {
-        const h = ((c.boss ? 2 : 1) * gameSize(spriteCanvas(creatureSrc(c.id))).h);
+        const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
         return { x: c.x, y: c.y - h - 2, html: "💚", cls: " freed" };
       }
       if (c.rare) icon = "🧭";
-      const h = ((c.boss ? 2 : 1) * gameSize(spriteCanvas(creatureSrc(c.id))).h);
+      const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
       // Rare and rarer creatures show their rarity, in its color.
       const rarity = rarityOf(CREATURES.find((x) => x.id === c.id));
       const showRarity = !c.boss && !c.rare && rarity.weight <= RARITIES.rare.weight;

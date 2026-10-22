@@ -1,4 +1,4 @@
-/* Look: dark fantasy RPG. Night-blue panels with gold trim, chunky
+/* Look: old-school fantasy RPG. Parchment panels with dark outlines, chunky
    bevelled buttons, pixel-art sprites (js/sprites.js). Body text stays a
    plain, readable font for young players. */
 :root {
@@ -6,19 +6,10 @@
   --sky-2: #d9f1ff;
   --grass: #6cc24a;
   --grass-2: #4e9a35;
-  --ink: #0d0b1c; /* outlines, and text on gold */
-  --text: #f3ead6; /* text on dark panels */
-  --muted: #a9a0c8;
-  --card: #1a1f3d;
-  --card-2: #121630;
-  --trim: #d9a93f; /* gold panel trim */
-  --title: #ffd77a;
-  --field: #232849; /* inputs, chips, list rows */
-  --field-gold: #3d3420;
-  --field-good: #1e3a2b;
-  --field-brand: #2c2550;
-  --accent-text: #c7b2ff;
-  --good-text: #8ee88a;
+  --ink: #2b1d2e;
+  --muted: #6b5544;
+  --card: #fbf1d6;
+  --card-2: #f3e2b8;
   --line: #5a3a1e;
   --brand: #7b4fe0;
   --brand-dark: #4e2fa3;
@@ -33,25 +24,20 @@
   --radius: 10px;
   --outline: 3px solid var(--ink);
   font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
-  color: var(--text);
+  color: var(--ink);
 }
 
 * { box-sizing: border-box; }
 /* The hidden attribute must win over any display: rule below. */
 [hidden] { display: none !important; }
-html { color-scheme: dark; }
+html { color-scheme: light; }
 body {
   margin: 0;
   min-height: 100vh;
-  /* A starry night sky over dark hills. */
   background:
-    radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%) 0 0 / 220px 180px fixed,
-    radial-gradient(1.5px 1.5px at 62% 42%, #ffe9a8 50%, transparent 51%) 0 0 / 300px 240px fixed,
-    radial-gradient(1px 1px at 82% 72%, #c7d8ff 50%, transparent 51%) 0 0 / 260px 200px fixed,
-    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(122, 79, 224, 0.28), transparent 70%) fixed,
-    linear-gradient(to bottom, transparent 82%, #1b2a2a 82%, #16211f) fixed,
-    linear-gradient(to bottom, #0b0d22, #1a1440 60%, #2a1d4a 82%) fixed;
-  background-color: #0b0d22;
+    linear-gradient(to bottom, transparent 78%, var(--grass) 78%, var(--grass) 81%, var(--grass-2) 81%) fixed,
+    linear-gradient(to bottom, var(--sky), var(--sky-2) 78%) fixed;
+  background-color: var(--sky-2);
   font-size: 18px;
   line-height: 1.4;
 }
@@ -61,21 +47,20 @@ h1, h2, h3 { margin: 0 0 12px; }
 h1:focus, h2:focus { outline: none; }
 /* Chunky outlined headings, like an old game's title text. */
 h2, h3 { color: #fff; -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ink); letter-spacing: 0.5px; }
-.card h2, .card h3 { color: var(--title); -webkit-text-stroke: 0; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); letter-spacing: 1px; }
+.card h2, .card h3 { color: var(--ink); -webkit-text-stroke: 0; text-shadow: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Night-blue panel: dark outline, a thin gold trim inside it, and a soft
-   inner shadow, like a framed window in an old RPG. */
+/* Parchment panel with a dark outline and an inner gold rim. */
 .card {
-  background: linear-gradient(180deg, #20264a, var(--card) 40%, var(--card-2)); border: var(--outline); border-radius: var(--radius); padding: 18px;
-  box-shadow: inset 0 0 0 2px var(--trim), inset 0 0 0 4px var(--ink), inset 0 0 28px rgba(0, 0, 0, 0.45), 0 5px 0 var(--ink), 0 10px 24px rgba(0, 0, 0, 0.35);
+  background: var(--card); border: var(--outline); border-radius: var(--radius); padding: 18px;
+  box-shadow: inset 0 0 0 3px var(--card-2), inset 0 0 0 5px rgba(185, 133, 26, 0.45), 0 5px 0 var(--ink);
 }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .row.center { justify-content: center; margin-top: 20px; }
 .label { font-weight: 700; margin: 12px 0 6px; }
 .small-text { color: var(--muted); font-size: 15px; }
 .status { font-size: 22px; font-weight: 700; margin: 10px 0; }
-.status.good { color: var(--good-text); }
+.status.good { color: var(--go-dark); }
 .error { color: var(--warn); font-weight: 700; }
 .count { font-weight: 700; background: var(--card); border: var(--outline); border-radius: 8px; padding: 2px 10px; }
 
@@ -105,7 +90,7 @@ h2, h3 { color: #fff; -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 4px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 8px var(--ink); }
 
 input[type=text], select {
-  font: inherit; width: 100%; padding: 12px 14px; border: var(--outline); border-radius: 8px; background: var(--field);
+  font: inherit; width: 100%; padding: 12px 14px; border: var(--outline); border-radius: 8px; background: #fffaf0;
   box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.08);
 }
 
@@ -118,12 +103,12 @@ input[type=text], select {
 .tagline { text-align: center; font-size: 26px; font-weight: 700; margin: 0 0 20px; color: #fff; -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ink); }
 .setup { max-width: 520px; margin: 0 auto; }
 .hero-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.hero-row .avatar { background: var(--field); border: var(--outline); border-radius: 10px; padding: 8px 12px 6px; }
+.hero-row .avatar { background: #fffaf0; border: var(--outline); border-radius: 10px; padding: 8px 12px 6px; }
 .hero-row .avatar .hero { width: 64px; }
 .hero-row .avatar .pet { width: 30px; }
 .hand-check { margin-top: 16px; text-align: center; }
 .hand-check .camera { max-width: 360px; margin: 0 auto; }
-.privacy { text-align: center; max-width: 520px; margin: 20px auto; padding: 10px 14px; background: rgba(26, 31, 61, 0.9); border: var(--outline); border-radius: 10px; }
+.privacy { text-align: center; max-width: 520px; margin: 20px auto; padding: 10px 14px; background: rgba(251, 241, 214, 0.9); border: var(--outline); border-radius: 10px; }
 
 /* ---------- Camera ---------- */
 .camera { position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius); overflow: hidden; background: #1d2033; border: var(--outline); box-shadow: inset 0 0 0 3px var(--card-2), 0 5px 0 var(--ink); }
@@ -222,7 +207,7 @@ input[type=text], select {
 .world-hero .sprite { width: calc(var(--u) * 12); animation: bob 1.2s steps(2) infinite; filter: drop-shadow(0 calc(var(--u) * 1) 0 rgba(0, 0, 0, 0.25)); }
 
 .letter-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
-.chip { font-size: 26px; font-weight: 700; background: var(--field); color: var(--accent-text); border: var(--outline); border-radius: 8px; padding: 2px 14px; box-shadow: 0 3px 0 var(--ink); }
+.chip { font-size: 26px; font-weight: 700; background: #fffaf0; color: var(--brand-dark); border: var(--outline); border-radius: 8px; padding: 2px 14px; box-shadow: 0 3px 0 var(--ink); }
 
 /* ---------- Biome (walkable area, js/biome.js) ---------- */
 .biome-wrap {
@@ -270,19 +255,18 @@ input[type=text], select {
 .biome-help { text-align: center; font-weight: 700; color: #fff; text-shadow: 0 2px 0 var(--ink); -webkit-text-stroke: 0.5px var(--ink); }
 
 /* ---------- Creature book ---------- */
-.book-help { text-align: center; font-weight: 700; background: rgba(26, 31, 61, 0.9); border: var(--outline); border-radius: 10px; padding: 8px 14px; }
+.book-help { text-align: center; font-weight: 700; background: rgba(251, 241, 214, 0.9); border: var(--outline); border-radius: 10px; padding: 8px 14px; }
 .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
 .book-card {
   display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 12px 10px;
-  background: linear-gradient(180deg, #20264a, var(--card)); border: var(--outline); border-radius: 12px;
-  box-shadow: inset 0 0 0 2px rgba(217, 169, 63, 0.55), inset 0 -6px 0 var(--card-2), 0 4px 0 var(--ink);
+  background: var(--card); border: var(--outline); border-radius: 12px; box-shadow: inset 0 -6px 0 var(--card-2), 0 4px 0 var(--ink);
 }
-.book-card.buddy { background: linear-gradient(180deg, #4a3d1f, var(--field-gold)); box-shadow: inset 0 -6px 0 #2a2312, 0 0 0 4px var(--gold), 0 4px 0 4px var(--ink); }
-.book-card.unknown { background: #141730; }
+.book-card.buddy { background: #fff3c4; box-shadow: inset 0 -6px 0 #f5d77a, 0 0 0 4px var(--gold), 0 4px 0 4px var(--ink); }
+.book-card.unknown { background: #e8dcc0; }
 .book-art { height: 100px; display: grid; place-items: center; }
 .book-art .sprite { width: 96px; }
 .book-art .sprite.small { width: 72px; }
-.book-art.silhouette .sprite { filter: brightness(0) invert(1); opacity: 0.12; }
+.book-art.silhouette .sprite { filter: brightness(0); opacity: 0.35; }
 .book-name { font-weight: 700; font-size: 18px; }
 .book-level { font-weight: 700; color: var(--muted); font-size: 15px; }
 .book-card .btn { margin-top: 6px; }
@@ -474,10 +458,10 @@ input[type=text], select {
 @keyframes pop { 0% { opacity: 0; transform: translate(-50%, 20px) scale(0.6); } 30% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -20px); } }
 
 .target { display: flex; justify-content: center; gap: 10px; margin: 16px 0; min-height: 110px; }
-.slot { width: 90px; height: 110px; display: grid; place-items: center; font-size: 64px; font-weight: 700; border-radius: 10px; background: rgba(26, 31, 61, 0.75); border: 3px dashed var(--line); color: #6f6894; }
+.slot { width: 90px; height: 110px; display: grid; place-items: center; font-size: 64px; font-weight: 700; border-radius: 10px; background: rgba(251, 241, 214, 0.75); border: 3px dashed var(--line); color: #b8a68a; }
 .slot.single { width: 130px; height: 130px; font-size: 96px; }
 .slot.now { border: var(--outline); background: var(--card); color: var(--brand); box-shadow: 0 0 0 5px var(--gold), 0 5px 0 5px var(--ink); }
-.slot.done { border: var(--outline); background: var(--field-good); color: var(--good-text); box-shadow: 0 4px 0 var(--ink); }
+.slot.done { border: var(--outline); background: #d9f7cf; color: var(--go-dark); box-shadow: 0 4px 0 var(--ink); }
 
 .battle-bottom { display: grid; grid-template-columns: minmax(260px, 420px) 1fr; gap: 20px; align-items: start; }
 .seeing { font-size: 20px; font-weight: 700; display: inline-block; background: var(--card); border: var(--outline); border-radius: 8px; padding: 4px 12px; }
@@ -493,10 +477,10 @@ input[type=text], select {
 .rewards { font-size: 28px; font-weight: 700; }
 .loot { font-size: 22px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .loot .sprite { width: 40px; }
-.caught { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 20px; background: var(--field-gold); border: var(--outline); border-radius: 10px; padding: 8px 12px; }
+.caught { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 20px; background: #fff3c4; border: var(--outline); border-radius: 10px; padding: 8px 12px; }
 .caught .sprite { width: 72px; }
 .caught .sprite.small { width: 54px; }
-.level-up { font-size: 20px; font-weight: 700; color: var(--accent-text); }
+.level-up { font-size: 20px; font-weight: 700; color: var(--brand-dark); }
 
 /* ---------- Shop ---------- */
 .shop-preview { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px 0 10px; }
@@ -504,11 +488,10 @@ input[type=text], select {
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .shop-item {
   font: inherit; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 12px; border-radius: 10px; border: var(--outline); background: linear-gradient(180deg, #20264a, var(--card)); color: var(--text);
-  box-shadow: inset 0 0 0 2px rgba(217, 169, 63, 0.55), inset 0 -5px 0 var(--card-2), 0 4px 0 var(--ink);
+  padding: 12px; border-radius: 10px; border: var(--outline); background: var(--card); box-shadow: inset 0 -5px 0 var(--card-2), 0 4px 0 var(--ink);
 }
 .shop-item:disabled { opacity: 0.55; cursor: default; }
-.shop-item.wearing { background: var(--field-good); box-shadow: inset 0 0 0 2px var(--good), inset 0 -5px 0 #12261b, 0 4px 0 var(--ink); }
+.shop-item.wearing { background: #d9f7cf; box-shadow: inset 0 -5px 0 #b5e8a6, 0 4px 0 var(--ink); }
 .shop-icon { height: 72px; display: grid; place-items: center; }
 .shop-icon .hat-item { width: 72px; }
 .shop-icon .creature { width: 64px; }
@@ -528,22 +511,21 @@ input[type=text], select {
 .maker-shape {
   font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; width: 74px; padding: 6px 4px 4px;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: var(--field); color: var(--text); border: var(--outline); border-radius: 10px; box-shadow: 0 3px 0 var(--ink);
+  background: #fffaf0; border: var(--outline); border-radius: 10px; box-shadow: 0 3px 0 var(--ink);
 }
 .maker-shape .sprite { width: 48px; }
-/* Class cards (hero maker): hero, name, traits, perk - like an RPG character select. */
+/* Class cards (hero maker): hero, name, traits, perk. */
 .class-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .class-card {
   font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 8px;
-  color: var(--text); background: linear-gradient(180deg, #262c55, var(--field)); border: var(--outline); border-radius: 10px;
-  box-shadow: inset 0 0 0 2px rgba(217, 169, 63, 0.35), 0 3px 0 var(--ink);
+  color: var(--ink); background: #fffaf0; border: var(--outline); border-radius: 10px; box-shadow: 0 3px 0 var(--ink);
 }
 .class-card .sprite { width: 64px; margin-bottom: 4px; }
-.class-card b { color: var(--title); font-size: 16px; }
+.class-card b { font-size: 16px; }
 .class-trait { font-size: 12px; color: var(--muted); }
-.class-perk { font-size: 12px; font-weight: 700; color: var(--good-text); text-align: center; line-height: 1.25; }
-.class-card[aria-pressed=true] { background: linear-gradient(180deg, #4a3d1f, var(--field-gold)); box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 3px var(--gold), 0 3px 0 3px var(--ink); transform: translateY(-2px); }
-.maker-shape[aria-pressed=true] { background: var(--gold); color: var(--ink); box-shadow: inset 0 -4px 0 var(--gold-dark), 0 3px 0 var(--ink); }
+.class-perk { font-size: 12px; font-weight: 700; color: var(--go-dark); text-align: center; line-height: 1.25; }
+.class-card[aria-pressed=true] { background: var(--gold); box-shadow: inset 0 -4px 0 var(--gold-dark), 0 3px 0 var(--ink); }
+.maker-shape[aria-pressed=true] { background: var(--gold); box-shadow: inset 0 -4px 0 var(--gold-dark), 0 3px 0 var(--ink); }
 .shop-name { font-size: 15px; color: var(--muted); }
 
 /* ---------- Settings / Record ---------- */
@@ -554,9 +536,9 @@ input[type=text], select {
 #open-record { margin-top: 16px; }
 .record { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 .record-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.record-letter { font: inherit; font-size: 22px; font-weight: 700; padding: 6px 0; border-radius: 8px; border: var(--outline); background: var(--field); cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+.record-letter { font: inherit; font-size: 22px; font-weight: 700; padding: 6px 0; border-radius: 8px; border: var(--outline); background: #fffaf0; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
 .record-letter small { font-size: 12px; color: var(--muted); }
-.record-letter.full { background: var(--field-good); }
+.record-letter.full { background: #d9f7cf; }
 .record-letter.selected { background: var(--gold); }
 
 /* ---------- Small screens ---------- */
@@ -606,7 +588,7 @@ input[type=text], select {
 .story-portrait .hero { position: absolute; width: 150px; left: 50%; top: -42px; transform: translateX(-50%); }
 .story-scroll { font-size: 56px; }
 .story-body { flex: 1; min-width: 0; }
-.story-name { margin: 0 0 4px; font-weight: 700; font-size: 20px; color: var(--accent-text); }
+.story-name { margin: 0 0 4px; font-weight: 700; font-size: 20px; color: var(--brand-dark); }
 .story-text { margin: 0 0 12px; font-size: 21px; line-height: 1.45; }
 .story-text.in { animation: story-text 0.35s ease-out; }
 @keyframes story-text { from { opacity: 0; transform: translateY(4px); } }
@@ -620,9 +602,9 @@ input[type=text], select {
 }
 
 /* ---------- Story bits elsewhere ---------- */
-.shard-line { font-size: 22px; font-weight: 700; color: var(--accent-text); background: var(--field-brand); border: var(--outline); border-radius: 10px; padding: 8px 12px; }
-.coins.shards { color: var(--accent-text); }
-.book-move { font-size: 14px; font-weight: 700; color: var(--accent-text); background: var(--field-brand); border-radius: 8px; padding: 2px 8px; }
+.shard-line { font-size: 22px; font-weight: 700; color: #6a3fd0; background: #efe6ff; border: var(--outline); border-radius: 10px; padding: 8px 12px; }
+.coins.shards { color: #6a3fd0; }
+.book-move { font-size: 14px; font-weight: 700; color: var(--brand-dark); background: #efe6ff; border-radius: 8px; padding: 2px 8px; }
 
 /* ---------- Battle command panel: camera | what to sign | moves ---------- */
 .command {
@@ -636,7 +618,7 @@ input[type=text], select {
 .cmd-cam .camera { border-width: 3px; box-shadow: none; }
 .cmd-cam .seeing {
   position: absolute; top: 8px; left: 8px; z-index: 2; margin: 0; font-size: 14px; padding: 2px 10px;
-  background: rgba(26, 31, 61, 0.92); border-width: 2px;
+  background: rgba(251, 241, 214, 0.92); border-width: 2px;
 }
 .cmd-cam .hold { height: 12px; margin: 0; border-width: 2px; }
 
@@ -674,9 +656,9 @@ input[type=text], select {
   position: relative; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px;
   padding: 3px 10px 3px 4px; border: 2px solid var(--ink); border-radius: 99px; background: var(--card-2); color: var(--muted);
 }
-.move-tab.open { background: var(--field); color: var(--text); box-shadow: 0 3px 0 var(--ink); transform: translateY(-1px); }
+.move-tab.open { background: #fff; color: var(--ink); box-shadow: 0 3px 0 var(--ink); transform: translateY(-1px); }
 .move-tab.has-pick::after { content: ""; position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 2px solid var(--ink); }
-.tab-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; position: relative; background: #2a3158; flex: none; }
+.tab-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; position: relative; background: #dfe8ff; flex: none; }
 .tab-face .sprite { position: absolute; left: 50%; transform: translateX(-50%); width: 24px; top: 3px; }
 .tab-face .tab-hero { width: 36px; top: -8px; }
 .move-energy { flex: none; font-weight: 700; font-size: 14px; color: #fff; background: var(--ink); border-radius: 99px; padding: 2px 10px; }
@@ -684,7 +666,7 @@ input[type=text], select {
 .moves { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .move-btn {
   position: relative; font: inherit; cursor: pointer; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px;
-  padding: 6px 10px 6px 8px; text-align: left; background: var(--field); border: 2px solid var(--ink); border-left-width: 6px; border-radius: 10px;
+  padding: 6px 10px 6px 8px; text-align: left; background: #fffaf0; border: 2px solid var(--ink); border-left-width: 6px; border-radius: 10px;
   box-shadow: 0 3px 0 var(--ink); transition: transform 0.08s;
 }
 .move-btn.type-attack { border-left-color: #e8413b; }
@@ -693,7 +675,7 @@ input[type=text], select {
 .move-btn.type-stun { border-left-color: #8a5ad6; }
 .move-btn:hover:not(:disabled) { transform: translateY(-1px); }
 .move-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
-.move-btn.picked { background: var(--field-gold); box-shadow: 0 0 0 3px var(--gold), 0 3px 0 3px var(--ink); }
+.move-btn.picked { background: #fff3c4; box-shadow: 0 0 0 3px var(--gold), 0 3px 0 3px var(--ink); }
 .move-btn:disabled { cursor: default; opacity: 0.5; box-shadow: none; }
 .move-icon { font-size: 24px; text-align: center; line-height: 1; }
 .move-text { display: flex; flex-direction: column; min-width: 0; }
@@ -714,7 +696,7 @@ input[type=text], select {
 
 /* Creature book: the three moves. */
 .book-moves { list-style: none; margin: 4px 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 3px; }
-.book-moves li { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 700; background: var(--field-brand); border-radius: 6px; padding: 2px 8px; color: var(--accent-text); }
+.book-moves li { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 700; background: #efe6ff; border-radius: 6px; padding: 2px 8px; color: var(--brand-dark); }
 .book-moves li span { color: var(--muted); font-weight: 400; white-space: nowrap; }
 
 /* ---------- Quests in zones ---------- */
@@ -731,12 +713,12 @@ input[type=text], select {
   display: grid; place-items: center; border-radius: 50%; background: var(--gold); border: 3px solid var(--ink);
   box-shadow: 0 3px 0 var(--ink); animation: compass 0.8s ease-in-out infinite alternate;
 }
-.biome-compass span { display: block; font-size: 22px; line-height: 1; color: var(--text); transform: rotate(var(--angle)); }
+.biome-compass span { display: block; font-size: 22px; line-height: 1; color: var(--ink); transform: rotate(var(--angle)); }
 @keyframes compass { to { scale: 1.12; } }
 /* Sign panel letters (riddles fill in as you sign). */
 .sign-slot { display: inline-block; min-width: 0.9em; margin: 0 0.06em; padding: 0 0.08em; border-bottom: 4px solid var(--line); color: #c8b896; }
 .sign-slot.now { color: var(--brand); border-color: var(--gold); }
-.sign-slot.done { color: var(--good-text); border-color: var(--go); }
+.sign-slot.done { color: var(--go-dark); border-color: var(--go); }
 .chest-help .big-letter { font-size: 72px; }
 .chest-title b { letter-spacing: 4px; }
 .story-portrait.npc { background: radial-gradient(circle at 35% 30%, #d9f7cf, #3faa3a); }
@@ -761,8 +743,6 @@ input[type=text], select {
 
 /* ---------- Battle effects (js/fx.js) ---------- */
 .fx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; image-rendering: pixelated; }
-/* Bloom: a blurred, brightened copy of the effects behind them (fx.js copies it every frame). */
-.fx-glow { image-rendering: auto; filter: blur(0.7cqw) brightness(1.5) saturate(1.3); mix-blend-mode: screen; opacity: 0.85; }
 .fx-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0; mix-blend-mode: screen; }
 /* Hit-stop: everything on the field holds still for a split second. */
 .arena.hitstop *, .arena.hitstop { animation-play-state: paused !important; }
@@ -795,15 +775,15 @@ input[type=text], select {
 #player-dmg, #monster-dmg, #spell { display: none; }
 
 /* ---------- Teach the camera your hands ---------- */
-.calib-intro { text-align: center; max-width: 760px; margin: 0 auto 14px; font-weight: 700; background: rgba(26, 31, 61, 0.92); border: var(--outline); border-radius: 10px; padding: 8px 14px; }
+.calib-intro { text-align: center; max-width: 760px; margin: 0 auto 14px; font-weight: 700; background: rgba(251, 241, 214, 0.92); border: var(--outline); border-radius: 10px; padding: 8px 14px; }
 .calib { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 .calib-card { text-align: center; }
 .calib-cam .camera { max-width: 480px; }
 .calib-done { max-width: 560px; margin: 0 auto; text-align: center; }
 .calib-done-title { font-size: 34px; font-weight: 700; margin: 0 0 8px; }
 .calib-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 16px; }
-.calib-chip { width: 36px; height: 36px; display: grid; place-items: center; font-weight: 700; border: 2px solid var(--ink); border-radius: 8px; background: var(--field); color: var(--muted); }
-.calib-chip.done { background: var(--field-good); color: var(--good-text); }
+.calib-chip { width: 36px; height: 36px; display: grid; place-items: center; font-weight: 700; border: 2px solid var(--ink); border-radius: 8px; background: #fffaf0; color: var(--muted); }
+.calib-chip.done { background: #d9f7cf; color: var(--go-dark); }
 .calib-chip.now { background: var(--gold); color: var(--ink); box-shadow: 0 3px 0 var(--ink); transform: translateY(-2px); }
 #title-calibrate { margin-top: 10px; }
 #open-calibrate { margin: 4px 0 14px; }
@@ -813,29 +793,10 @@ input[type=text], select {
 #record-start-camera { display: block; margin: 10px auto; }
 .record-example { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
 .record-example .hand-img { width: 90px; height: 90px; }
-/* Moving-sign test (motion-test.js) */
-.motion-guess { font-size: 32px; font-weight: 800; text-align: center; margin: 12px 0 6px; min-height: 1.3em; }
-.motion-guess.good { color: #2f9e44; animation: motion-pop 0.2s ease-out; }
-@keyframes motion-pop { from { opacity: 0; transform: scale(0.8); } }
-.motion-row { display: grid; grid-template-columns: 96px 1fr 44px; gap: 4px 8px; align-items: center; margin-bottom: 8px; }
-.motion-row small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; margin-top: -2px; }
-.motion-row span { text-align: right; font-weight: 700; }
-.motion-bar { height: 16px; background: #3a2a3e; border: var(--outline); border-radius: 6px; overflow: hidden; }
-.motion-fill { height: 100%; width: 0; background: var(--gold); transition: width 0.1s linear; }
-.motion-row.top .motion-fill { background: #5fd068; }
-.motion-log { font-weight: 700; min-height: 1.4em; }
 .record-auto { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-weight: 700; }
 #record-go small { font-size: 0.6em; opacity: 0.7; }
 
 /* ---------- Elements and type matchups ---------- */
-/* Rarity: a badge in its color (set as --rarity), and book cards get a rim in it. */
-.rarity-badge {
-  display: inline-block; margin-right: 0.5em; padding: 0 0.5em; border-radius: 99px; font-size: 0.85em; font-weight: 800;
-  color: var(--ink); background: var(--rarity); border: 2px solid var(--ink); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;
-}
-.book-card[style*="--rarity"] { box-shadow: inset 0 0 0 2px var(--rarity), inset 0 -6px 0 var(--card-2), 0 4px 0 var(--ink); }
-.book-card.buddy[style*="--rarity"] { box-shadow: inset 0 0 0 2px var(--rarity), 0 0 0 4px var(--gold), 0 4px 0 4px var(--ink); }
-.book-card.unknown[style*="--rarity"] { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rarity) 35%, transparent), 0 4px 0 var(--ink); }
 .el-badge { display: inline-block; margin-right: 0.6em; padding: 0 0.5em; border-radius: 99px; border: 2px solid var(--ink); color: #fff; font-size: 0.9em; text-shadow: 0 1px 0 var(--ink); white-space: nowrap; }
 .el-fire { background: #e8622a; }
 .el-water { background: #2f86d6; }
@@ -853,8 +814,8 @@ input[type=text], select {
 
 /* ---------- Sign challenges ---------- */
 .cmd-label.challenge-label { color: var(--brand); font-size: 15px; animation: combo-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
-.challenge { margin: 2px 0 6px; font-weight: 700; font-size: 16px; color: var(--text); background: var(--field-gold); border: 2px solid var(--ink); border-radius: 8px; padding: 4px 10px; }
-.slot.given { border: 3px solid var(--line); border-style: solid; background: rgba(26, 31, 61, 0.9); color: var(--text); }
+.challenge { margin: 2px 0 6px; font-weight: 700; font-size: 16px; color: var(--ink); background: #fff6c8; border: 2px solid var(--ink); border-radius: 8px; padding: 4px 10px; }
+.slot.given { border: 3px solid var(--line); border-style: solid; background: rgba(251, 241, 214, 0.9); color: var(--ink); }
 
 /* ---------- Trainer battles ---------- */
 .foe-team { display: flex; justify-content: flex-end; gap: 0.6cqw; margin-top: 0.4cqw; }
@@ -989,11 +950,33 @@ input[type=text], select {
 /* 🎯 on the foe you're aiming at. */
 .fighter.targeted::before { content: "🎯"; position: absolute; top: -3.2cqw; left: 50%; translate: -50% 0; font-size: max(16px, 2.6cqw); animation: bob 0.8s steps(2) infinite; z-index: 3; }
 .fighter.targeted .monster .sprite { filter: drop-shadow(0 0 0.6cqw #ffd23f); }
-/* Hexbound creatures pulse with a dark purple haze (sprites.js draws the aura ring). */
-.sprite.hexed { animation: hex-pulse 1.8s ease-in-out infinite; }
+.move-eff.all { background: #ff8a2a; color: #fff; }
+
+/* Moving-sign test (motion-test.js) */
+.motion-guess { font-size: 32px; font-weight: 800; text-align: center; margin: 12px 0 6px; min-height: 1.3em; }
+.motion-guess.good { color: var(--go-dark); animation: motion-pop 0.2s ease-out; }
+@keyframes motion-pop { from { opacity: 0; transform: scale(0.8); } }
+.motion-row { display: grid; grid-template-columns: 96px 1fr 44px; gap: 4px 8px; align-items: center; margin-bottom: 8px; }
+.motion-row small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; margin-top: -2px; }
+.motion-row span { text-align: right; font-weight: 700; }
+.motion-bar { height: 16px; background: #3a2a3e; border: var(--outline); border-radius: 6px; overflow: hidden; }
+.motion-fill { height: 100%; width: 0; background: var(--gold); transition: width 0.1s linear; }
+.motion-row.top .motion-fill { background: var(--good); }
+.motion-log { font-weight: 700; min-height: 1.4em; }
+
+/* Rarity: a badge in its color (set as --rarity), and book cards get a rim in it. */
+.rarity-badge {
+  display: inline-block; margin-right: 0.5em; padding: 0 0.5em; border-radius: 99px; font-size: 0.85em; font-weight: 800;
+  color: var(--ink); background: var(--rarity); border: 2px solid var(--ink); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.book-card[style*="--rarity"] { box-shadow: inset 0 0 0 3px var(--rarity), inset 0 -6px 0 var(--card-2), 0 4px 0 var(--ink); }
+.book-card.buddy[style*="--rarity"] { box-shadow: inset 0 0 0 3px var(--rarity), 0 0 0 4px var(--gold), 0 4px 0 4px var(--ink); }
+.book-card.unknown[style*="--rarity"] { box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--rarity) 45%, transparent), 0 4px 0 var(--ink); }
+
+/* Hexbound creatures have a soft purple haze (sprites.js draws the aura ring). */
+.sprite.hexed { animation: hex-pulse 2.4s ease-in-out infinite; }
 .fighter.targeted .monster .sprite.hexed { animation: none; }
 @keyframes hex-pulse {
-  0%, 100% { filter: drop-shadow(0 0 0.3cqw rgba(176, 64, 255, 0.55)); }
-  50% { filter: drop-shadow(0 0 1.1cqw rgba(176, 64, 255, 0.95)) brightness(1.08); }
+  0%, 100% { filter: drop-shadow(0 0 0.2cqw rgba(140, 60, 200, 0.4)); }
+  50% { filter: drop-shadow(0 0 0.6cqw rgba(140, 60, 200, 0.65)); }
 }
-.move-eff.all { background: #ff8a2a; color: #fff; }

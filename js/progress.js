@@ -2,7 +2,7 @@
 // settings. Saved in localStorage - no accounts, nothing leaves the device.
 
 import {
-  BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
+  BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, RENAMED_CREATURES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
   TEAM_SIZE, ZONES,
 } from "./config.js";
 import { normalizeLook } from "./sprites.js";
@@ -34,7 +34,7 @@ function defaults() {
 
 // Older saves bought pets in the shop. They become creatures on your team.
 // (Declared before load() runs below.)
-const OLD_PETS = { "pet-cat": "cat", "pet-dog": "pup", "pet-bunny": "bunny", "pet-unicorn": "unicorn", "pet-dragon": "drake" };
+const OLD_PETS = { "pet-cat": "cat", "pet-dog": "wolf", "pet-bunny": "bandit", "pet-unicorn": "dragonling", "pet-dragon": "drake" };
 
 let state = load();
 
@@ -58,6 +58,7 @@ function load() {
       if ((saved.settingsVersion || 0) < 3 && loaded.settings.holdMs === 500) loaded.settings.holdMs = DEFAULT_SETTINGS.holdMs;
       loaded.settingsVersion = 3;
       if (!saved.creatures) migratePets(loaded);
+      migrateRoster(loaded);
       migrateToTeam(loaded, saved);
       return loaded;
     }
@@ -78,6 +79,20 @@ function migratePets(s) {
   s.buddy = OLD_PETS[s.equipped.pet] || STARTER_CREATURE;
   s.owned = s.owned.filter((id) => !OLD_PETS[id]);
   delete s.equipped.pet;
+}
+
+// Creatures replaced by the classic RPG roster (RENAMED_CREATURES in
+// config.js): a freed one becomes its replacement, keeping the higher level.
+function migrateRoster(s) {
+  for (const [oldId, newId] of Object.entries(RENAMED_CREATURES)) {
+    const had = s.creatures[oldId];
+    if (had) {
+      if (!s.creatures[newId] || s.creatures[newId].level < had.level) s.creatures[newId] = had;
+      delete s.creatures[oldId];
+    }
+    s.team = s.team.map((id) => (id === oldId ? newId : id)).filter((id, i, all) => all.indexOf(id) === i);
+    s.seen = s.seen.map((id) => (id === oldId ? newId : id)).filter((id, i, all) => all.indexOf(id) === i);
+  }
 }
 
 // Older saves had one buddy and no Pip. Everyone gets Pip, and the old buddy

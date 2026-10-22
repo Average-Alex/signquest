@@ -259,7 +259,7 @@ function setTarget(entry, say = true) {
   $("monster-name").textContent = b.party && !entry.trainer ? `${b.opts.owner}'s ${def.name}` : def.name;
   const el = ELEMENTS[def.element];
   const kind = entry.trainer ? "Signkeeper" : b.opts.team ? "Trainer" : b.party ? "Rival battle" : def.catchable === false ? "Hollow King" : "Hexbound";
-  const rarity = entry.trainer || b.party ? null : rarityOf(def);
+  const rarity = entry.trainer || b.party || rarityOf(def).name === "Common" ? null : rarityOf(def); // common is the norm: no badge
   $("hud-foe-sub").innerHTML =
     `${rarity ? `<span class="rarity-badge" style="--rarity:${rarity.color}">${rarity.name}</span>` : ""}` +
     `${el ? `<span class="el-badge el-${def.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${entry.level}`;
@@ -409,11 +409,11 @@ function tick(now) {
 }
 
 // Dark motes drift up off every hexed creature on the field, all battle long.
-const MOTE_EVERY_MS = 420;
+const MOTE_EVERY_MS = 900;
 function hexMotes(now) {
   if (now < (battle.nextMote || 0)) return;
   battle.nextMote = now + MOTE_EVERY_MS;
-  for (const e of alive()) if (e.hexed) fx.rise(fx.centerOf(e.art, 0.75), "hex", { count: 2, width: 30 });
+  for (const e of alive()) if (e.hexed) fx.rise(fx.centerOf(e.art, 0.75), "hex", { count: 1, width: 26 });
 }
 
 function showHint(auto) {

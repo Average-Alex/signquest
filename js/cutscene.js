@@ -86,8 +86,8 @@ const OPENING = [
     actors: [
       actor(() => creatureImg("slime"), 35, 82, 16, "turn-hexed"),
       actor(() => creatureImg("slime", "", true), 35, 82, 16, "become-hexed"),
-      actor(() => creatureImg("bunny"), 68, 82, 13, "turn-hexed", 300),
-      actor(() => creatureImg("bunny", "", true), 68, 82, 13, "become-hexed", 300),
+      actor(() => creatureImg("wolf"), 68, 82, 16, "turn-hexed", 300),
+      actor(() => creatureImg("wolf", "", true), 68, 82, 16, "become-hexed", 300),
     ],
     text: "Wherever a shard fell, the creatures turned wild and grumpy. They became Hexbound.",
   },

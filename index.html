@@ -135,6 +135,7 @@
     </div>
     <div id="arena" class="arena">
       <img id="arena-bg" class="sprite arena-bg" alt="">
+      <canvas id="fx-glow" class="fx-canvas fx-glow" aria-hidden="true"></canvas>
       <canvas id="fx" class="fx-canvas" aria-hidden="true"></canvas>
       <div id="fx-flash" class="fx-flash" aria-hidden="true"></div>
       <!-- Name / HP panels -->
@@ -330,7 +331,7 @@
     <div class="card settings">
       <label class="setting">
         <span>Hold time: <b id="hold-value"></b></span>
-        <input id="set-hold" type="range" min="200" max="1500" step="100">
+        <input id="set-hold" type="range" min="0" max="1500" step="50">
       </label>
       <label class="setting">
         <span>How sure the camera must be: <b id="conf-value"></b></span>
@@ -370,6 +371,31 @@
       </div>
     </div>
     <button id="open-record" class="btn small" data-go="record" hidden>🎥 Data recorder</button>
+    <button id="open-motion" class="btn small" data-go="motion" hidden>🌀 Moving signs test</button>
+  </section>
+
+  <!-- Moving-sign test (for builders; shown with ?dev or ?motion in the URL) -->
+  <section id="screen-motion" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="settings">⬅ Settings</button>
+      <h2 tabindex="-1">🌀 Moving signs test</h2>
+      <span></span>
+    </div>
+    <div class="record">
+      <div>
+        <div class="camera-slot"></div>
+        <button id="motion-start-camera" class="btn big" hidden>📷 Turn on camera</button>
+        <p id="motion-guess" class="motion-guess" aria-live="polite"></p>
+        <p class="small-text">Do one sign, then hold still for a moment. It looks at your last 1.6 seconds of movement.</p>
+      </div>
+      <div class="card">
+        <p class="label">What it thinks, right now</p>
+        <div id="motion-rows"></div>
+        <p class="label">Recognized</p>
+        <p id="motion-log" class="motion-log">Nothing yet.</p>
+        <button id="motion-clear" class="btn small">Clear</button>
+      </div>
+    </div>
   </section>
 
   <!-- Record page (for builders; shown with ?dev in the URL) -->

@@ -36,8 +36,8 @@ import {
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
   CHALLENGE_BONUS, CHALLENGE_CHANCE, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, EVOLVED_POWER,
   GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
-  ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, LETTERS, LOOT_CHANCE,
-  monsterDamage, playerMaxHp, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
+  ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET, LOOT_CHANCE,
+  monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } from "./screens.js";
@@ -77,7 +77,7 @@ function nextTarget(z, type, previous) {
   // Review: this zone's letters plus every other letter you've learned
   // (zones can be played in any order). The Starfall Realm reviews the whole alphabet.
   const known = progress.get().learned;
-  const pool = type === "review" ? (zone.dimension > 0 ? LETTERS : [...new Set([...zone.letters, ...known])]) : zone.letters;
+  const pool = type === "review" ? (zone.dimension > 0 ? ALPHABET : [...new Set([...zone.letters, ...known])]) : zone.letters;
   return progress.weightedPick(pool, previous);
 }
 
@@ -94,7 +94,7 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const foes = opts.team || [{ id: foeId, level }];
   const targets = planTargets(z, stage.type, foes[0].level);
   const team = progress.team();
-  const playerMax = playerMaxHp(progress.level());
+  const playerMax = Math.round(playerMaxHp(progress.level()) * (progress.heroClass().hp || 1));
   battle = {
     z, s, zone, stage, team, targets, onFinish, opts,
     party, // a trainer or rival battle: several foes on the field
@@ -116,7 +116,7 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
     turn: 1,
     playerHp: playerMax,
     playerMax,
-    energy: ENERGY_START,
+    energy: Math.min(ENERGY_MAX, ENERGY_START + (progress.heroClass().energy || 0)),
     move: HERO_MOVES[0], // the move picked for this turn
     mover: null, // which buddy's move it is (null = your hero's spell)
     tab: 0, // which tab of the move picker is open (0 = you)
@@ -189,7 +189,8 @@ function makeFoe(b, { id, level, trainer = null }) {
   // hits. With several foes, each has less.
   const plan = planTargets(b.z, b.stage.type, level);
   const letters = plan.reduce((sum, t) => sum + t.length, 0);
-  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.party ? TRAINER_HP : 1));
+  const rarityHp = trainer || b.party ? 1 : rarityOf(def).hp; // rarer creatures are tougher
+  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.party ? TRAINER_HP : 1) * rarityHp);
   return {
     def, id: def.id, level, maxHp, hp: maxHp, trainer: Boolean(trainer),
     charging: null, // a big move it's winding up (it lands on its next turn)
@@ -235,6 +236,7 @@ function place(b, entry, n) {
   // Hexbound creatures look corrupted until you break the hex. (Malgrath is
   // just like that.) A trainer's or rival's creatures aren't hexed.
   const hexed = !entry.trainer && entry.def.catchable !== false && !b.party;
+  entry.hexed = hexed; // tick() makes dark motes drift off it
   entry.art.innerHTML = entry.trainer ? heroImg(entry.def.look, null, "foe-hero", true) : creatureImg(entry.id, "", hexed);
   entry.art.className = `monster${b.stage.type === "boss" ? " boss" : ""}`;
   entry.box.querySelector(".foe-tag-name").textContent = `${entry.def.name} · Lv ${entry.level}`;
@@ -257,7 +259,10 @@ function setTarget(entry, say = true) {
   $("monster-name").textContent = b.party && !entry.trainer ? `${b.opts.owner}'s ${def.name}` : def.name;
   const el = ELEMENTS[def.element];
   const kind = entry.trainer ? "Signkeeper" : b.opts.team ? "Trainer" : b.party ? "Rival battle" : def.catchable === false ? "Hollow King" : "Hexbound";
-  $("hud-foe-sub").innerHTML = `${el ? `<span class="el-badge el-${def.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${entry.level}`;
+  const rarity = entry.trainer || b.party ? null : rarityOf(def);
+  $("hud-foe-sub").innerHTML =
+    `${rarity ? `<span class="rarity-badge" style="--rarity:${rarity.color}">${rarity.name}</span>` : ""}` +
+    `${el ? `<span class="el-badge el-${def.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${entry.level}`;
   $("hud-foe-portrait").innerHTML = entry.trainer ? heroImg(def.look, null) : creatureImg(entry.id, "", hexed);
   renderTeamBalls(b);
   updateHp(b);
@@ -380,11 +385,18 @@ function tick(now) {
     return;
   }
   requestAnimationFrame(tick);
+  hexMotes(now);
   if (battle.busy || now < battle.pauseUntil) return;
 
   const letter = currentLetter();
   const prediction = getPrediction();
-  $("seeing").textContent = prediction?.partial ? "✋ Move your whole hand into view" : prediction ? `I see: ${prediction.letter}` : "Show your hand ✋";
+  $("seeing").textContent = prediction?.partial
+    ? "✋ Move your whole hand into view"
+    : !prediction
+      ? "Show your hand ✋"
+      : MOTION_LETTERS.includes(letter)
+        ? `Draw ${letter} in the air ✍️` // J and Z are movements, not a held shape
+        : `I see: ${prediction.letter}`;
   const held = battle.hold.update(letter, prediction, now);
   $("battle-hold").style.width = `${held * 100}%`;
   if (battle.mode === "quick") renderQuick(now);
@@ -394,6 +406,14 @@ function tick(now) {
   const waited = now - battle.letterStart;
   if (!battle.hinted && waited > HINT_AFTER_MS) showHint(true);
   if (waited > SKIP_AFTER_MS) $("skip-btn").hidden = false;
+}
+
+// Dark motes drift up off every hexed creature on the field, all battle long.
+const MOTE_EVERY_MS = 420;
+function hexMotes(now) {
+  if (now < (battle.nextMote || 0)) return;
+  battle.nextMote = now + MOTE_EVERY_MS;
+  for (const e of alive()) if (e.hexed) fx.rise(fx.centerOf(e.art, 0.75), "hex", { count: 2, width: 30 });
 }
 
 function showHint(auto) {
@@ -559,7 +579,8 @@ function fireMove(letters, fast) {
   if (!mover) {
     // One of your hero's spells: more letters signed and stronger spells hit harder.
     flashCamera("good");
-    strike({ from: at.hero(), attacker: $("hero-slot"), move, base: letters * SIGN_DAMAGE * move.power * spread * boost, fast, hero: true });
+    const classPower = progress.heroClass().power || 1; // mages hit harder
+    strike({ from: at.hero(), attacker: $("hero-slot"), move, base: letters * SIGN_DAMAGE * move.power * spread * boost * classPower, fast, hero: true });
   } else {
     // A buddy's move.
     const pet = creature(mover.id);
@@ -622,7 +643,8 @@ function fireMove(letters, fast) {
 // An attack on one foe, or on all of them for a group move. Each takes its
 // own type matchup. `hero`: your hero's spell (power-ups apply).
 function strike({ from, attacker, move, base, fast, hero = false, who = null }) {
-  const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE);
+  const classCrit = hero ? progress.heroClass().crit || 0 : 0; // archers crit more
+  const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE) + classCrit;
   let mult = crit ? CRIT_MULTIPLIER : 1;
   let big = move.power > 1;
   if (hero && battle.power) {
@@ -676,6 +698,7 @@ function attackFx({ from, attacker, move, crit, target = battle.target, delay = 
     }
     if (big && !delay) fx.flash("#ffffff", 260, 0.55);
     restartAnimation(target.art, "hit");
+    if (fx.isPhysical(move)) fx.slash(spot, element, { count: big || crit ? 2 : 1, len: 10 + 5 * scale });
     fx.burst(spot, element, { count: Math.round(22 * scale), speed: 1.3 * scale, life: 700 });
     fx.burst(spot, "impact", { count: Math.round(8 * scale), speed: 0.8 * scale, life: 300 });
     fx.ring(spot, element, { maxR: 16 * scale, life: 420, width: 2 + scale });
@@ -892,6 +915,7 @@ function monsterTurn(fast) {
     const landed = () => {
       if (battle !== b) return;
       restartAnimation($("hero-sprite"), "hurt");
+      if (fx.isPhysical(move)) fx.slash(at.hero(), "danger", { count: big ? 2 : 1, len: big ? 18 : 12 });
       fx.burst(at.hero(), element, { count: big ? 40 : 20, speed: big ? 2 : 1.2 });
       fx.burst(at.hero(), "danger", { count: 8, speed: 0.8, life: 300 });
       fx.ring(at.hero(), element, { maxR: big ? 30 : 16 });
@@ -968,7 +992,7 @@ function useItem(item) {
   if (!battle || battle.busy || battle.done || !progress.useConsumable(item.id)) return;
   if (item.id === "potion" || item.id === "bigpotion") {
     const before = battle.playerHp;
-    battle.playerHp = item.id === "potion" ? Math.min(battle.playerMax, before + POTION_HEAL) : battle.playerMax;
+    battle.playerHp = item.id === "potion" ? Math.min(battle.playerMax, before + Math.round(POTION_HEAL * (progress.heroClass().potion || 1))) : battle.playerMax;
     fx.rise(at.hero(), "heal", { count: 30 });
     fx.number(at.hero(), `+${battle.playerHp - before}`, "good");
     updateHp();
@@ -1084,11 +1108,12 @@ function finish(won) {
     if (battle.hints >= 3) stars--;
     if (avgSeconds > 6) stars--;
     stars = Math.max(1, stars);
+    const bonus = battle.party ? 1 : rarityOf(firstCreature.def).reward; // rarer creatures pay more
     result = {
       won: true,
       stars,
-      xp: letters * 10,
-      coins: stars * 5 + (boss ? 15 : 0) + (battle.opts.prize || 0),
+      xp: Math.round(letters * 10 * bonus),
+      coins: Math.round((stars * 5 + (boss ? 15 : 0)) * bonus) + (battle.opts.prize || 0),
       prize: battle.opts.prize || 0,
       practice: [...battle.practice],
       boss,

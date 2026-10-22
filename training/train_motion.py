@@ -3,6 +3,7 @@ export it for the browser.
 
     python training/train_motion.py
     python training/train_motion.py --epochs 80
+    python training/train_motion.py --quick     # skip the accuracy test, ~6x faster
 
 Input: clips recorded with training/record.py (keys 1-9 and 0), saved in
 training/data/motion/. Each clip is one go at a sign: every frame has the
@@ -28,15 +29,16 @@ import numpy as np
 import torch
 from torch import nn
 
-from hand_features import (MOTION_INPUT, MOTION_T, MOTION_WINDOW_MS, clip_input, frame_vector, motion_probs,
-                           rotation, turned)
+from hand_features import (MOTION_INPUT, MOTION_T, MOTION_WINDOW_MS, clip_input, frame_vector, hand_proportions,
+                           motion_probs, reshape_hand, rotation)
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "training" / "data"
 MOTION_DIR = DATA_DIR / "motion"
 OUT_PATH = ROOT / "model" / "motion.json"
 NOTHING = "NOTHING"
-AUGMENT_COPIES = 8  # varied copies of every clip per training run
+AUGMENT_COPIES = 40  # simulated new takes of every clip per training run (simulate())
+FOLDS = 5  # with one recorder, every clip is held out once across this many runs
 MIN_FRAMES = 6
 
 
@@ -94,19 +96,53 @@ def still_clips(n: int, rng: np.random.Generator) -> list[Clip]:
     return out
 
 
-def clip_to_x(c: Clip, rng: np.random.Generator | None = None) -> np.ndarray:
-    """Clip -> model input. With rng: a varied copy (cropped a little at the
-    ends, camera turned, picture shifted and zoomed)."""
+def simulate(c: Clip, rng: np.random.Generator):
+    """A made-up new take of a recorded clip, as if someone else signed it:
+    faster or slower (and unevenly), seen from another angle, with different
+    hand proportions, a bigger or smaller movement, shaky tracking, and
+    somewhere else in the picture. Returns (times, worlds, images)."""
     times, worlds, images = c.times, c.worlds, c.images
-    if rng is not None:
-        dur = times[-1] - times[0]
-        keep = (times >= times[0] + rng.random() * 0.15 * dur) & (times <= times[-1] - rng.random() * 0.15 * dur)
+    dur = times[-1] - times[0]
+    keep = (times >= times[0] + rng.random() * 0.15 * dur) & (times <= times[-1] - rng.random() * 0.15 * dur)
+    if keep.sum() >= MIN_FRAMES:
+        times, worlds, images = times[keep], worlds[keep], images[keep]
+
+    # Timing: overall speed, plus speeding up or slowing down through the sign.
+    t0, dur = times[0], (times[-1] - times[0]) or 1.0
+    u = (times - t0) / dur
+    times = t0 + u ** (0.7 + rng.random() * 0.7) * dur * (0.6 + rng.random())
+    # The game only sees the last MOTION_WINDOW_MS: a slow sign loses its start,
+    # and before a fast one the hand is often still, waiting.
+    if times[-1] - times[0] > MOTION_WINDOW_MS:
+        keep = times >= times[-1] - MOTION_WINDOW_MS
         if keep.sum() >= MIN_FRAMES:
             times, worlds, images = times[keep], worlds[keep], images[keep]
-        rot = rotation(rng)
-        worlds = np.stack([turned(w, rng, rot) for w in worlds])
-        zoom = 0.9 + rng.random() * 0.2
-        images = (images - 0.5) * zoom + 0.5 + (rng.random(2) - 0.5) * 0.1
+    elif rng.random() < 0.5:
+        step = np.median(np.diff(times)) or 33.0
+        pad = np.arange(times[-1] - MOTION_WINDOW_MS, times[0], step)
+        if len(pad):
+            times = np.concatenate([pad, times])
+            worlds = np.concatenate([np.repeat(worlds[:1], len(pad), 0), worlds])
+            images = np.concatenate([np.repeat(images[:1], len(pad), 0), images])
+
+    # Body: camera angle and hand proportions stay put for the whole take,
+    # tracking wobble changes every frame.
+    rot = rotation(rng, (0.45, 0.45, 0.5))
+    scale = hand_proportions(rng, 0.2)
+    shake = rng.random() * 0.004
+    worlds = np.stack([reshape_hand(w, scale) @ rot.T + rng.normal(0, shake, w.shape) for w in worlds])
+
+    # Picture: a bigger or smaller movement, then the whole hand moved and zoomed.
+    wrist = images[:, :1, :]
+    images = images + (0.7 + rng.random() * 0.65 - 1) * (wrist - wrist[:1])
+    zoom = 0.8 + rng.random() * 0.4
+    images = (images - 0.5) * zoom + 0.5 + (rng.random(2) - 0.5) * 0.2
+    return times, worlds, images
+
+
+def clip_to_x(c: Clip, rng: np.random.Generator | None = None) -> np.ndarray:
+    """Clip -> model input. With rng: a simulated new take of it (simulate())."""
+    times, worlds, images = simulate(c, rng) if rng is not None else (c.times, c.worlds, c.images)
     frames = np.stack([frame_vector(w, i, c.aspect, c.hand) for w, i in zip(worlds, images)])
     return clip_input(times, frames)
 
@@ -197,6 +233,7 @@ def export(trained, labels: list[str], path: Path, check: list[Clip]) -> None:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=60)
+    parser.add_argument("--quick", action="store_true", help="skip the accuracy test, just train and save (about 6x faster)")
     args = parser.parse_args()
 
     clips = load_clips()
@@ -205,6 +242,8 @@ def main():
     rng = np.random.default_rng(0)
     real = Counter(c.sign for c in clips)
     # Top up "nothing" with held-still letters, so a still hand isn't read as a word.
+    # (Tried 6x as many, half of them hands frozen mid-sign: real signs got worse,
+    # 42/45 vs 45/45, and still hands were still misread half the time.)
     n_still = max(0, max(real.values()) - real.get(NOTHING, 0))
     clips += still_clips(n_still, rng)
     labels = sorted({c.sign for c in clips}, key=lambda s: (s == NOTHING, len(s) > 1, s))
@@ -221,7 +260,9 @@ def main():
     if thin:
         print(f"  under 40 clips: {' '.join(thin)}")
 
-    if len(people) >= 2:
+    if args.quick:
+        print("\n--quick: skipping the accuracy test.")
+    elif len(people) >= 2:
         trues, preds = [], []
         for person in people:
             test = who == person
@@ -232,13 +273,19 @@ def main():
             preds.append(pred)
         report(np.concatenate(trues), np.concatenate(preds), labels, "Leave-one-person-out (new players)")
     else:
-        print("\nOnly one person recorded - testing on 20% of the clips held back. Record a")
-        print("second person for an honest number for new players.")
-        order = rng.permutation(len(clips))
-        cut = int(len(clips) * 0.8)
-        tr, te = order[:cut], order[cut:]
-        trained = train([clips[i] for i in tr], y[tr], len(labels), args.epochs)
-        report(y[te], predict(trained, [clips[i] for i in te]), labels, "Held-back clips")
+        print(f"\nOnly one person recorded - holding back 1/{FOLDS} of each sign's clips in turn, so")
+        print("every clip gets tested once. Record a second person for an honest number for new players.")
+        fold = np.zeros(len(clips), int)
+        for i in range(len(labels)):
+            idx = np.flatnonzero(y == i)
+            fold[idx[rng.permutation(len(idx))]] = np.arange(len(idx)) % FOLDS
+        trues, preds = [], []
+        for k in range(FOLDS):
+            te = fold == k
+            trained = train([c for c, t in zip(clips, te) if not t], y[~te], len(labels), args.epochs)
+            trues.append(y[te])
+            preds.append(predict(trained, [c for c, t in zip(clips, te) if t]))
+        report(np.concatenate(trues), np.concatenate(preds), labels, "Held-back clips")
 
     export(train(clips, y, len(labels), args.epochs), labels, OUT_PATH, clips)
 

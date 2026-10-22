@@ -2,9 +2,12 @@
 
 import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
+import { CREATURES } from "./config.js";
+import { loadCreatureArt } from "./sprites.js";
 import * as progress from "./progress.js";
 import { ENOUGH, openCalibration } from "./calibrate.js";
 import { playCutscene } from "./cutscene.js";
+import { initMotionTest } from "./motion-test.js";
 import { initRecordPage } from "./record.js";
 import { countsByLetter } from "./samples.js";
 import { show } from "./screens.js";
@@ -13,6 +16,7 @@ import { playScene } from "./story.js";
 const $ = (id) => document.getElementById(id);
 const DEV = new URLSearchParams(location.search).has("dev");
 const RECORD = new URLSearchParams(location.search).has("record");
+const MOTION = new URLSearchParams(location.search).has("motion");
 
 // Any button with data-go="screen" switches to that screen.
 document.addEventListener("click", (e) => {
@@ -20,9 +24,13 @@ document.addEventListener("click", (e) => {
   if (button) show(button.dataset.go);
 });
 
+// Detailed creature pictures first, so nothing draws an old sprite before they're in.
+await loadCreatureArt(CREATURES.map((c) => c.id));
 await initClassifier();
 initRecordPage();
+await initMotionTest();
 $("open-record").hidden = !DEV && !RECORD;
+$("open-motion").hidden = !DEV && !MOTION;
 
 // ---------- Title / setup ----------
 
@@ -83,4 +91,5 @@ $("keyboard-play").onclick = startAdventure;
 // Builders can skip the camera entirely with ?dev.
 $("keyboard-play").hidden = !DEV;
 // ?record opens the data recorder straight away, for collecting training data.
-show(RECORD ? "record" : "title");
+// ?motion opens the moving-sign test.
+show(RECORD ? "record" : MOTION ? "motion" : "title");

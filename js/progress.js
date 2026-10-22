@@ -2,7 +2,8 @@
 // settings. Saved in localStorage - no accounts, nothing leaves the device.
 
 import {
-  BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_SETTINGS, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES, TEAM_SIZE, ZONES,
+  BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
+  TEAM_SIZE, ZONES,
 } from "./config.js";
 import { normalizeLook } from "./sprites.js";
 
@@ -12,6 +13,7 @@ function defaults() {
   return {
     name: "",
     look: normalizeLook(null), // hero maker choices, see sprites.js LOOK_OPTIONS
+    heroClass: DEFAULT_CLASS, // see HERO_CLASSES in config.js
     xp: 0,
     coins: 0,
     stars: {}, // stageId -> best stars (1-3)
@@ -52,7 +54,9 @@ function load() {
       };
       // The old default (80%) was too strict for target-aware checking.
       if (!saved.settingsVersion && loaded.settings.minConfidence === 0.8) loaded.settings.minConfidence = DEFAULT_SETTINGS.minConfidence;
-      loaded.settingsVersion = 2;
+      // The old default hold (0.5 s) made signing feel sluggish.
+      if ((saved.settingsVersion || 0) < 3 && loaded.settings.holdMs === 500) loaded.settings.holdMs = DEFAULT_SETTINGS.holdMs;
+      loaded.settingsVersion = 3;
       if (!saved.creatures) migratePets(loaded);
       migrateToTeam(loaded, saved);
       return loaded;
@@ -119,6 +123,8 @@ export function reset() {
 }
 
 export const level = () => Math.floor(state.xp / 100) + 1;
+// Your hero class (HERO_CLASSES in config.js), with its perks.
+export const heroClass = () => HERO_CLASSES[state.heroClass] || HERO_CLASSES[DEFAULT_CLASS];
 export const xpIntoLevel = () => state.xp % 100;
 
 export function stageId(zoneIndex, stageIndex) {

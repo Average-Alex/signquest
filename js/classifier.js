@@ -17,9 +17,10 @@
 // "which of the 24 is it?". That's both kinder and much more reliable.
 
 import { onHand } from "./camera.js";
-import { LETTERS, SMOOTH_FRAMES } from "./config.js";
+import { ALPHABET, LETTERS, MOTION_LETTERS, SMOOTH_FRAMES } from "./config.js";
 import { FEATURE_COUNT, FEATURE_GROUPS, flatten, handInView, resolveHand, toFeatures } from "./features.js";
 import * as progress from "./progress.js";
+import { getMotionGuess, MIN_CONFIDENCE as MOTION_MIN_CONFIDENCE, motionLabels, resetMotion } from "./motion.js";
 import { getSamples, onSamplesChanged } from "./samples.js";
 
 const DEV = new URLSearchParams(location.search).has("dev");
@@ -59,7 +60,7 @@ export async function initClassifier() {
 
   addEventListener("keydown", (e) => {
     const key = e.key.toUpperCase();
-    if (e.target.closest?.("input, textarea, select") || !LETTERS.includes(key)) return;
+    if (e.target.closest?.("input, textarea, select") || !ALPHABET.includes(key)) return;
     if (!keysDown.includes(key)) keysDown.push(key);
   });
   addEventListener("keyup", (e) => {
@@ -72,7 +73,7 @@ export async function initClassifier() {
 export function getPrediction() {
   if ((DEV || activeRecognizer() === "keyboard") && keysDown.length) {
     const letter = keysDown[keysDown.length - 1];
-    return { letter, confidence: 0.95, probs: LETTERS.map((l) => (l === letter ? 0.95 : 0)) };
+    return { letter, confidence: 0.95, probs: LETTERS.map((l) => (l === letter ? 0.95 : 0)), keyboard: true };
   }
   return latest;
 }
@@ -236,28 +237,41 @@ function modelProbs(features) {
 // How sure we are the hand is showing `target` right now (0..1).
 export function targetConfidence(target, prediction) {
   if (!prediction || prediction.partial) return 0;
-  if (prediction.probs) return prediction.probs[LETTERS.indexOf(target)] || 0;
+  if (prediction.probs && LETTERS.includes(target)) return prediction.probs[LETTERS.indexOf(target)] || 0;
   return prediction.letter === target ? prediction.confidence : 0;
 }
 
 // Tracks how long the target letter has been held. update() returns 0-1;
 // 1 means it's been held long enough to count.
+// J and Z are drawn in the air, not held: they count as soon as the
+// moving-sign recognizer sees them (the bar shows how close it is).
 export class HoldTimer {
   constructor() {
     this.since = null;
   }
 
   update(target, prediction, now) {
+    if (MOTION_LETTERS.includes(target) && !prediction?.keyboard) return this.updateMoving(target);
     const { holdMs, minConfidence } = progress.get().settings;
     const sure = targetConfidence(target, prediction);
     // It counts if we're sure enough it's the target, or it's our top guess and nearly sure enough.
     const ok = sure >= minConfidence || (prediction?.letter === target && sure >= minConfidence - 0.15);
     if (ok) {
       if (this.since === null) this.since = now;
-      return Math.min(1, (now - this.since) / holdMs);
+      return holdMs > 0 ? Math.min(1, (now - this.since) / holdMs) : 1;
     }
     this.since = null;
     return 0;
+  }
+
+  updateMoving(target) {
+    const guess = getMotionGuess();
+    if (guess?.sign === target) {
+      resetMotion(); // so the same movement can't count for the next letter too
+      return 1;
+    }
+    const i = motionLabels().indexOf(target);
+    return guess && i >= 0 ? Math.min(0.95, guess.probs[i] / MOTION_MIN_CONFIDENCE) : 0;
   }
 
   reset() {

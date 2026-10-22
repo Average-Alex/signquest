@@ -53,9 +53,10 @@ def to_features(world: np.ndarray, hand: str) -> np.ndarray:
     return np.concatenate([shape.reshape(-1), curl, tips, up, facing]).astype(np.float32)
 
 
-def rotation(rng: np.random.Generator) -> np.ndarray:
-    """A small random camera turn (same ranges as turned() in js/classifier.js)."""
-    ax, ay, az = (rng.random(3) - 0.5) * 2 * np.array([0.2, 0.2, 0.3])
+def rotation(rng: np.random.Generator, ranges=(0.2, 0.2, 0.3)) -> np.ndarray:
+    """A random camera turn, up to `ranges` radians around x, y, z. The
+    default is small (same ranges as turned() in js/classifier.js)."""
+    ax, ay, az = (rng.random(3) - 0.5) * 2 * np.array(ranges)
     rx = np.array([[1, 0, 0], [0, math.cos(ax), -math.sin(ax)], [0, math.sin(ax), math.cos(ax)]])
     ry = np.array([[math.cos(ay), 0, math.sin(ay)], [0, 1, 0], [-math.sin(ay), 0, math.cos(ay)]])
     rz = np.array([[math.cos(az), -math.sin(az), 0], [math.sin(az), math.cos(az), 0], [0, 0, 1]])
@@ -67,6 +68,27 @@ def turned(world: np.ndarray, rng: np.random.Generator, rot: np.ndarray | None =
     depend on holding the hand at exactly the angle it was recorded at."""
     rot = rotation(rng) if rot is None else rot
     return world @ rot.T + (rng.random(world.shape) - 0.5) * 0.002
+
+
+def hand_proportions(rng: np.random.Generator, spread: float) -> np.ndarray:
+    """Someone else's hand: an overall size times a length for each finger,
+    up to +-spread. Returns 21 bone scales for reshape_hand()."""
+    scale = np.full(21, 1 + (rng.random() - 0.5) * 2 * spread)
+    for chain in FINGERS:
+        scale[chain[1:]] *= 1 + (rng.random() - 0.5) * 2 * spread
+    return scale
+
+
+def reshape_hand(world: np.ndarray, scale: np.ndarray) -> np.ndarray:
+    """Stretch or shrink each bone by scale[joint], keeping every joint angle."""
+    out = world.copy()
+    for chain in FINGERS:
+        prev_old, prev_new = world[0], world[0]
+        for j in chain:
+            prev_new = prev_new + (world[j] - prev_old) * scale[j]
+            prev_old = world[j]
+            out[j] = prev_new
+    return out
 
 
 # ---------- Moving signs: a short clip of frames (js/motion.js) ----------

@@ -14,9 +14,9 @@ const mirror = (rows) => rows.map((r) => r + [...r].reverse().join(""));
 
 // ---------- Heroes ----------
 // Players build their own hero from a "look": hair style and color, skin,
-// eyes, outfit style and color, glasses. The body is drawn first, then hair,
-// glasses, hat, and wand on top. 16 x 24 body on a 20 x 30 canvas: 6 rows
-// above for tall hats and 2 columns each side for the wand.
+// eyes, outfit style and color, weapon, glasses. The body is drawn first,
+// then hair, glasses, weapon, and hat on top. 16 x 24 body on a 20 x 30
+// canvas: 6 rows above for tall hats and 2 columns each side for weapons.
 
 const HEAD = mirror([
   "........",
@@ -57,6 +57,54 @@ const OUTFIT_ROWS = {
     "...KrRRR",
     "...KPPK.",
     "...KPPK.",
+    "...KKKK.",
+  ]),
+  // Fighter: steel shoulder plates, belt, and boots over a tabard.
+  armor: mirror([
+    "..KMMRRT",
+    ".KMmMRRR",
+    ".KSKMRRR",
+    ".KSKmRRR",
+    "..KKMMMM",
+    "...KrRRR",
+    "...KMMK.",
+    "...KmMK.",
+    "...KKKK.",
+  ]),
+  // Healer: a long white robe with colored trim down the front.
+  cleric: mirror([
+    "...KAATT",
+    "..KAAAAR",
+    ".KSKAAAR",
+    ".KSKAAAR",
+    "..KKaAAR",
+    "..KaAAAR",
+    "..KKKKKK",
+    "....KPPK",
+    "....KKKK",
+  ]),
+  // Archer: a short cape over the shoulders, leather belt and boots.
+  ranger: mirror([
+    "..KTTRRR",
+    ".KTTRRRR",
+    ".KSKRRRR",
+    ".KSKrRRR",
+    "..KKbbbb",
+    "...KrRRR",
+    "...KbbK.",
+    "...KbbK.",
+    "...KKKK.",
+  ]),
+  // Monk: a wrap-over gi with a dark belt and bare feet.
+  gi: mirror([
+    "...KRRSS",
+    "..KRRRRS",
+    ".KSKRRRR",
+    ".KSKrRRR",
+    "..KKkkkk",
+    "...KPPPP",
+    "...KPPK.",
+    "...KSSK.",
     "...KKKK.",
   ]),
 };
@@ -148,16 +196,89 @@ const GLASSES_ROWS = {
   ]),
 };
 
-// Wand in the hero's right hand (the viewer's right).
-const WAND = [
-  ".K.",
-  "KGK",
-  "KgK",
-  ".K.",
-  ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".K.",
-];
+// Weapons, held in the hero's right hand (the viewer's right). `x`, `y` is
+// where each is drawn on the 20 x 30 hero canvas. The gem, crossguard and
+// shield emblem take the outfit's colors.
+const WEAPONS = {
+  wand: {
+    x: 15, y: 12,
+    rows: [
+      ".K.",
+      "KGK",
+      "KgK",
+      ".K.",
+      ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".W.", ".K.",
+    ],
+  },
+  staff: {
+    x: 14, y: 3,
+    rows: [
+      ".KKK.",
+      "KGGgK",
+      "KGgGK",
+      "KgGGK",
+      ".KKK.",
+      ...Array(21).fill("..W.."),
+      "..K..",
+    ],
+  },
+  sword: {
+    x: 14, y: 9,
+    rows: [
+      "..K..",
+      ".KMK.",
+      ".KMK.",
+      ".KMK.",
+      ".KMK.",
+      ".KMK.",
+      ".KMK.",
+      ".KmK.",
+      ".KmK.",
+      "KKKKK",
+      "KTTTK",
+      "KKKKK",
+      ".KWK.",
+      ".KWK.",
+      ".KTK.",
+      "..K..",
+    ],
+    // ...and a shield on the other arm.
+    shield: {
+      x: 0, y: 20,
+      rows: [
+        "KKKKKK",
+        "KMTTMK",
+        "KMTTMK",
+        "KMMMMK",
+        ".KMmK.",
+        "..KK..",
+      ],
+    },
+  },
+  bow: {
+    x: 15, y: 15,
+    rows: [
+      "KK...",
+      "KbK..",
+      "y.bK.",
+      "y..bK",
+      "y..bK",
+      "y..bK",
+      "y..bK",
+      "y..bK",
+      "y..bK",
+      "y.bK.",
+      "KbK..",
+      "KK...",
+    ],
+  },
+  fists: { x: 0, y: 0, rows: [] },
+};
 
-const HERO_BASE = { K: OUTLINE, E: "#ffffff", c: "#f29aa6", W: "#8a5a32", P: "#3d3352" };
+const HERO_BASE = {
+  K: OUTLINE, E: "#ffffff", c: "#f29aa6", W: "#8a5a32", P: "#3d3352",
+  M: "#d4d8e4", m: "#8a90a4", A: "#f6f2ea", a: "#cfc6da", b: "#7a4a22", k: "#2a2433", y: "#e8e0d0",
+};
 
 // Everything the hero maker offers. `color` is what the swatch button shows.
 export const LOOK_OPTIONS = {
@@ -202,7 +323,14 @@ export const LOOK_OPTIONS = {
   },
   outfitStyle: {
     label: "Outfit",
-    choices: { robe: { name: "Robe" }, tunic: { name: "Tunic" } },
+    choices: {
+      robe: { name: "Robe" }, tunic: { name: "Tunic" }, armor: { name: "Armor" },
+      ranger: { name: "Ranger" }, cleric: { name: "Cleric" }, gi: { name: "Gi" },
+    },
+  },
+  weapon: {
+    label: "Weapon",
+    choices: { wand: { name: "Wand" }, staff: { name: "Staff" }, sword: { name: "Sword" }, bow: { name: "Bow" }, fists: { name: "None" } },
   },
   outfit: {
     label: "Outfit color",
@@ -226,10 +354,10 @@ export const LOOK_OPTIONS = {
 
 // Starting looks. The first is the default for new players.
 export const PRESET_LOOKS = {
-  mage: { hairStyle: "short", hair: "pink", skin: "s1", eyes: "blue", outfitStyle: "robe", outfit: "purple", glasses: "none" },
-  ranger: { hairStyle: "long", hair: "brown", skin: "s4", eyes: "brown", outfitStyle: "tunic", outfit: "green", glasses: "none" },
-  knight: { hairStyle: "spiky", hair: "blonde", skin: "s2", eyes: "green", outfitStyle: "tunic", outfit: "silver", glasses: "none" },
-  storm: { hairStyle: "curly", hair: "black", skin: "s6", eyes: "brown", outfitStyle: "robe", outfit: "blue", glasses: "round" },
+  mage: { hairStyle: "short", hair: "pink", skin: "s1", eyes: "blue", outfitStyle: "robe", outfit: "purple", glasses: "none", weapon: "wand" },
+  ranger: { hairStyle: "long", hair: "brown", skin: "s4", eyes: "brown", outfitStyle: "tunic", outfit: "green", glasses: "none", weapon: "bow" },
+  knight: { hairStyle: "spiky", hair: "blonde", skin: "s2", eyes: "green", outfitStyle: "tunic", outfit: "silver", glasses: "none", weapon: "sword" },
+  storm: { hairStyle: "curly", hair: "black", skin: "s6", eyes: "brown", outfitStyle: "robe", outfit: "blue", glasses: "round", weapon: "staff" },
 };
 
 // Old saves stored a hero emoji, then a preset id.
@@ -1276,6 +1404,191 @@ const CREATURE_ART = {
   voidkraken: { ...MONSTERS.octopus, colors: { O: "#8a4fd6", o: "#5a2fa0", W: "#7fffd4" } },
 };
 
+// Classic RPG monsters, one more for each zone: a wolf, a goblin, a
+// skeleton, a fire imp, a treasure-chest mimic, and a shadow knight.
+Object.assign(CREATURE_ART, {
+  // A grey wolf sitting up: pointed ears, yellow eyes, pale muzzle and chest.
+  wolf: {
+    colors: { G: "#9aa3b5", g: "#6b7385", W: "#eef1f6", Y: "#ffd23f" },
+    rows: mirror([
+      "............",
+      "..KK........",
+      "..KGK.......",
+      "..KGgK......",
+      "..KGggKKKKKK",
+      "..KGGGGGGGGG",
+      ".KGGGGGGGGGG",
+      ".KGGGGGGGGGG",
+      ".KGGGGYYGGGG",
+      ".KGGGGYKgGGG",
+      "..KGGGGgWWWW",
+      "..KGGGGWWWKK",
+      "...KGGGWWWWW",
+      "....KGGGWWWW",
+      "....KKGGGGGG",
+      "...KGGGGWWWW",
+      "..KGGGGWWWWW",
+      "..KGgGGWWWWW",
+      "..KGgGGGWWWW",
+      "..KGgGGGGWWW",
+      "..KgGGGGGGKG",
+      "..KgGGKGGGKG",
+      "...KWWKKWWK.",
+      "...KKKK.KKK.",
+    ]),
+  },
+  // A little green goblin: big pointy ears, a toothy grin, a brown tunic.
+  goblin: {
+    colors: { G: "#6cc24a", g: "#3f8a33", E: "#fff6c8", B: "#8a5a32", b: "#5e3a1e", W: "#ffffff" },
+    rows: mirror([
+      "............",
+      "............",
+      "......KKKKKK",
+      ".....KGGGGGG",
+      "K...KGGGGGGG",
+      "KGK.KGGGGGGG",
+      ".KGKGGGGGGGG",
+      "..KGGGEEKGGG",
+      "...KGGEKKGGG",
+      "...KGGGGGGgG",
+      "...KGGGGGGGG",
+      "....KGGKKKKK",
+      "....KGGKWKWK",
+      ".....KKGGGGG",
+      "......KKKKKK",
+      ".....KBBBBBB",
+      "....KGKBBBBB",
+      "....KGKBbBBB",
+      "....KGKBBBBB",
+      ".....KKbbbbb",
+      "......KGGK..",
+      "......KGGK..",
+      ".....KbbbK..",
+      ".....KKKKK..",
+    ]),
+  },
+  // A rattly skeleton: round skull, glowing purple eyes, a ribcage.
+  skeleton: {
+    colors: { W: "#f2eee0", w: "#c8c0ac", P: "#c58cf0" },
+    rows: mirror([
+      "............",
+      "......KKKKKK",
+      "....KKWWWWWW",
+      "...KWWWWWWWW",
+      "...KWWWWWWWW",
+      "..KWWWWWWWWW",
+      "..KWWKKKKWWW",
+      "..KWKKPKKKWW",
+      "..KWKKKKKKWW",
+      "..KWWKKKKWWW",
+      "...KWWWWWWWK",
+      "....KwWWWWWW",
+      ".....KWKWKWK",
+      "......KKKKKK",
+      "..........KW",
+      "....KKKKKKKW",
+      "...KWWWWWKKW",
+      "....KKKKKKKW",
+      "...KWWWWWKKW",
+      "....KKKKKKKW",
+      "..........KW",
+      "........KWWK",
+      ".......KWK.K",
+      ".......KK...",
+    ]),
+  },
+  // A fire imp: little horns, a flame on its head, bat wings, a sunny belly.
+  fireimp: {
+    colors: { R: "#e8413b", r: "#a82e2e", Y: "#ffc93c", O: "#ff8a2a", w: "#f2e6d0", D: "#7a1f3a" },
+    rows: mirror([
+      "............",
+      "..........KK",
+      "..KK.....KYY",
+      "..KwK...KYOO",
+      "...KwK.KOOOO",
+      "....KKKRRRRR",
+      "...KRRRRRRRR",
+      "..KRRRRRRRRR",
+      "..KRRYYKRRRR",
+      "..KRRYKKRRRR",
+      "..KRRRRRRRRR",
+      "...KRRRKKKKK",
+      "....KrRRRRRR",
+      ".....KKKKKKK",
+      "KK...KRRRRRR",
+      "KDK.KRRYYYYY",
+      "KDDKRRRYYYYY",
+      "KDDDKRRYYYYY",
+      ".KDDKRRRYYYY",
+      "..KKKrRRRRRR",
+      "......KrRRRR",
+      "......KRRK..",
+      "......KrrK..",
+      "......KKKK..",
+    ]),
+  },
+  // A treasure chest that bites: open lid, teeth, a tongue, glowing eyes.
+  mimic: {
+    colors: { B: "#a8662f", b: "#7a4520", Y: "#ffd23f", W: "#ffffff", k: "#3a1426", E: "#ffe066", P: "#e8507a" },
+    rows: mirror([
+      "............",
+      "..KKKKKKKKKK",
+      ".KBBBBBBBBBB",
+      ".KBYYBBBBBBY",
+      ".KBBBBBBBBBB",
+      ".KKKKKKKKKKK",
+      ".KWKWKWKWKWK",
+      ".KkkkkkEEkkk",
+      ".KkkkkkEKkkk",
+      ".KkkkkkPPPPP",
+      ".KkkkPPPPPPP",
+      ".KWKWKWKWKWK",
+      ".KKKKKKKKKKK",
+      ".KBBBBBBBBBB",
+      ".KBYYBBBBBBB",
+      ".KBBBBBBKKKK",
+      ".KBBBBBBKYYY",
+      ".KBBBBBBKYKK",
+      ".KBYYBBBKKKK",
+      ".KBBBBBBBBBB",
+      ".KbbbbbbbbbB",
+      ".KKKKKKKKKKK",
+      "..KbK.......",
+      "..KKK.......",
+    ]),
+  },
+  // A knight of shadow: dark armor, a purple plume, eyes glowing through the visor.
+  shadowknight: {
+    colors: { A: "#4a4466", a: "#2e2a44", E: "#e06bff", P: "#9b30d9", C: "#5a1f3a" },
+    rows: mirror([
+      "...........K",
+      "..........KP",
+      ".........KPP",
+      "......KKKKKK",
+      ".....KAAAAAA",
+      "....KAAAAAAA",
+      "...KAaAAAAAA",
+      "...KAaKKKKKK",
+      "...KAaKEEKKK",
+      "...KAaKKKKKK",
+      "...KAaAAAAKA",
+      "....KaAAAAKA",
+      ".....KKKKKKK",
+      "..KKKCCAAAAA",
+      ".KCKAAAAAAAA",
+      "KCCKAaAAAAAP",
+      "KCCKAaAAAAPP",
+      "KCCKAaAAAAAP",
+      "KCCKKAAAAAAA",
+      "KCCC.KAaAAAA",
+      ".KCC.KAaKKAA",
+      "..KC..KAAK..",
+      "......KaaK..",
+      "......KKKK..",
+    ]),
+  },
+});
+
 // Pip, the fox-moth who travels with you (and the Beacon's lost spirit).
 CREATURE_ART.pip = {
   colors: { O: "#f08a24", o: "#b85f12", W: "#fff4e0", M: "#c58cf0", m: "#8a5ad6", L: "#ffe066", l: "#ffb020" },
@@ -1360,8 +1673,9 @@ function hexedColors(art) {
   return out;
 }
 
-// Two jagged cracks, running down from the upper half of the body.
-function hexCracks(ctx, w, h, id) {
+// Two jagged cracks, running down from the upper half of the body. `scale`:
+// longer, thicker cracks for big painted sprites.
+function hexCracks(ctx, w, h, id, scale = 1) {
   const image = ctx.getImageData(0, 0, w, h);
   const d = image.data;
   const [or, og, ob] = rgbOf(HEX_OUTLINE);
@@ -1384,14 +1698,118 @@ function hexCracks(ctx, w, h, id) {
       y = Math.floor(h * 0.3 + rand() * h * 0.3);
       found = body(x, y);
     }
-    for (let step = 0; found && step < 4 + Math.floor(rand() * 5); step++) {
-      const i = at(x, y);
-      d.set([cr, cg, cb], i);
+    for (let step = 0; found && step < (4 + Math.floor(rand() * 5)) * scale; step++) {
+      for (let t = 0; t < scale && x + t < w; t++) if (body(x + t, y)) d.set([cr, cg, cb], at(x + t, y));
       y++;
       x += Math.floor(rand() * 3) - 1;
       if (!body(x, y)) break;
     }
   }
+  ctx.putImageData(image, 0, 0);
+}
+
+// ---------- Lighting ----------
+// Gives flat sprites volume, the way a pixel artist shades by hand. Each
+// pixel's distance from the sprite's edge is treated as height, so the body
+// bulges like a pillow; that bump is lit from the top left and the result is
+// snapped to a few flat tones (highlight, light, base, shade, deep shade),
+// warm in the light and cool in the shadow. Lines inside the sprite (not its
+// outer edge) become a dark shade of the colors around them instead of
+// black, so faces and details look softer. Done at the sprite's own size,
+// before smoothing, so it stays crisp.
+const OUTLINES = new Set([OUTLINE, HEX_OUTLINE, "#1a0f2e"].map((c) => rgbOf(c).join()));
+const LIGHT = [255, 244, 214];
+const SHADOW = [38, 22, 70];
+
+function shadeSprite(ctx, w, h) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const src = new Uint8ClampedArray(d);
+  const at = (x, y) => (y * w + x) * 4;
+  const clear = (x, y) => x < 0 || y < 0 || x >= w || y >= h || src[at(x, y) + 3] === 0;
+  const line = (x, y) => !clear(x, y) && OUTLINES.has(`${src[at(x, y)]},${src[at(x, y) + 1]},${src[at(x, y) + 2]}`);
+  const mix = (i, to, t) => {
+    for (let k = 0; k < 3; k++) d[i + k] = src[i + k] + (to[k] - src[i + k]) * t;
+  };
+  // How much of the sprite each color covers: small bright spots are eye
+  // shines and sparkles, left as drawn; a mostly-white body still gets shaded.
+  const share = new Map();
+  let solid = 0;
+  for (let i = 0; i < src.length; i += 4) {
+    if (!src[i + 3]) continue;
+    const key = (src[i] << 16) | (src[i + 1] << 8) | src[i + 2];
+    share.set(key, (share.get(key) || 0) + 1);
+    solid++;
+  }
+  const sparkle = (i) => {
+    const light = (0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2]) / 255;
+    return light > 0.85 && share.get((src[i] << 16) | (src[i + 1] << 8) | src[i + 2]) / solid < 0.08;
+  };
+
+  // Distance from the edge (two-pass chamfer), capped so big bodies get a
+  // rounded rim and a flat middle rather than one giant cone.
+  const rim = Math.max(2.5, Math.min(w, h) / 5);
+  const dist = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) dist[y * w + x] = clear(x, y) ? 0 : 1e9;
+  const dAt = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : dist[y * w + x]);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (dist[y * w + x]) dist[y * w + x] = Math.min(dist[y * w + x], dAt(x - 1, y) + 1, dAt(x, y - 1) + 1, dAt(x - 1, y - 1) + 1.4, dAt(x + 1, y - 1) + 1.4);
+  for (let y = h - 1; y >= 0; y--)
+    for (let x = w - 1; x >= 0; x--)
+      if (dist[y * w + x]) dist[y * w + x] = Math.min(dist[y * w + x], dAt(x + 1, y) + 1, dAt(x, y + 1) + 1, dAt(x + 1, y + 1) + 1.4, dAt(x - 1, y + 1) + 1.4);
+  // A rounded bevel: steep at the edge, flat on top.
+  const height = (x, y) => {
+    const t = Math.min(1, dAt(x, y) / rim);
+    return Math.sqrt(1 - (1 - t) * (1 - t)) * rim;
+  };
+  const L = [-0.55, -0.7, 0.45];
+  const flat = L[2];
+  // Tone bands: how far a pixel's lighting is from facing the camera head on.
+  const tone = (x, y) => {
+    const gx = (height(x + 1, y) - height(x - 1, y)) / 2;
+    const gy = (height(x, y + 1) - height(x, y - 1)) / 2;
+    const n = [-gx, -gy, 1];
+    const len = Math.hypot(...n);
+    return (n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) / len - flat;
+  };
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (clear(x, y)) continue;
+      const i = at(x, y);
+      if (line(x, y)) {
+        // An inner line: tint it with the body colors next to it.
+        if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => clear(x + dx, y + dy))) continue;
+        const near = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => !line(x + dx, y + dy)).map(([dx, dy]) => at(x + dx, y + dy));
+        if (!near.length) continue;
+        for (let k = 0; k < 3; k++) d[i + k] = (near.reduce((s, j) => s + src[j + k], 0) / near.length) * 0.38;
+        continue;
+      }
+      if (sparkle(i)) continue;
+      const t = tone(x, y);
+      if (t > 0.3) mix(i, LIGHT, 0.34);
+      else if (t > 0.1) mix(i, LIGHT, 0.16);
+      else if (t < -0.35) mix(i, SHADOW, 0.46);
+      else if (t < -0.12) mix(i, SHADOW, 0.26);
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
+// Hexbound creatures give off a dark purple haze: a soft ring just outside
+// their outline (pulsing and drifting sparks are added by CSS and fx.js).
+const HEX_AURA = [176, 64, 255];
+
+function hexAura(ctx, w, h) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const solid = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
+  const ring1 = [];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) ring1.push((y * w + x) * 4);
+  for (const i of ring1) d.set([...HEX_AURA, 150], i);
   ctx.putImageData(image, 0, 0);
 }
 
@@ -1463,15 +1881,121 @@ function glow(ctx, w, h) {
   ctx.putImageData(image, 0, 0);
 }
 
+// ---------- Painted creature art ----------
+// Creatures with a picture in assets/creatures/<id>.png (detailed pixel art,
+// made with tools/pixelize_creature.py) use it instead of their text sprite.
+// The pictures are much finer than the text sprites, so each also has a size
+// in game pixels (what the biome draws it at), kept separately.
+const PAINTED = new Map(); // id -> canvas
+const GAME_SIZE = new Map(); // sprite canvas -> { w, h } in game pixels
+const PAINTED_GAME_PX = 26;
+
+// Loads every picture that exists (missing ones keep their text sprite).
+// Call once at startup, before anything draws a creature.
+export function loadCreatureArt(ids) {
+  return Promise.all(
+    ids.map(
+      (id) =>
+        new Promise((resolve) => {
+          const im = new Image();
+          im.onload = () => {
+            const c = document.createElement("canvas");
+            c.width = im.width;
+            c.height = im.height;
+            c.getContext("2d").drawImage(im, 0, 0);
+            PAINTED.set(id, c);
+            resolve();
+          };
+          im.onerror = () => resolve();
+          im.src = `assets/creatures/${id}.png`;
+        }),
+    ),
+  );
+}
+
+// A sprite's size in game pixels (the biome draws sprites at this size).
+export function gameSize(canvas) {
+  return GAME_SIZE.get(canvas) || { w: canvas.width / SPRITE_SCALE, h: canvas.height / SPRITE_SCALE };
+}
+
+// Hexbound version of a painted creature, pixel by pixel: drained and tinted
+// purple like hexedColors(), with its brightest glints glowing red.
+function hexPixels(ctx, w, h) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const outline = rgbOf(PAINTED_OUTLINE);
+  const hexOutline = rgbOf(HEX_OUTLINE);
+  const eyes = rgbOf(HEX_EYES);
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const [r, g, b] = [d[i], d[i + 1], d[i + 2]];
+    if (r === outline[0] && g === outline[1] && b === outline[2]) {
+      d.set(hexOutline, i);
+      continue;
+    }
+    const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    if (light > 0.9) {
+      d.set(eyes, i);
+      continue;
+    }
+    const grey = (r + g + b) / 3;
+    d.set([r, g, b].map((v, k) => (v * 0.35 + grey * 0.65) * 0.55 * 0.85 + HEX_TINT[k] * 0.45 * 0.85), i);
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
+// Evolved version of a painted creature: richer colors (glow added after).
+function evolvePixels(ctx, w, h) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const grey = (d[i] + d[i + 1] + d[i + 2]) / 3;
+    for (let k = 0; k < 3; k++) d[i + k] = (grey + (d[i + k] - grey) * 1.45) * 0.95;
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
+const PAINTED_OUTLINE = "#1a1226"; // the outline pixelize_creature.py draws
+
+function paintedSrc(id, hexed, frame, evolved) {
+  const pic = PAINTED.get(id);
+  const pad = hexed || evolved ? 1 : 0;
+  const w = pic.width + pad * 2, h = pic.height + pad * 2;
+  const key = `painted:${id}:${hexed}:${evolved}:${frame}`;
+  if (!cache.has(key)) {
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(pic, pad, pad);
+    if (hexed) {
+      hexPixels(ctx, w, h);
+      hexCracks(ctx, w, h, id, Math.round(h / 24));
+    } else if (evolved) evolvePixels(ctx, w, h);
+    liftFoot(ctx, w, h, frame);
+    if (hexed) hexAura(ctx, w, h);
+    else if (evolved) glow(ctx, w, h);
+    const url = canvas.toDataURL();
+    cache.set(key, url);
+    canvases.set(url, canvas);
+    const s = PAINTED_GAME_PX / Math.max(pic.width, pic.height);
+    GAME_SIZE.set(canvas, { w: w * s, h: h * s });
+  }
+  return cache.get(key);
+}
+
 // `hexed`: draw the corrupted Hexbound version. `frame`: a walking frame.
 // `evolved`: the evolved version (see EVOLUTIONS in config.js).
 export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
+  if (PAINTED.has(id)) return paintedSrc(id, hexed, frame, evolved);
   const art = CREATURE_ART[id];
   const w = art.rows[0].length, h = art.rows.length;
   if (evolved && !hexed) {
     // One pixel of room on every side for the glow.
     return draw(`creature:${id}:evolved:${frame}`, w + 2, h + 2, (ctx) => {
       paint(ctx, art.rows, evolvedColors(art), 1, 1);
+      shadeSprite(ctx, w + 2, h + 2);
       liftFoot(ctx, w + 2, h + 2, frame);
       glow(ctx, w + 2, h + 2);
     });
@@ -1479,20 +2003,24 @@ export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
   if (!hexed) {
     return draw(`creature:${id}:${frame}`, w, h, (ctx) => {
       paint(ctx, art.rows, art.colors);
+      shadeSprite(ctx, w, h);
       liftFoot(ctx, w, h, frame);
     });
   }
-  return draw(`creature:${id}:hexed:${frame}`, w, h, (ctx) => {
-    paint(ctx, art.rows, hexedColors(art));
-    hexCracks(ctx, w, h, id);
-    liftFoot(ctx, w, h, frame);
+  // One pixel of room on every side for the hex aura.
+  return draw(`creature:${id}:hexed:${frame}`, w + 2, h + 2, (ctx) => {
+    paint(ctx, art.rows, hexedColors(art), 1, 1);
+    hexCracks(ctx, w + 2, h + 2, id);
+    shadeSprite(ctx, w + 2, h + 2);
+    liftFoot(ctx, w + 2, h + 2, frame);
+    hexAura(ctx, w + 2, h + 2);
   });
 }
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.
 export function creatureImg(id, cls = "", hexed = false, evolved = false) {
-  const small = CREATURE_ART[id].rows.length <= 12;
-  return img(creatureSrc(id, hexed, 0, evolved), `creature ${small ? "small" : ""}${evolved ? " evolved" : ""} ${cls}`, id);
+  const small = !PAINTED.has(id) && CREATURE_ART[id].rows.length <= 12;
+  return img(creatureSrc(id, hexed, 0, evolved), `creature ${small ? "small" : ""}${evolved ? " evolved" : ""}${hexed ? " hexed" : ""} ${cls}`, id);
 }
 
 export function decorSrc(id) {
@@ -1512,9 +2040,12 @@ export function heroSrc(look, hatId = null, frame = 0, wand = true) {
     paint(ctx, OUTFIT_ROWS[look.outfitStyle], colors, 2, 6 + HEAD.length);
     paint(ctx, HAIR_ROWS[look.hairStyle], colors, 2, 6);
     paint(ctx, GLASSES_ROWS[look.glasses], colors, 2, 6);
-    if (wand) paint(ctx, WAND, colors, 15, 12);
+    const weapon = WEAPONS[look.weapon];
+    if (wand) paint(ctx, weapon.rows, colors, weapon.x, weapon.y);
+    if (wand && weapon.shield) paint(ctx, weapon.shield.rows, colors, weapon.shield.x, weapon.shield.y);
     const hat = HATS[hatId];
     if (hat) paint(ctx, hat.rows, hat.colors, 2, hat.top);
+    shadeSprite(ctx, 20, 30);
     liftFoot(ctx, 20, 30, frame);
   });
 }
@@ -1529,7 +2060,11 @@ export function landmarkSrc(zoneId) {
 // Shop and battle icons: just the hat or potion, cropped tight.
 export function itemSrc(itemId) {
   const art = HATS[itemId] || CONSUMABLES[itemId];
-  return draw(`item:${itemId}`, art.rows[0].length, art.rows.length, (ctx) => paint(ctx, art.rows, art.colors));
+  const w = art.rows[0].length, h = art.rows.length;
+  return draw(`item:${itemId}`, w, h, (ctx) => {
+    paint(ctx, art.rows, art.colors);
+    shadeSprite(ctx, w, h);
+  });
 }
 
 export const heroImg = (look, hatId, cls = "", wand = true) => img(heroSrc(look, hatId, 0, wand), `hero ${cls}`, wand ? "your hero" : "");

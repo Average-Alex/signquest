@@ -29,14 +29,14 @@
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, CHEST_COINS, CHESTS_PER_AREA, COINS_PER_AREA, CONSUMABLES, creatureLevel, CREATURES,
-  GUARD_EXTRA_LEVELS, isEvolved, QUEST_COINS, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, TRAINER_SIGHT,
+  GUARD_EXTRA_LEVELS, isEvolved, QUEST_COINS, RARITIES, rarityOf, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, TRAINER_SIGHT,
   WILD_PER_AREA, ZONES,
 } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
 import { QUESTS, ROOK } from "./quests.js";
 import { trainersFor } from "./trainers.js";
-import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
+import { creatureSrc, decorSrc, gameSize, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { playCutscene } from "./cutscene.js";
 import { playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
@@ -585,6 +585,14 @@ function nearestReachable(biome, tx, ty) {
 // Now and then, a rare creature from another zone wanders in. Explore to find them!
 const RARE_CHANCE = 0.08;
 
+// Common creatures turn up often, legendary ones hardly ever (RARITIES in config.js).
+function pickByRarity(list) {
+  const total = list.reduce((sum, c) => sum + rarityOf(c).weight, 0);
+  let r = Math.random() * total;
+  for (const c of list) if ((r -= rarityOf(c).weight) < 0) return c;
+  return list[list.length - 1];
+}
+
 function spawnWild(biome, area) {
   const local = CREATURES.filter((c) => c.zone === biome.zone.id && c.kind === "wild");
   const rare = CREATURES.filter((c) => c.kind === "wild" && c.zone !== biome.zone.id && ZONES.find((zn) => zn.id === c.zone).dimension === biome.zone.dimension);
@@ -599,7 +607,7 @@ function spawnWild(biome, area) {
     const x = tx * T + T / 2, y = ty * T + T - 1;
     if (!feetFree(biome, x, y) || Math.hypot(x - biome.hero.x, y - biome.hero.y) < 60) continue;
     biome.creatures.push({
-      id: wild[Math.floor(Math.random() * wild.length)].id,
+      id: pickByRarity(wild).id,
       stage: wordsOpen && Math.random() < 0.5 ? 1 : 0,
       area,
       level: creatureLevel(biome.z, area) + (isRare ? 2 : 0),
@@ -742,7 +750,10 @@ function checkTouch(biome, now) {
     const dy = c.y - hero.y; // negative when the creature is higher up
     if (dx > TOUCH_DISTANCE + extra || dy > 10 || dy < -(TOUCH_REACH_UP + extra)) continue;
 
-    if (c.rare) toast(`🌟 A rare ${CREATURES.find((x) => x.id === c.id).name}! It's far from home.`);
+    const def = CREATURES.find((x) => x.id === c.id);
+    const rarity = rarityOf(def);
+    if (c.rare) toast(`🧭 A wandering ${def.name}! It's far from home.`);
+    else if (!c.boss && rarity.weight <= RARITIES.epic.weight) toast(`✨ ${rarity.name} creature! A ${def.name} appears!`);
     startEncounter(biome, c);
     return;
   }
@@ -1206,7 +1217,7 @@ function draw(biome, now) {
 
   things.sort((a, b) => a.y - b.y);
   for (const t of things) {
-    const iw = t.img.width / SPRITE_SCALE, ih = t.img.height / SPRITE_SCALE; // size in game pixels
+    const { w: iw, h: ih } = gameSize(t.img); // size in game pixels
     let w = iw * (t.scale || 1), h = ih * (t.scale || 1);
     if (t.small && iw > 12) (w = iw * 0.75), (h = ih * 0.75);
     if (t.y < camY - 4 || t.y - h > camY + VIEW_H + 4 || t.x + w / 2 < camX || t.x - w / 2 > camX + VIEW_W) continue; // off screen
@@ -1234,12 +1245,17 @@ function draw(biome, now) {
     ...biome.creatures.map((c) => {
       let icon = STAGES[c.stage].icon;
       if (c.freed) {
-        const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
+        const h = ((c.boss ? 2 : 1) * gameSize(spriteCanvas(creatureSrc(c.id))).h);
         return { x: c.x, y: c.y - h - 2, html: "💚", cls: " freed" };
       }
-      if (c.rare) icon = "🌟";
-      const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
-      return { x: c.x, y: c.y - h - 2, html: `${icon}<small>${c.rare ? "Rare! " : ""}Lv ${c.level}</small>`, cls: c.boss ? " boss" : c.rare ? " rare" : "" };
+      if (c.rare) icon = "🧭";
+      const h = ((c.boss ? 2 : 1) * gameSize(spriteCanvas(creatureSrc(c.id))).h);
+      // Rare and rarer creatures show their rarity, in its color.
+      const rarity = rarityOf(CREATURES.find((x) => x.id === c.id));
+      const showRarity = !c.boss && !c.rare && rarity.weight <= RARITIES.rare.weight;
+      const tag = c.rare ? "Wanderer! " : showRarity ? `${rarity.name}! ` : "";
+      const color = showRarity ? ` style="color:${rarity.color}"` : "";
+      return { x: c.x, y: c.y - h - 2, html: `${icon}<small${color}>${tag}Lv ${c.level}</small>`, cls: c.boss ? " boss" : c.rare ? " rare" : "" };
     }),
     ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - 14, html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
     // ❗ has a quest for you, ❓ come back (it's done), 💬 just chatting.

@@ -5,7 +5,7 @@ import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } 
 import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
-  DIMENSIONS, ELEMENTS, SHARD_ZONES, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
+  DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
 import { musicForScreen, musicSettingChanged, playMusic } from "./music.js";
@@ -15,7 +15,7 @@ import { playScene } from "./story.js";
 import { worldMapSrc } from "./worldmap.js";
 
 const $ = (id) => document.getElementById(id);
-const showHooks = {};
+export const showHooks = {};
 
 export function show(name) {
   for (const screen of document.querySelectorAll(".screen")) screen.hidden = screen.id !== `screen-${name}`;
@@ -58,12 +58,13 @@ export function renderAvatars() {
 showHooks.title = renderAvatars;
 
 export function setHandImage(img, letter) {
-  // Reference photos go in assets/hands/A.jpg etc. Missing ones just hide.
+  // Pictures in assets/hands/A.svg etc., drawn by tools/make_hand_hints.py.
+  // Missing ones just hide.
   img.hidden = true;
   img.onload = () => (img.hidden = false);
   img.onerror = () => (img.hidden = true);
-  img.alt = `Handshape for ${letter}`;
-  img.src = `assets/hands/${letter}.jpg`;
+  img.alt = `Handshape for ${letter}: ${TIPS[letter] || ""}`;
+  img.src = `assets/hands/${letter}.svg`;
 }
 
 const starsText = (n, max = 3) => "⭐".repeat(n) + "☆".repeat(max - n);
@@ -397,7 +398,11 @@ showHooks.book = () => {
     card.className = `book-card${mine ? "" : " unknown"}${onTeam ? " buddy" : ""}`;
 
     const el = ELEMENTS[creature.element];
-    const elBadge = el ? `<span class="el-badge el-${creature.element}">${el.icon} ${el.name}</span>` : "";
+    const rarity = rarityOf(creature);
+    const elBadge =
+      `<span class="rarity-badge" style="--rarity:${rarity.color}">${rarity.name}</span>` +
+      (el ? `<span class="el-badge el-${creature.element}">${el.icon} ${el.name}</span>` : "");
+    card.style.setProperty("--rarity", rarity.color); // the card's rim takes the rarity color
     if (mine) {
       const maxed = mine.level >= BUDDY_MAX_LEVEL;
       const pct = maxed ? 100 : Math.round((mine.xp / buddyXpToLevel(mine.level)) * 100);
@@ -465,7 +470,7 @@ showHooks.settings = () => {
 
 function updateSettingsText() {
   const s = progress.get().settings;
-  $("hold-value").textContent = `${(s.holdMs / 1000).toFixed(1)} s`;
+  $("hold-value").textContent = s.holdMs ? `${(s.holdMs / 1000).toFixed(2)} s` : "instant";
   $("conf-value").textContent = `${Math.round(s.minConfidence * 100)}%`;
   const names = { model: "trained model", knn: `your ${knnSampleCount()} recorded signs`, keyboard: "keyboard (no camera)" };
   $("recognizer-info").textContent =
@@ -490,7 +495,7 @@ $("reset-confirm").onclick = () => {
 // ---------- Hero maker ----------
 
 // Hair style, outfit, and glasses buttons show a little hero; colors are swatches.
-const SHAPE_PARTS = ["hairStyle", "outfitStyle", "glasses"];
+const SHAPE_PARTS = ["hairStyle", "outfitStyle", "weapon", "glasses"];
 const SWATCH_KEY = { hair: "H", skin: "S", eyes: "B", outfit: "R" };
 let heroReturnTo = "title";
 
@@ -505,9 +510,10 @@ showHooks.hero = () => {
 };
 
 function renderHeroOptions() {
-  const { look } = progress.get();
+  const { look, heroClass } = progress.get();
   const box = $("hero-options");
   box.innerHTML = "";
+  renderClassPicker(box, look, heroClass);
   for (const [part, { label, choices }] of Object.entries(LOOK_OPTIONS)) {
     const group = document.createElement("div");
     group.className = "maker-group";
@@ -536,6 +542,36 @@ function renderHeroOptions() {
     group.appendChild(row);
     box.appendChild(group);
   }
+}
+
+// Class cards: each shows your hero dressed for it, its traits, and its perk.
+// Picking one dresses your hero to match; the parts below can still change it.
+function renderClassPicker(box, look, current) {
+  const group = document.createElement("div");
+  group.className = "maker-group";
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "Class");
+  group.innerHTML = `<p class="label">Class</p>`;
+  const row = document.createElement("div");
+  row.className = "class-row";
+  for (const [id, cls] of Object.entries(HERO_CLASSES)) {
+    const button = document.createElement("button");
+    button.className = "class-card";
+    button.setAttribute("aria-pressed", String((current || DEFAULT_CLASS) === id));
+    button.setAttribute("aria-label", `${cls.name}: ${cls.perk}`);
+    button.innerHTML =
+      heroImg({ ...look, ...cls.look }) +
+      `<b>${cls.icon} ${cls.name}</b><small class="class-trait">${cls.trait}</small><small class="class-perk">${cls.perk}</small>`;
+    button.onclick = () => {
+      progress.update({ heroClass: id, look: { ...progress.get().look, ...cls.look } });
+      renderAvatars();
+      renderHeroOptions();
+      box.querySelector(`.class-card[aria-pressed=true]`)?.focus();
+    };
+    row.appendChild(button);
+  }
+  group.appendChild(row);
+  box.appendChild(group);
 }
 
 $("hero-random").onclick = () => {

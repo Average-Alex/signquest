@@ -48,9 +48,13 @@ export const isPhysical = (move) => PHYSICAL.has(move.icon);
 
 let canvas = null;
 let ctx = null;
+// A blurred copy of the effects, drawn behind them, so everything glows.
+let glowCanvas = null;
+let glowCtx = null;
 let particles = [];
 let rings = [];
 let projectiles = [];
+let slashes = [];
 let frozenUntil = 0;
 let running = false;
 
@@ -64,6 +68,9 @@ function fit() {
   const r = arena().getBoundingClientRect();
   const w = Math.max(1, Math.round(r.width / PIX)), h = Math.max(1, Math.round(r.height / PIX));
   if (canvas.width !== w || canvas.height !== h) (canvas.width = w), (canvas.height = h);
+  glowCanvas ||= $("fx-glow");
+  glowCtx ||= glowCanvas?.getContext("2d");
+  if (glowCanvas && (glowCanvas.width !== w || glowCanvas.height !== h)) (glowCanvas.width = w), (glowCanvas.height = h);
 }
 
 // The middle of an element, in effect pixels. `yFrac` 0 = its top, 1 = its bottom.
@@ -84,9 +91,10 @@ function start() {
 }
 
 function loop(now) {
-  if (!particles.length && !rings.length && !projectiles.length) {
+  if (!particles.length && !rings.length && !projectiles.length && !slashes.length) {
     running = false;
     if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (glowCtx) glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
     return;
   }
   requestAnimationFrame(loop);
@@ -94,17 +102,18 @@ function loop(now) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   for (const p of projectiles) {
-    if (!frozen) p.t = Math.min(1, (now - p.start) / p.ms);
+    // (The frame time can be a hair before the projectile was made: clamp at 0.)
+    if (!frozen) p.t = Math.max(0, Math.min(1, (now - p.start) / p.ms));
     const u = 1 - p.t;
     // A curve from start to end, lifted in the middle by `arc`.
     const x = u * u * p.from.x + 2 * u * p.t * p.mid.x + p.t * p.t * p.to.x;
     const y = u * u * p.from.y + 2 * u * p.t * p.mid.y + p.t * p.t * p.to.y;
-    if (!frozen) for (let i = 0; i < 3; i++) spawn(x, y, p.element, { speed: 0.35, life: 260, size: Math.max(1, p.size - 1), drag: 0.9 });
-    const colors = colorsFor(p.element);
-    ctx.fillStyle = colors[2];
-    ctx.fillRect(Math.round(x - p.size), Math.round(y - p.size), p.size * 2 + 1, p.size * 2 + 1);
-    ctx.fillStyle = colors[0];
-    ctx.fillRect(Math.round(x - p.size / 2), Math.round(y - p.size / 2), p.size + 1, p.size + 1);
+    if (!frozen) {
+      for (let i = 0; i < 3; i++) spawn(x, y, p.element, { speed: 0.35, life: 260, size: Math.max(1, p.size - 1), drag: 0.9 });
+      p.trail.unshift({ x, y });
+      p.trail.length = Math.min(p.trail.length, 10);
+    }
+    drawProjectile(p, x, y, now);
     if (p.t >= 1 && !p.done) {
       p.done = true;
       p.resolve();
@@ -152,7 +161,121 @@ function loop(now) {
     ctx.stroke();
   }
   rings = rings.filter((r) => r.age < r.life);
+
+  for (const s of slashes) {
+    if (!frozen) s.age += 16;
+    const t = s.age / s.life;
+    if (t >= 1 || t < 0) continue; // finished, or not started yet
+    // A blade swipe: grows out fast, then thins and fades.
+    const reach = s.len * Math.min(1, t * 4);
+    const dx = Math.cos(s.angle) * reach, dy = Math.sin(s.angle) * reach;
+    ctx.globalAlpha = 1 - t;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = Math.max(1, 4 * (1 - t));
+    ctx.beginPath();
+    ctx.moveTo(s.x - dx, s.y - dy);
+    ctx.lineTo(s.x + dx, s.y + dy);
+    ctx.stroke();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = Math.max(1, 2 * (1 - t));
+    ctx.stroke();
+  }
+  slashes = slashes.filter((s) => s.age < s.life);
   ctx.globalAlpha = 1;
+
+  if (glowCtx) {
+    glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
+    glowCtx.drawImage(canvas, 0, 0);
+  }
+}
+
+// A projectile's look depends on its element, with a fading comet tail behind it.
+function drawProjectile(p, x, y, now) {
+  const colors = colorsFor(p.element);
+  p.trail.forEach((pt, i) => {
+    if (!i) return;
+    const k = 1 - i / p.trail.length;
+    const s = Math.max(1, Math.round(p.size * k * 1.6));
+    ctx.globalAlpha = k * 0.8;
+    ctx.fillStyle = colors[Math.min(colors.length - 1, 1 + Math.floor((1 - k) * 3))];
+    ctx.fillRect(Math.round(pt.x - s / 2), Math.round(pt.y - s / 2), s, s);
+  });
+  ctx.globalAlpha = 1;
+  const s = p.size;
+  const box = (size, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x - size), Math.round(y - size), size * 2 + 1, size * 2 + 1);
+  };
+  switch (p.element) {
+    case "fire": {
+      const flicker = Math.random() < 0.5 ? 1 : 0;
+      box(s + flicker, colors[3]);
+      box(s - 1 + flicker, colors[1]);
+      box(Math.max(0, s - 2), colors[0]);
+      break;
+    }
+    case "ice": {
+      // A spinning diamond shard.
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(now / 90);
+      ctx.fillStyle = colors[3];
+      ctx.fillRect(-s - 1, -s - 1, (s + 1) * 2, (s + 1) * 2);
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+      ctx.restore();
+      break;
+    }
+    case "lightning": {
+      // A crackling bolt back to where it came from, redrawn every frame.
+      ctx.strokeStyle = colors[1];
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p.from.x, p.from.y);
+      for (let k = 1; k <= 6; k++) {
+        const f = k / 6;
+        ctx.lineTo(p.from.x + (x - p.from.x) * f + (k < 6 ? (Math.random() - 0.5) * 6 : 0), p.from.y + (y - p.from.y) * f + (k < 6 ? (Math.random() - 0.5) * 6 : 0));
+      }
+      ctx.stroke();
+      box(s, colors[3]);
+      box(Math.max(0, s - 1), colors[0]);
+      break;
+    }
+    case "water": {
+      // A bubble: a ring with a shine.
+      ctx.strokeStyle = colors[2];
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, s + 1, 0, Math.PI * 2);
+      ctx.stroke();
+      box(Math.max(0, s - 1), colors[3]);
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), 1, 1);
+      break;
+    }
+    case "dark":
+    case "hex":
+    case "nature": {
+      // An orb with motes circling it.
+      box(s, colors[3]);
+      box(Math.max(0, s - 1), colors[1]);
+      for (let k = 0; k < 3; k++) {
+        const a = now / 70 + (k * Math.PI * 2) / 3;
+        ctx.fillStyle = colors[k % 2 ? 0 : 2];
+        ctx.fillRect(Math.round(x + Math.cos(a) * (s + 3)), Math.round(y + Math.sin(a) * (s + 3) * 0.7), 2, 2);
+      }
+      break;
+    }
+    default:
+      box(s, colors[2]);
+      box(Math.max(0, Math.floor(s / 2)), colors[0]);
+      if (p.element === "light") {
+        ctx.fillStyle = colors[0];
+        ctx.fillRect(Math.round(x - s * 2), Math.round(y), s * 4 + 1, 1);
+        ctx.fillRect(Math.round(x), Math.round(y - s * 2), 1, s * 4 + 1);
+      }
+  }
 }
 
 function spawn(x, y, element, o = {}) {
@@ -212,9 +335,20 @@ export function projectile(from, to, element, { ms = 320, size = 3, arc = -18 } 
   fit();
   const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 + arc };
   return new Promise((resolve) => {
-    projectiles.push({ from, to, mid, element, ms, size, start: performance.now(), t: 0, resolve });
+    projectiles.push({ from, to, mid, element, ms, size, start: performance.now(), t: 0, trail: [], resolve });
     start();
   });
+}
+
+// Blade swipes across a point (physical hits). Big hits get an X of two.
+export function slash(p, element, { count = 1, len = 14, life = 260 } = {}) {
+  fit();
+  const color = element === "impact" ? "#fff6c8" : colorsFor(element)[1];
+  for (let i = 0; i < count; i++) {
+    const angle = -Math.PI / 4 + (i % 2 ? Math.PI / 2 : 0) + (Math.random() - 0.5) * 0.4;
+    slashes.push({ x: p.x + (Math.random() - 0.5) * 4, y: p.y + (Math.random() - 0.5) * 4, angle, len, life: life + i * 40, age: -i * 50, color });
+  }
+  start();
 }
 
 // Rays shooting out from a point (crits).

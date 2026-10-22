@@ -1,7 +1,10 @@
 // Game content and tuning numbers. Anything a playtest might change lives here.
 
-// The 24 static letters. J and Z involve motion, so they're left out of v1.
+// The 24 static letters: the letter recognizer (classifier.js) knows these.
 export const LETTERS = "ABCDEFGHIKLMNOPQRSTUVWXY".split("");
+// J and Z are drawn in the air, so the moving-sign recognizer (motion.js) handles them.
+export const MOTION_LETTERS = ["J", "Z"];
+export const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 // Short handshape tips for learn cards and hints. Keep them short: the
 // youngest players are 6.
@@ -15,6 +18,7 @@ export const TIPS = {
   G: "Point your pointer finger and thumb sideways.",
   H: "Point two fingers sideways, together.",
   I: "Make a fist. Pinky finger up.",
+  J: "Make an I, then draw a J in the air with your pinky.",
   K: "Two fingers up in a V. Thumb touches the middle finger.",
   L: "Pointer finger up, thumb out. An L!",
   M: "Tuck your thumb under three fingers.",
@@ -30,6 +34,22 @@ export const TIPS = {
   W: "Three fingers up, spread out.",
   X: "Bend your pointer finger into a hook.",
   Y: "Thumb and pinky out. Hang loose!",
+  Z: "Point your pointer finger. Draw a Z in the air.",
+};
+
+// Moving signs (js/motion.js), and how to do each. Same wording as the
+// recorder (training/record.py).
+export const MOTION_TIPS = {
+  J: "Pinky up (I), then swoop it down and curve it toward you.",
+  Z: "Index finger out. Draw a Z in the air.",
+  HELLO: "Flat hand at your forehead. Salute out to the side.",
+  YES: "Fist (S). Nod it up and down, like a head nodding.",
+  NO: "Index + middle finger snap down onto your thumb, twice.",
+  "THANK YOU": "Flat hand, fingertips at your chin. Move it out toward the camera.",
+  PLEASE: "Flat hand on your chest. Rub it in a circle.",
+  SORRY: "Fist (A) on your chest. Rub it in a circle.",
+  BYE: "Open hand facing the camera. Fold the fingers down and up (wave).",
+  NOTHING: "Not a sign: resting, fidgeting, or a still letter.",
 };
 
 // Each zone teaches its letters, then has three stages: practice battle,
@@ -42,14 +62,14 @@ export const TIPS = {
 // No word uses J or Z (those letters move, and the game only reads still signs).
 export const ZONES = [
   { id: "meadow", name: "Meadow", icon: "🌼", dimension: 0, map: { x: 21, y: 68 }, letters: ["A", "B", "C", "D", "E"], words: ["BAD", "BED", "CAB", "DAB", "ACE"] },
-  { id: "forest", name: "Forest", icon: "🌲", dimension: 0, map: { x: 25, y: 30 }, letters: ["F", "G", "H", "I", "K"], words: ["HIDE", "BIKE", "FIG", "DIG", "KID"] },
+  { id: "forest", name: "Forest", icon: "🌲", dimension: 0, map: { x: 25, y: 30 }, letters: ["F", "G", "H", "I", "J", "K"], words: ["HIDE", "BIKE", "FIG", "DIG", "KID", "JIG", "JAB"] },
   { id: "caves", name: "Caves", icon: "🪨", dimension: 0, map: { x: 53, y: 24 }, letters: ["L", "M", "N", "O", "P"], words: ["MOP", "LION", "POND", "LAMP"] },
   { id: "river", name: "River", icon: "🌊", dimension: 0, map: { x: 79, y: 36 }, letters: ["Q", "R", "S", "T", "U"], words: ["SUN", "RUST", "QUIT", "TRUE"] },
-  { id: "castle", name: "Castle", icon: "🏰", dimension: 0, map: { x: 70, y: 70 }, letters: ["V", "W", "X", "Y"], words: ["WAVY", "FOX", "YAK", "VOW"] },
+  { id: "castle", name: "Castle", icon: "🏰", dimension: 0, map: { x: 70, y: 70 }, letters: ["V", "W", "X", "Y", "Z"], words: ["WAVY", "FOX", "YAK", "VOW", "ZAP", "LAZY"] },
   // Starfall Realm. Crystal Spires drills the look-alike fist letters.
   { id: "spires", name: "Crystal Spires", icon: "💎", dimension: 1, map: { x: 24, y: 64 }, letters: ["A", "E", "M", "N", "S", "T"], words: ["GEMS", "FROST", "SHINE", "STAR", "MIST"] },
   { id: "clouds", name: "Cloud Kingdom", icon: "☁️", dimension: 1, map: { x: 50, y: 28 }, letters: ["G", "H", "K", "P", "Q", "R", "U", "V"], words: ["CLOUD", "STORM", "RAIN", "WIND", "SKY"] },
-  { id: "void", name: "Void Rift", icon: "🌀", dimension: 1, map: { x: 77, y: 62 }, letters: LETTERS, words: ["SPACE", "COMET", "ORBIT", "MAGIC", "QUEST"] },
+  { id: "void", name: "Void Rift", icon: "🌀", dimension: 1, map: { x: 77, y: 62 }, letters: ALPHABET, words: ["SPACE", "COMET", "ORBIT", "MAGIC", "QUEST"] },
   // Crown Keep: Queen Amara's castle, in the middle of the island. Open any
   // time; it has no shard (the Beacon stood on its tower), so `shard: false`.
   // `tier` sets its creature levels like a zone at that spot in the list
@@ -152,6 +172,13 @@ export const CREATURES = [
   { id: "octopus", name: "Inkzilla", zone: "river", kind: "boss", element: "water", moves: [quick("Tentacle Slap", "🐙"), stun("Ink Cloud", "🌫️"), big("Eight-Arm Spin", "🌀", 5)] },
   { id: "ghost", name: "Boo", zone: "castle", kind: "wild", element: "dark", moves: [quick("Boo!", "👻"), shield("Spooky Fade", "🌫️"), big("Haunt", "🌙")] },
   { id: "unicorn", name: "Sparkle", zone: "castle", kind: "wild", element: "light", moves: [quick("Horn Poke", "🦄"), heal("Rainbow Heal", "🌈"), big("Star Gallop", "✨")] },
+  // Classic RPG monsters, one more in each zone.
+  { id: "wolf", name: "Howler", zone: "meadow", kind: "wild", element: "nature", moves: [quick("Bite", "🐾"), stun("Moon Howl", "📢", 3), big("Pounce", "🦶")] },
+  { id: "goblin", name: "Gobbit", zone: "forest", kind: "wild", element: "nature", moves: [quick("Club Bonk", "💥"), shield("Leaf Cloak", "🛡️"), big("Goblin Rush", "💨")] },
+  { id: "skeleton", name: "Rattles", zone: "caves", kind: "wild", element: "dark", moves: [quick("Bone Toss", "🦴"), shield("Bone Wall", "🛡️"), big("Rattle Storm", "🌀")] },
+  { id: "fireimp", name: "Ember Imp", zone: "river", kind: "wild", element: "fire", moves: [quick("Fire Flick", "🔥"), stun("Smoke Puff", "🌫️"), big("Flame Burst", "🔥", 5)] },
+  { id: "mimic", name: "Chomper", zone: "castle", kind: "wild", element: "rock", moves: [quick("Chomp", "👅"), shield("Lid Slam", "🛡️"), big("Gold Rain", "💎")] },
+  { id: "shadowknight", name: "Shade Knight", zone: "void", kind: "wild", element: "dark", moves: [quick("Shadow Slash", "🌑"), shield("Dark Guard", "🛡️"), big("Night Blade", "🌙")] },
   { id: "dragon", name: "Blaze", zone: "castle", kind: "boss", element: "fire", moves: [quick("Claw", "🐾"), stun("Smoke Screen", "🌫️"), big("Fire Breath", "🔥", 5)] },
   { id: "frostling", name: "Frostling", zone: "spires", kind: "wild", element: "ice", moves: [quick("Snowball", "❄️"), shield("Frost Armor", "🛡️"), big("Avalanche", "🏔️")] },
   { id: "shardgolem", name: "Shard Golem", zone: "spires", kind: "wild", element: "rock", moves: [quick("Shard Toss", "💎"), shield("Crystal Wall", "🛡️"), big("Crystal Crash", "💥")] },
@@ -187,7 +214,35 @@ for (const c of CREATURES) for (const mv of c.moves) if (GROUP_MOVES.has(mv.name
 // look, and harder-hitting moves.
 export const EVOLVE_LEVEL = 5;
 export const EVOLVED_POWER = 1.25; // evolved buddies' attacks hit this much harder
+// Rarity: how often a wild creature turns up, how tough it is, and how much
+// it pays. `weight`: its share of wild encounters in its zone. `hp`: foe HP
+// multiplier. `reward`: coin and XP multiplier for beating it. Bosses and
+// creatures not listed in CREATURE_RARITY are their own tier / common.
+export const RARITIES = {
+  common: { name: "Common", color: "#c9ccd6", weight: 60, hp: 1, reward: 1 },
+  uncommon: { name: "Uncommon", color: "#6fdc6a", weight: 28, hp: 1.05, reward: 1.25 },
+  rare: { name: "Rare", color: "#4fb3ff", weight: 10, hp: 1.1, reward: 1.6 },
+  epic: { name: "Epic", color: "#c58cf0", weight: 3, hp: 1.2, reward: 2.2 },
+  legendary: { name: "Legendary", color: "#ffc93c", weight: 1, hp: 1.3, reward: 3 },
+  boss: { name: "Boss", color: "#ff6b5e", weight: 0, hp: 1, reward: 1 },
+};
+export const CREATURE_RARITY = {
+  pip: "legendary",
+  slime: "common", bunny: "common", wolf: "uncommon",
+  shroom: "common", goblin: "common", pup: "uncommon",
+  skeleton: "common", golem: "uncommon", gloop: "rare",
+  crab: "common", splash: "uncommon", fireimp: "rare",
+  ghost: "uncommon", mimic: "rare", unicorn: "epic",
+  knightling: "uncommon", crownbug: "rare",
+  frostling: "uncommon", shardgolem: "rare",
+  puffcap: "uncommon", skyhop: "rare",
+  voidghost: "rare", shadowknight: "epic", shadowbat: "epic", voidkraken: "legendary",
+  cat: "rare", drake: "epic",
+};
+export const rarityOf = (c) => RARITIES[c.kind === "boss" ? "boss" : CREATURE_RARITY[c.id] || "common"];
+
 export const EVOLUTIONS = {
+  wolf: "Moonfang", goblin: "Goblin Chief", skeleton: "Bone Baron", fireimp: "Blaze Fiend", mimic: "Hoard King", shadowknight: "Night Lord",
   pip: "Lumos", slime: "Megablob", bunny: "Thumper", frog: "Croak Emperor", shroom: "Toadstool Titan",
   pup: "Inferno Hound", owl: "Archsage Hoot", golem: "Boulderon", gloop: "Gloopocalypse", bat: "Duke Flap",
   crab: "Snipzilla", splash: "Tsunamo", octopus: "Inkzilla Prime", ghost: "Boolord", unicorn: "Starmane",
@@ -224,6 +279,20 @@ export const HEAL_FRACTION = 0.3;
 // don't cut the signing practice short. If the planned signs run out first,
 // the battle keeps going with more.
 export const HEX_HP_MULTIPLIER = 1.6;
+
+// Hero classes: each gives one small perk, and picking one dresses your hero
+// to match (you can still change any part of the look). Perks: `hp` and
+// `power` multiply your max HP and your own attacks, `crit` adds to your
+// critical-hit chance, `potion` multiplies how much a potion heals, and
+// `energy` is extra energy at the start of a battle.
+export const HERO_CLASSES = {
+  fighter: { name: "Fighter", icon: "🗡️", trait: "Strong · Brave", perk: "20% more HP", look: { outfitStyle: "armor", weapon: "sword" }, hp: 1.2 },
+  mage: { name: "Mage", icon: "🔮", trait: "Smart · Curious", perk: "Your spells hit 15% harder", look: { outfitStyle: "robe", weapon: "staff" }, power: 1.15 },
+  archer: { name: "Archer", icon: "🏹", trait: "Fast · Precise", perk: "More critical hits", look: { outfitStyle: "ranger", weapon: "bow" }, crit: 0.1 },
+  healer: { name: "Healer", icon: "💚", trait: "Kind · Patient", perk: "Potions heal 50% more", look: { outfitStyle: "cleric", weapon: "staff" }, potion: 1.5 },
+  monk: { name: "Monk", icon: "🥋", trait: "Focused · Calm", perk: "Start battles with 2 extra energy", look: { outfitStyle: "gi", weapon: "fists" }, energy: 2 },
+};
+export const DEFAULT_CLASS = "mage";
 
 // Damage is in HP points. Each letter you sign deals SIGN_DAMAGE (times your
 // move's power). Only one character acts each turn: the one whose move you pick.
@@ -301,7 +370,7 @@ export const playerMaxHp = (playerLevel) => Math.min(250, 97 + playerLevel * 3);
 
 // Defaults for the Settings screen.
 export const DEFAULT_SETTINGS = {
-  holdMs: 500, // how long a sign must be held to count
+  holdMs: 150, // how long a sign must be held to count (short: signs should feel near-instant)
   minConfidence: 0.6, // how sure the recognizer must be that it's the target letter
   hand: "auto", // "auto" | "right" | "left" - which hand the player signs with
   recognizer: "auto", // "auto" | "model" | "knn" | "keyboard"
@@ -341,6 +410,6 @@ export const TRAINER_SIGHT = 56; // pixels
 export const TRAINER_PRIZE = (level) => 20 + level * 3;
 export const TRAINER_HP = 0.6; // each trainer creature has this much of a wild one's HP
 
-export const SMOOTH_FRAMES = 8; // predictions averaged over this many frames
+export const SMOOTH_FRAMES = 4; // predictions averaged over this many frames (more = steadier but slower)
 export const HINT_AFTER_MS = 8000; // hint glows after this long on one letter
 export const SKIP_AFTER_MS = 16000; // skip button appears after this long

@@ -16,10 +16,11 @@
 //   📜  word battle - shows up once you've won a practice battle here
 //   👑  the boss
 //
-// Each area also has a villager with a quest (quests.js): rescue, find,
-// riddle, deliver, or gate guard. Finishing it opens that area's gate. A
-// tracker under the map says what to do next, and a compass arrow at the
-// edge points the way when it's off screen.
+// Each area also has a villager with a quest (quests.js lists the kinds:
+// learn a sign, chat, spot the sign, chase, collect sign cards, free, find,
+// riddle, deliver, gate guard). A tracker under the map says what to do
+// next, and a compass arrow at the edge points the way when it's off screen.
+// Townsfolk wander about too, and stop for a chat.
 //
 // The area is generated from the zone id, so it's the same every visit. The
 // ground is painted once onto a canvas; trees, rocks, creatures, and the hero
@@ -35,6 +36,7 @@ import {
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
 import { QUESTS, ROOK } from "./quests.js";
+import { openSpotPanel } from "./spot-panel.js";
 import { trainersFor } from "./trainers.js";
 import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { playCutscene } from "./cutscene.js";
@@ -54,6 +56,10 @@ const VIEW_W = 48 * T; // the canvas shows this much at a time
 const VIEW_H = SH * T;
 const HERO_SPEED = 64; // pixels per second
 const CREATURE_SPEED = 14;
+const RUNNER_SPEED = 50; // a runaway critter (chase quests): a bit slower than you
+const RUNNER_SCARE = 60; // it runs once you're this close
+const FOLK_SPEED = 10; // townsfolk stroll
+const FOLK_ROAM = 28; // ...staying this close to home
 const TOUCH_DISTANCE = 15; // sideways, feet to feet
 const TOUCH_REACH_UP = 22; // the hero is tall, so walking up into a creature from below counts sooner
 const SAFE_MS = 2500; // after a battle, creatures can't start another one right away
@@ -133,6 +139,9 @@ const THEMES = {
     path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidrock"], wall: "voidrock", density: 0.69, water: null,
   },
 };
+
+// A zone's ground colors and scenery, for the battle arena (arena/arena.js).
+export const zoneTheme = (zoneId) => THEMES[zoneId];
 
 const WATER = ["#2e6385", "#376e90"];
 const SHORE = "#c4b488";
@@ -278,7 +287,10 @@ function build(z) {
     actors: [], // Malgrath or Rook, while a story event plays
     trainers: [], // trainers.js: they battle you when they spot you
     spotted: null, // { t, since }: a trainer who just spotted you
-    items: [], // lost things to find for quests
+    items: [], // lost things (find quests) and sign cards (collect quests)
+    runners: [], // runaway critters (chase quests)
+    folk: [], // townsfolk who wander about and chat
+    spotOpen: false, // the spot-the-sign panel is up
     dust: [], // little puffs from footsteps
     atSign: null,
   };
@@ -329,11 +341,29 @@ function build(z) {
       const p = spot(a, 450, true, "high");
       if (p) biome.npcs.push({ ...story.npcs[step.to], id: step.to, area: a, role: "receiver", ...p });
     }
+    const state = progress.questState(z, a);
+    const letters = zone.letters;
     if (step.type === "find") {
       const p = spot(a, 500, false, "high");
-      const letters = zone.letters;
-      if (p) biome.items.push({ area: a, name: step.item, letter: letters[Math.floor(hash(a, 3, seed + 60) * letters.length)], ...p });
+      if (p) biome.items.push({ area: a, kind: "lost", name: step.item, letter: letters[Math.floor(hash(a, 3, seed + 60) * letters.length)], ...p });
     }
+    if (step.type === "collect") {
+      for (let k = 0; k < step.count; k++) {
+        const p = spot(a, 520 + k * 7, false);
+        if (p) biome.items.push({ area: a, kind: "card", letter: letters[(k + a) % letters.length], taken: k < state.count, ...p });
+      }
+    }
+    if (step.type === "chase") {
+      const p = spot(a, 540, false);
+      if (p) biome.runners.push({ area: a, id: step.critter, letter: letters[(a * 3 + 1) % letters.length], caught: state.have, flip: false, moving: false, ...p });
+    }
+  });
+
+  // Townsfolk, one in each area, by the path near where you come in.
+  (story?.folk || []).forEach((f, k) => {
+    const a = k % (BIOME_AREAS - 1);
+    const p = spot(a, 800 + k * 13, true, "low");
+    if (p) biome.folk.push({ ...f, area: a, homeX: p.x, homeY: p.y, dir: null, turnAt: 0, flip: false, moving: false, said: 0, ...p });
   });
 
   // Trainers stand near the path, in the middle of their area.
@@ -639,6 +669,50 @@ function moveCreatures(biome, dt, now) {
   }
 }
 
+// A runaway critter (chase quests) runs from you once its quest is on,
+// turning aside around obstacles, but stays in its own area.
+function moveRunners(biome, dt) {
+  const h = biome.hero;
+  for (const r of biome.runners) {
+    r.moving = false;
+    if (r.caught || !progress.questState(biome.z, r.area).accepted) continue;
+    const dx = r.x - h.x, dy = r.y - h.y;
+    if (Math.hypot(dx, dy) > RUNNER_SCARE) continue;
+    for (const turn of [0, 0.7, -0.7, 1.4, -1.4]) {
+      const a = Math.atan2(dy, dx) + turn;
+      const nx = r.x + Math.cos(a) * RUNNER_SPEED * dt, ny = r.y + Math.sin(a) * RUNNER_SPEED * dt;
+      const inArea = ny > (areaTop(r.area) + 3) * T && ny < (areaTop(r.area) + SH - 2) * T;
+      if (inArea && feetFree(biome, nx, ny)) {
+        r.x = nx;
+        r.y = ny;
+        r.flip = Math.cos(a) > 0;
+        r.moving = true;
+        break;
+      }
+    }
+  }
+}
+
+// Townsfolk stroll around near home, stopping now and then.
+function moveFolk(biome, dt, now) {
+  for (const f of biome.folk) {
+    f.moving = false;
+    if (now > f.turnAt) {
+      f.dir = Math.random() < 0.45 ? null : Math.random() * Math.PI * 2;
+      f.turnAt = now + 1500 + Math.random() * 2500;
+    }
+    if (f.dir === null) continue;
+    if (Math.hypot(f.x - f.homeX, f.y - f.homeY) > FOLK_ROAM) f.dir = Math.atan2(f.homeY - f.y, f.homeX - f.x);
+    const nx = f.x + Math.cos(f.dir) * FOLK_SPEED * dt, ny = f.y + Math.sin(f.dir) * FOLK_SPEED * dt;
+    if (feetFree(biome, nx, ny)) {
+      f.x = nx;
+      f.y = ny;
+      f.flip = Math.cos(f.dir) < 0;
+      f.moving = true;
+    } else f.turnAt = 0;
+  }
+}
+
 // Which walk-cycle frame to show: cycles while moving, feet down when still.
 // `msPerFrame` sets the pace; `offset` keeps everyone from stepping in sync.
 const walkFrame = (moving, now, msPerFrame, offset = 0) => (moving ? Math.floor(now / msPerFrame + offset) % 4 : 0);
@@ -738,9 +812,17 @@ function checkTouch(biome, now) {
   const villager = biome.npcs.find((v) => near(v, hero, 12));
   if (villager) return talkTo(biome, villager);
 
-  // ✨ Lost things, once someone has asked you to find them.
-  const item = biome.items.find((it) => !it.taken && !progress.questState(biome.z, it.area).have && progress.questState(biome.z, it.area).accepted && near(it, hero, 10));
+  // 🗣️ Townsfolk: walk up for a chat.
+  const local = biome.folk.find((f) => near(f, hero, 11));
+  if (local) return say(biome, [[folkSpeaker(local), local.lines[local.said++ % local.lines.length]]]);
+
+  // ✨ Lost things and 🃏 sign cards, once someone has asked you to find them.
+  const item = biome.items.find((it) => !it.taken && itemWanted(biome, it) && near(it, hero, 10));
   if (item) return pickUpItem(biome, item);
+
+  // 🐾 A runaway critter: catch it.
+  const runner = biome.runners.find((r) => !r.caught && progress.questState(biome.z, r.area).accepted && near(r, hero, 12));
+  if (runner) return catchRunner(biome, runner);
   for (const c of biome.creatures) {
     if (c.freed) continue; // healed creatures are friends now
     // Touching = close sideways, and the creature's feet anywhere from a bit
@@ -934,21 +1016,69 @@ function talkTo(biome, v) {
       progress.updateQuest(biome.z, v.area, { accepted: true, have: step.type === "deliver" });
       toast(`📜 New quest: ${step.title}`);
       if (step.type === "deliver") toast(`🎒 You got ${step.item}! Bring it to ${receiver.name}.`, 4000);
-      if (step.type === "riddle") askRiddle(biome, v.area);
+      startActivity(biome, v.area);
     });
   }
 
   // Already on this quest.
-  if (step.type === "riddle") return askRiddle(biome, v.area);
-  const ready = (step.type === "free" && state.count >= step.count) || (step.type === "find" && state.have);
-  if (ready) return say(biome, step.done, () => completeQuest(biome, v.area));
+  if (startActivity(biome, v.area)) return;
+  if (questReady(biome, v.area)) return say(biome, step.done, () => completeQuest(biome, v.area));
+  const runner = biome.runners.find((r) => r.area === v.area);
   const reminders = {
     free: `Only ${step.count - state.count} more to free! They're wandering around here somewhere.`,
     find: `Have you found ${step.item} yet? It's somewhere in this area. Follow the arrow!`,
     deliver: `Please hurry! ${receiver?.name} is waiting just up the path.`,
     guard: "The guard is right by the gate. You can do it!",
+    collect: `${step.count - state.count} more sign cards to find! They glow 🃏 when you're close.`,
+    chase: `${runner ? CREATURES.find((c) => c.id === runner.id).name : "It"} is still running loose! Corner it, then sign to calm it down.`,
   };
   return say(biome, [[giver.id, reminders[step.type]]]);
+}
+
+// Is the quest in `area` ready to hand in to its giver?
+function questReady(biome, area) {
+  const step = questFor(biome, area);
+  const state = progress.questState(biome.z, area);
+  if (step.type === "free" || step.type === "collect") return state.count >= step.count;
+  return (step.type === "find" || step.type === "chase") && state.have;
+}
+
+// Quests that happen right there with the giver: a riddle, a lesson, a
+// signed conversation, or spot-the-sign. Starts it and returns true.
+function startActivity(biome, area) {
+  const step = questFor(biome, area);
+  const finish = () => say(biome, step.done, () => completeQuest(biome, area));
+  const giver = biome.npcs.find((n) => n.area === area && n.role === "giver");
+  if (step.type === "riddle") askRiddle(biome, area);
+  else if (step.type === "learn") {
+    // The giver shows you a sign (its hand picture and how to make it); you copy it.
+    openSignPanel(biome, { title: `📖 ${giver.name} shows you how to sign <b>${step.word.split("").join(" ")}</b>. Copy it!`, word: step.word, onDone: finish });
+  } else if (step.type === "convo") converse(biome, area, 0, finish);
+  else if (step.type === "spot") {
+    biome.spotOpen = true;
+    keys.clear();
+    biome.hero.path = [];
+    const people = Object.values(QUESTS[biome.zone.id].npcs).map((v) => ({ name: v.name, art: heroImg(v.look, v.hat, "", Boolean(v.wand)) }));
+    openSpotPanel({
+      title: `👀 ${step.prompt}`, people, letters: biome.zone.letters, rounds: step.rounds || 2,
+      onDone: () => {
+        biome.spotOpen = false;
+        finish();
+      },
+    });
+  } else return false;
+  return true;
+}
+
+// A signed conversation: the giver asks, you answer with a sign, a few times.
+// step.qa: [[lines asking, answer to sign, short question for the panel], ...]
+function converse(biome, area, k, finish) {
+  const step = questFor(biome, area);
+  if (k >= step.qa.length) return finish();
+  const [lines, answer, question] = step.qa[k];
+  say(biome, lines, () =>
+    openSignPanel(biome, { title: `💬 ${question}`, word: answer, reveal: true, onDone: () => converse(biome, area, k + 1, finish) }),
+  );
 }
 
 // Riddles are answered by fingerspelling the word.
@@ -962,8 +1092,27 @@ function askRiddle(biome, area) {
   });
 }
 
+// Is someone looking for this item right now?
+function itemWanted(biome, it) {
+  const state = progress.questState(biome.z, it.area);
+  return state.accepted && !state.done && (it.kind === "card" || !state.have);
+}
+
 function pickUpItem(biome, item) {
   const giver = biome.npcs.find((v) => v.area === item.area && v.role === "giver");
+  if (item.kind === "card") {
+    const step = questFor(biome, item.area);
+    return openSignPanel(biome, {
+      title: `🃏 A sign card! Sign <b>${item.letter}</b> to collect it.`,
+      word: item.letter,
+      onDone: () => {
+        item.taken = true;
+        const count = progress.questState(biome.z, item.area).count + 1;
+        progress.updateQuest(biome.z, item.area, { count });
+        toast(count >= step.count ? `🃏 That's all ${step.count} cards! Bring them to ${giver.name}.` : `🃏 Sign card ${count} of ${step.count}!`, 4000);
+      },
+    });
+  }
   openSignPanel(biome, {
     title: `✨ You found ${item.name}! It's stuck. Sign <b>${item.letter}</b> to pull it free.`,
     word: item.letter,
@@ -974,6 +1123,22 @@ function pickUpItem(biome, item) {
     },
   });
 }
+
+function catchRunner(biome, r) {
+  const giver = biome.npcs.find((v) => v.area === r.area && v.role === "giver");
+  const name = CREATURES.find((c) => c.id === r.id).name;
+  openSignPanel(biome, {
+    title: `🐾 You caught up with ${name}! Sign <b>${r.letter}</b> to calm it down.`,
+    word: r.letter,
+    onDone: () => {
+      r.caught = true;
+      progress.updateQuest(biome.z, r.area, { have: true });
+      toast(`🐾 ${name} calmed down! Go tell ${giver.name}.`, 4000);
+    },
+  });
+}
+
+const folkSpeaker = (f) => ({ name: f.name, art: () => heroImg(f.look, f.hat, "", false) });
 
 function completeQuest(biome, area) {
   const step = questFor(biome, area);
@@ -1053,6 +1218,10 @@ function questTarget(biome) {
     if (step.type === "deliver") goal = biome.npcs.find((v) => v.area === area && v.role === "receiver");
     else if (step.type === "find" && !state.have) goal = biome.items.find((it) => it.area === area);
     else if (step.type === "guard") goal = biome.creatures.find((c) => c.guard === area);
+    else if (step.type === "collect" && state.count < step.count) {
+      const cards = biome.items.filter((it) => it.area === area && it.kind === "card" && !it.taken);
+      goal = cards.sort((x, y) => dist(x) - dist(y))[0] || giver;
+    } else if (step.type === "chase" && !state.have) goal = biome.runners.find((r) => r.area === area) || giver;
     else if (step.type === "free" && state.count < step.count) {
       const wild = biome.creatures.filter((c) => c.area === area && !c.home && !c.freed);
       goal = wild.sort((x, y) => dist(x) - dist(y))[0] || giver;
@@ -1184,6 +1353,18 @@ function draw(biome, now) {
     const frame = walkFrame(hero.moving, now, 110, n * 2 + 1);
     things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame, isEvolved(pet.level))), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
   });
+  // Runaway critters (chase quests) until they're caught.
+  for (const r of biome.runners) {
+    if (r.caught) continue;
+    const frame = walkFrame(r.moving, now, 90, r.x);
+    things.push({ y: r.y, img: spriteCanvas(creatureSrc(r.id, false, frame)), x: r.x, flip: r.flip, lift: frame % 2, shadow: true, small: true });
+  }
+  // Townsfolk stroll about.
+  for (const f of biome.folk) {
+    const frame = walkFrame(f.moving, now, 150, f.x);
+    const lift = f.moving ? frame % 2 : Math.floor(now / 520 + f.x) % 2;
+    things.push({ y: f.y, img: spriteCanvas(heroSrc(f.look, f.hat, frame, false)), x: f.x, flip: f.moving ? f.flip : hero.x < f.x, lift, shadow: true });
+  }
   // Villagers face you and breathe gently.
   for (const v of biome.npcs) {
     const lift = Math.floor(now / 500 + v.x) % 2;
@@ -1277,10 +1458,16 @@ function draw(biome, now) {
         ? { x: t.x, y: t.y - 31, html: `<span class="npc-icon">❗</span>`, cls: " alert" }
         : { x: t.x, y: t.y - 31, html: `<span class="npc-icon">${t.beaten ? "💬" : "⚔️"}</span><small>${t.name}</small>`, cls: " npc" },
     ),
-    // Lost things sparkle once someone has asked you to find them.
+    // Lost things sparkle, and sign cards glow, once someone has asked you to find them.
     ...biome.items
-      .filter((it) => !it.taken && progress.questState(biome.z, it.area).accepted && !progress.questState(biome.z, it.area).have)
-      .map((it) => ({ x: it.x, y: it.y, html: "✨", cls: " item" })),
+      .filter((it) => !it.taken && itemWanted(biome, it))
+      .map((it) => ({ x: it.x, y: it.y, html: it.kind === "card" ? `🃏<small>${it.letter}</small>` : "✨", cls: " item" })),
+    // Runaway critters, once you've been asked to catch them.
+    ...biome.runners
+      .filter((r) => !r.caught && progress.questState(biome.z, r.area).accepted)
+      .map((r) => ({ x: r.x, y: r.y - 20, html: "💨", cls: " item" })),
+    // Townsfolk: their names.
+    ...biome.folk.map((f) => ({ x: f.x, y: f.y - 31, html: `<small>${f.name}</small>`, cls: " npc folk" })),
   ];
   const labels = $("biome-labels");
   if (labels.children.length !== markers.length) labels.innerHTML = markers.map(() => `<span class="biome-label"></span>`).join("");
@@ -1318,8 +1505,8 @@ function npcIcon(biome, v) {
   if (state.done) return "💬";
   if (v.role === "receiver") return state.have ? "❓" : "💬";
   if (!state.accepted) return "❗";
-  const ready = (step.type === "free" && state.count >= step.count) || (step.type === "find" && state.have) || step.type === "riddle";
-  return ready ? "❓" : "💬";
+  const here = ["riddle", "learn", "convo", "spot"].includes(step.type); // done right there with them
+  return here || questReady(biome, v.area) ? "❓" : "💬";
 }
 
 // The status line under the map: where you are and what you've found. It
@@ -1335,7 +1522,7 @@ function renderHud(biome) {
   let doing = progress.bossBeaten(z) ? "🏆 Shard found! Free roam" : "🧭 Explore! The 👑 boss is at the top";
   if (onQuest) {
     const { step, state } = onQuest;
-    doing = step.type === "free" && state.count < step.count ? `📜 ${step.title}: ${state.count} / ${step.count}` : `📜 ${step.title}`;
+    doing = (step.type === "free" || step.type === "collect") && state.count < step.count ? `📜 ${step.title}: ${state.count} / ${step.count}` : `📜 ${step.title}`;
   }
   const opened = biome.chests.filter((c) => c.open).length;
   const beaten = biome.trainers.filter((t) => t.beaten).length;
@@ -1377,9 +1564,11 @@ function frame(now) {
     signTick(biome, now);
   } else if (biome.spotted) {
     if (!talking) runSpot(biome, now, dt);
-  } else if (!talking) {
+  } else if (!talking && !biome.spotOpen) {
     moveHero(biome, dt);
     moveCreatures(biome, dt, now);
+    moveRunners(biome, dt);
+    moveFolk(biome, dt, now);
   }
   const target = cameraTarget(biome);
   biome.camX += (target.x - biome.camX) * Math.min(1, dt * 6);
@@ -1397,7 +1586,7 @@ function frame(now) {
   biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
   if (!biome.chest && !biome.spotted && !talking && current === biome) checkEvents(biome);
-  if (!biome.chest && !biome.spotted && !isStoryPlaying() && current === biome) checkTouch(biome, now);
+  if (!biome.chest && !biome.spotted && !biome.spotOpen && !isStoryPlaying() && current === biome) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);
 }
 

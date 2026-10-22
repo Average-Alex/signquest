@@ -32,13 +32,14 @@
 
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
-  battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, BUDDY_XP_LOSS, BUDDY_XP_WIN, CONSUMABLES, CREATURES,
+  battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, CONSUMABLES, CREATURES,
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
   CHALLENGE_BONUS, CHALLENGE_CHANCE, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, EVOLVED_POWER,
   GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
-  ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET, LOOT_CHANCE,
+  ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET,
   monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
+import { battleResult } from "./battle-result.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } from "./screens.js";
 import { battleBackdropSrc } from "./biome.js";
@@ -1049,14 +1050,6 @@ function popText(text, crit = false) {
   pop.timer = setTimeout(() => (pop.className = "pop"), 900);
 }
 
-function rollLoot(boss) {
-  if (!boss && Math.random() >= LOOT_CHANCE) return null;
-  const table = ["potion", "potion", "potion", "potion", "potion", "shield", "shield", "power", "power", "bigpotion"];
-  const id = table[Math.floor(Math.random() * table.length)];
-  progress.addConsumable(id);
-  return CONSUMABLES.find((c) => c.id === id);
-}
-
 function finish(won) {
   if (battle.done) return;
   battle.done = true;
@@ -1065,7 +1058,6 @@ function finish(won) {
   renderMoves();
   const letters = battle.times.length;
   const boss = battle.stage.type === "boss";
-  let result;
 
   const main = battle.field[0]; // a lone foe (or the first one standing)
   const firstCreature = battle.roster.find((e) => !e.trainer) || main;
@@ -1101,43 +1093,16 @@ function finish(won) {
         announce("The hex is broken! It's healed.");
       }, 450);
     }
-    const avgSeconds = battle.times.reduce((a, b) => a + b, 0) / letters / 1000;
-    // Stars: 3 for a fast, hint-free battle. Hints and slow signing each cost one.
-    let stars = 3;
-    if (battle.hints > 0) stars--;
-    if (battle.hints >= 3) stars--;
-    if (avgSeconds > 6) stars--;
-    stars = Math.max(1, stars);
-    const bonus = battle.party ? 1 : rarityOf(firstCreature.def).reward; // rarer creatures pay more
-    result = {
-      won: true,
-      stars,
-      xp: Math.round(letters * 10 * bonus),
-      coins: Math.round((stars * 5 + (boss ? 15 : 0)) * bonus) + (battle.opts.prize || 0),
-      prize: battle.opts.prize || 0,
-      practice: [...battle.practice],
-      boss,
-      loot: rollLoot(boss),
-      caught: !battle.party && main.def.catchable !== false && progress.catchCreature(main.id) ? main.def : null,
-    };
   } else {
     $("hero-sprite").classList.add("knocked");
-    // Every sign still counts as practice.
-    result = { won: false, stars: 0, xp: letters * 5, coins: 0, practice: [...battle.practice], boss, loot: null, caught: null };
   }
   playMusic(won ? "victory" : "defeat");
-  result.foe = firstCreature.def;
-  result.level = firstCreature.level;
-  result.opts = battle.opts;
-  result.zone = battle.zone;
-  // Level-ups, and buddies that just reached their evolution level.
-  const before = Object.fromEntries(progress.team().map((pet) => [pet.id, pet.level]));
-  const leveled = progress.addTeamXp(won ? BUDDY_XP_WIN : BUDDY_XP_LOSS);
-  const levelOf = (id) => progress.get().creatures[id].level;
-  result.buddyLevels = leveled.map((id) => ({ ...creature(id), name: creatureName(id, levelOf(id)), level: levelOf(id) }));
-  result.evolved = leveled.filter((id) => !isEvolved(before[id]) && isEvolved(levelOf(id))).map((id) => ({ id, from: creature(id).name, to: creatureName(id, levelOf(id)) }));
-
-  progress.recordStage(battle.z, battle.s, result);
+  const result = battleResult({
+    z: battle.z, s: battle.s, zone: battle.zone, won, boss, opts: battle.opts, party: battle.party,
+    signs: letters, hints: battle.hints, avgSeconds: battle.times.reduce((a, b) => a + b, 0) / Math.max(1, letters) / 1000,
+    foe: firstCreature.def, level: firstCreature.level, practice: [...battle.practice],
+    freeId: won && !battle.party && main.def.catchable !== false ? main.id : null,
+  });
   const { onFinish } = battle;
   setTimeout(() => onFinish(result), won ? 2200 : 1400);
 }

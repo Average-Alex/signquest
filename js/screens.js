@@ -7,6 +7,7 @@ import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
   DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
+import { startArena } from "./arena/arena.js";
 import { startBattle } from "./game.js";
 import { musicForScreen, musicSettingChanged, playMusic } from "./music.js";
 import * as progress from "./progress.js";
@@ -154,7 +155,12 @@ export function playStage(z, s, foeId, level, opts = {}) {
   const needed = [...new Set([...zone.letters, ...(s > 0 ? zone.words.join("") : "")])];
   const unlearned = needed.filter((l) => !progress.get().learned.includes(l));
   if (unlearned.length) startLearn(unlearned, () => playStage(z, s, foeId, level, opts));
-  else startBattle(z, s, foeId, level, (result) => showResults(z, s, result), opts);
+  else {
+    // One creature: a real-time arena battle. Trainers and rivals (a team)
+    // still use the turn-based battle for now.
+    const begin = opts.owner ? startBattle : startArena;
+    begin(z, s, foeId, level, (result) => showResults(z, s, result), opts);
+  }
 }
 
 // ---------- Learn card ----------

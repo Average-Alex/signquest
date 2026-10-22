@@ -99,6 +99,13 @@
         <p id="chest-status" class="status" aria-live="polite"></p>
         <button id="chest-cancel" class="btn small">Not now</button>
       </div>
+      <!-- Spot the sign (spot-panel.js) -->
+      <div id="spot-panel" class="card chest-panel spot-panel" hidden>
+        <p id="spot-title" class="chest-title"></p>
+        <p id="spot-question" class="spot-question"></p>
+        <div id="spot-choices" class="spot-choices"></div>
+        <p id="spot-status" class="status" aria-live="polite"></p>
+      </div>
     </div>
     <div id="biome-goals" class="biome-goals"></div>
     <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Go anywhere you like! Bump into a creature to battle it. ❗ side quest · 🌟 rare creature · ⚔️ trainer · 👑 boss · 🔐 chest · 🪧 sign</p>
@@ -127,6 +134,49 @@
   </section>
 
   <!-- 4. Battle -->
+  <!-- Arena battle: real time, top-down (js/arena/) -->
+  <section id="screen-arena" class="screen arena-screen" hidden>
+    <div class="screen-top">
+      <button id="arena-flee" class="btn small">⬅ Map</button>
+      <h2 tabindex="-1" id="arena-title" class="battle-title"></h2>
+      <span id="arena-timer" class="count">⏱ 0:00</span>
+    </div>
+    <div id="arena-stage" class="arena-stage">
+      <canvas id="arena-canvas" class="arena-canvas" width="640" height="360" aria-hidden="true"></canvas>
+      <div class="arena-bars">
+        <div class="arena-bar you">
+          <span id="arena-you-name" class="arena-name"></span>
+          <div class="arena-hp"><div id="arena-you-hp" class="arena-hp-fill"></div><span id="arena-you-hp-text" class="arena-hp-text"></span></div>
+          <span id="arena-you-badges" class="arena-badges"></span>
+        </div>
+        <div class="arena-bar foe">
+          <span id="arena-foe-name" class="arena-name"></span>
+          <div class="arena-hp"><div id="arena-foe-hp" class="arena-hp-fill"></div><span id="arena-foe-hp-text" class="arena-hp-text"></span></div>
+          <span id="arena-foe-sub" class="arena-sub"></span>
+          <span id="arena-foe-badges" class="arena-badges"></span>
+        </div>
+      </div>
+      <div id="arena-pops" class="arena-pops" aria-hidden="true"></div>
+      <div id="arena-stick" class="arena-stick" aria-hidden="true"><div class="knob"></div></div>
+    </div>
+    <div class="arena-bottom">
+      <div class="arena-cam">
+        <div class="camera-slot"></div>
+        <p id="arena-seeing" class="seeing"></p>
+      </div>
+      <div class="arena-controls">
+        <button id="arena-word" class="arena-word" aria-label="Spell this word for a team combo">
+          <span class="arena-word-label">Spell it for a <b>TEAM COMBO</b></span>
+          <span class="arena-word-letters"></span>
+          <span class="arena-card-hand-box"><img class="arena-word-hand" alt=""></span>
+        </button>
+        <div id="arena-cards" class="arena-cards"></div>
+        <p class="arena-help">Sign a teammate's letter to make them act (or tap). Dodge the striped rings!</p>
+      </div>
+      <button id="arena-dash" class="btn arena-dash">💨 Dash<small>Shift / Space</small></button>
+    </div>
+  </section>
+
   <section id="screen-battle" class="screen" hidden>
     <div class="screen-top">
       <button class="btn small" data-go="map">⬅ Map</button>

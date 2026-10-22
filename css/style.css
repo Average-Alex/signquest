@@ -980,3 +980,90 @@ input[type=text], select {
   0%, 100% { filter: drop-shadow(0 0 0.2cqw rgba(140, 60, 200, 0.4)); }
   50% { filter: drop-shadow(0 0 0.6cqw rgba(140, 60, 200, 0.65)); }
 }
+
+/* ---------- Arena battles (js/arena/) ---------- */
+.arena-screen { max-width: 1200px; }
+.arena-stage { position: relative; container-type: inline-size; border: var(--outline); border-radius: var(--radius); overflow: hidden; box-shadow: 0 5px 0 var(--ink); background: #1d2033; }
+.arena-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+/* HP bars across the top */
+.arena-bars { position: absolute; inset: 1.2cqw 1.6cqw auto; display: flex; justify-content: space-between; gap: 4cqw; pointer-events: none; }
+.arena-bar { width: 38%; display: flex; flex-direction: column; gap: 0.4cqw; }
+.arena-bar.foe { align-items: flex-end; }
+.arena-name { font-weight: 800; font-size: max(14px, 1.9cqw); color: #fff; -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; text-shadow: 0 0.2cqw 0 var(--ink); }
+.arena-hp { position: relative; width: 100%; height: max(16px, 2.2cqw); background: #3a2a3e; border: 3px solid var(--ink); border-radius: 99px; overflow: hidden; }
+.arena-hp-fill { height: 100%; background: var(--good); transition: width 0.25s ease-out; }
+.arena-bar.foe .arena-hp-fill { background: #a35ad8; margin-left: auto; }
+.arena-hp-fill.low { background: #ffb020; }
+.arena-hp-text { position: absolute; inset: 0; display: grid; place-items: center; font-size: max(11px, 1.3cqw); font-weight: 800; color: #fff; -webkit-text-stroke: 0.6px var(--ink); paint-order: stroke fill; }
+.arena-sub { font-size: max(12px, 1.3cqw); font-weight: 700; color: #fff; text-shadow: 0 0.15cqw 0 var(--ink); }
+/* Damage numbers and banners */
+.arena-pops { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.arena-pop { position: absolute; translate: -50% -50%; font-weight: 900; font-size: max(16px, 2.6cqw); color: #fff; -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; animation: arena-pop 1.1s ease-out forwards; }
+.arena-pop.hurt { color: #ff6b5e; }
+.arena-pop.weak { color: #d8d0c0; font-size: max(13px, 2cqw); }
+.arena-pop.info { color: #ffe066; font-size: max(14px, 2cqw); }
+.arena-pop.crit { color: #ffc93c; font-size: max(20px, 3.4cqw); }
+@keyframes arena-pop { 0% { opacity: 0; transform: translate(0, 10px) scale(0.6); } 15% { opacity: 1; transform: translate(0, 0) scale(1.15); } 30% { transform: scale(1); } 100% { opacity: 0; transform: translate(var(--drift), -40px); } }
+.arena-banner { position: absolute; left: 50%; top: 42%; translate: -50% -50%; white-space: nowrap; font-weight: 900; font-size: max(24px, 5cqw); color: var(--gold); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 0 0.5cqw 0 var(--ink); animation: arena-banner 1.6s ease-out forwards; }
+.arena-banner.big { font-size: max(30px, 7cqw); }
+.arena-banner.sad { color: #fff; }
+@keyframes arena-banner { 0% { opacity: 0; transform: scale(0.4); } 12% { opacity: 1; transform: scale(1.12); } 22% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
+/* On-screen stick: only on touch screens */
+.arena-stick { display: none; position: absolute; left: 3cqw; bottom: 4cqw; width: 18cqw; max-width: 140px; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, 0.18); border: 3px solid rgba(43, 29, 46, 0.6); touch-action: none; }
+.arena-stick .knob { position: absolute; inset: 30%; border-radius: 50%; background: rgba(255, 255, 255, 0.7); border: 3px solid var(--ink); }
+@media (pointer: coarse) { .arena-stick { display: block; } }
+/* Bottom bar: camera, sign-ability slots, dash */
+.arena-bottom { display: grid; grid-template-columns: minmax(160px, 240px) 1fr auto; gap: 14px; align-items: center; margin-top: 12px; }
+.arena-cam { position: relative; }
+.arena-cam .camera { border-width: 3px; }
+.arena-cam .seeing { position: absolute; top: 6px; left: 6px; margin: 0; font-size: 14px; padding: 2px 8px; }
+.arena-help { margin: 6px 0 0; font-weight: 700; font-size: 14px; color: var(--ink); }
+.arena-badges { display: flex; gap: 4px; min-height: 1em; }
+.arena-badge { font-size: max(11px, 1.2cqw); font-weight: 800; color: var(--ink); background: #fff6c8; border: 2px solid var(--ink); border-radius: 99px; padding: 0 6px; }
+/* Teammate cards: who, the letter to sign (with its hand), and what they'll do. */
+.arena-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.arena-card {
+  position: relative; overflow: hidden; font: inherit; cursor: pointer; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; align-items: center; gap: 0 8px;
+  padding: 6px 10px 10px; text-align: left; color: var(--ink); background: #fffaf0; border: var(--outline); border-radius: 12px; box-shadow: 0 4px 0 var(--ink);
+}
+.arena-card-who { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
+.arena-card-who b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arena-card-who .sprite { width: 26px; height: 26px; object-fit: contain; object-position: top; }
+.arena-card-hand-box { grid-row: span 2; width: 58px; height: 54px; overflow: hidden; border-radius: 8px; background: #fff8ec; border: 2px solid var(--ink); }
+.arena-card-hand, .arena-word-hand { width: 100%; height: 100%; object-fit: cover; transform: scale(1.9); transform-origin: 50% 46%; }
+.arena-card-sign { font-size: 32px; line-height: 1; }
+.arena-card-move { font-size: 13px; font-weight: 700; color: var(--muted); }
+.arena-card-key { position: absolute; top: 4px; right: 7px; font-size: 11px; color: var(--muted); }
+/* How close your sign is to counting: a bar filling along the bottom. */
+.arena-card::after, .arena-word::after { content: ""; position: absolute; left: 0; bottom: 0; height: 6px; width: calc(var(--hold, 0) * 100%); background: var(--good); }
+/* Cooling down: a shade that shrinks as it gets ready. */
+.arena-card.cooling { cursor: default; }
+.arena-card.cooling::before { content: ""; position: absolute; inset: 0; background: rgba(43, 29, 46, 0.45); transform-origin: top; transform: scaleY(var(--cool, 0)); }
+/* The word for a team combo. */
+.arena-word {
+  position: relative; overflow: hidden; width: 100%; margin-bottom: 10px; font: inherit; cursor: pointer; display: flex; align-items: center; gap: 12px;
+  padding: 6px 10px 10px; color: var(--ink); background: #fff3c4; border: var(--outline); border-radius: 12px; box-shadow: 0 4px 0 var(--ink);
+}
+.arena-word-label { font-size: 14px; font-weight: 700; }
+.arena-word-letters { display: flex; gap: 6px; flex: 1; }
+.arena-word-letter { width: 38px; height: 44px; display: grid; place-items: center; font-size: 28px; font-weight: 800; background: #fffaf0; border: 3px dashed var(--line); border-radius: 8px; color: #b8a68a; }
+.arena-word-letter.done { background: var(--good); border: 3px solid var(--ink); color: #fff; }
+.arena-word-letter.next { background: #fffaf0; border: 3px solid var(--ink); color: var(--ink); box-shadow: 0 0 0 3px var(--gold); }
+.arena-word .arena-card-hand-box { grid-row: auto; }
+.arena-dash { min-height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.arena-dash small { font-size: 12px; opacity: 0.85; }
+.arena-dash.cooling { opacity: 0.55; }
+@media (max-width: 760px) {
+  .arena-bottom { grid-template-columns: 1fr; }
+  .arena-cam { max-width: 220px; }
+}
+
+/* Spot the sign (spot-panel.js) */
+.spot-question { font-size: 22px; font-weight: 800; margin: 4px 0 10px; }
+.spot-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.spot-choice { font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; background: #fffaf0; border: var(--outline); border-radius: 12px; box-shadow: 0 4px 0 var(--ink); color: var(--ink); }
+.spot-who { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.spot-who .sprite { width: 28px; }
+.spot-hand { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 2px solid var(--ink); background: #fff8ec; }
+.spot-choice.right { background: #d9f7cf; box-shadow: 0 0 0 4px var(--good), 0 4px 0 4px var(--ink); }
+.spot-choice.wrong { opacity: 0.5; }

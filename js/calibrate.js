@@ -14,6 +14,7 @@ import { flatten, handInView, resolveHand } from "./features.js";
 import * as progress from "./progress.js";
 import { addSamples, countsByLetter } from "./samples.js";
 import { announce, flashCamera, isShowing, setHandImage, show } from "./screens.js";
+import { setText } from "./pixel-emoji.js";
 
 const $ = (id) => document.getElementById(id);
 const READY_MS = 900;
@@ -60,7 +61,7 @@ function renderChips() {
 }
 
 function setStatus(text) {
-  if ($("calib-status").textContent !== text) $("calib-status").textContent = text;
+  setText($("calib-status"), text);
 }
 
 function tick(now) {

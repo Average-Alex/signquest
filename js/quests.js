@@ -27,8 +27,7 @@
 //   deliver - take an item from the quest giver to `to`, another villager here
 //   guard   - beat the hexed gate guard (a word battle, which opens the boss)
 //
-// `guide`: a zone's guide fights beside you in that zone's battles (its
-// `moves`, like a creature's). `folk`: townsfolk who wander about and chat.
+// `folk`: townsfolk who wander about and chat.
 //
 // Event types (play once, the first time you walk into `area`):
 //   malgrath - he appears, says `lines`, then sends a hexed `creature` at you
@@ -50,19 +49,8 @@ const npc = (name, hairStyle, hair, skin, outfitStyle, outfit, extra = {}) => ({
 // Townsfolk: people who wander around each zone and stop for a chat.
 const folk = (name, hairStyle, hair, skin, outfitStyle, outfit, extra, lines) => ({ ...npc(name, hairStyle, hair, skin, outfitStyle, outfit, extra), lines });
 
-// Battle moves for story allies (each zone's guide, and Rook once he joins
-// you). Same shape as the creatures' moves in config.js.
-const atk = (name, icon) => ({ name, icon, type: "attack", power: 1.5 });
-const big = (name, icon) => ({ name, icon, type: "attack", power: 4 });
-const heal = (name, icon) => ({ name, icon, type: "heal" });
-const shield = (name, icon) => ({ name, icon, type: "shield" });
-const stun = (name, icon) => ({ name, icon, type: "stun" });
-
 // Rook, the rival. He's drawn like a villager but carries a wand (he's a Signkeeper too).
 export const ROOK = { name: "Rook", look: { hairStyle: "spiky", hair: "black", skin: "s3", eyes: "gray", outfitStyle: "robe", outfit: "black", glasses: "none" }, hat: null, wand: true };
-// Rook fights beside you once he's on your side (the Castle, area 3).
-export const ROOK_ALLY = { element: "dark", moves: [atk("Shadow Spark", "🌑"), shield("Ward", "🛡️"), big("Rook's Gambit", "💥")] };
-export const ROOK_JOINED_EVENT = "event-castle-3";
 
 // Queen Amara of Crown Keep: Deaf, and the very first Signkeeper. She found
 // that Signlight flows through signing hands, and built the Great Beacon on
@@ -79,7 +67,6 @@ export const QUESTS = {
       bo: npc("Grandpa Bo", "short", "white", "s6", "tunic", "blue"),
       ivy: npc("Scout Ivy", "long", "blonde", "s1", "tunic", "red", { eyes: "green" }),
     },
-    guide: { npc: "ivy", element: "nature", moves: [atk("Slingshot", "🪨"), heal("Trail Snack", "💚"), big("Scout Rally", "📢")] },
     folk: [
       folk("Kite Kid Tam", "spiky", "ginger", "s2", "tunic", "orange", {}, ["Did you know? Lots of Deaf kids learn ASL as their first language!", "My kite got stuck in the purple fog. I'll wait till it clears."]),
       folk("Beekeeper Lu", "bun", "blonde", "s4", "robe", "green", { hat: "hat-cap" }, ["The bees don't like the hex either. They buzz in circles.", "In ASL, you can sign FARM by brushing your chin. Neat, right?"]),
@@ -115,7 +102,7 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "slime",
+        area: 1, type: "malgrath", creature: "puddlepup",
         lines: [["malgrath", "So. The last little apprentice."], ["malgrath", "That shard in the pond is MINE. You'll never reach it."], ["malgrath", "Hexlings! Get them!"]],
         after: [["pip", "That was Malgrath! He's the one who shattered the Beacon."], ["pip", "We have to get to that shard before he does!"]],
       },
@@ -136,7 +123,6 @@ export const QUESTS = {
       wes: npc("Woodcutter Wes", "short", "ginger", "s3", "tunic", "red", { hat: "hat-cap" }),
       hazel: npc("Hazel", "bun", "purple", "s5", "robe", "teal"),
     },
-    guide: { npc: "rowan", element: "nature", moves: [atk("Arrow", "🪶"), stun("Owl Call", "📢"), big("Volley", "🍄")] },
     folk: [
       folk("Camper Nico", "short", "black", "s5", "tunic", "green", {}, ["The owls stopped hooting when the hex came.", "Keep your hand where the camera can see it, and the magic works better!"]),
       folk("Mushroom Maya", "curly", "brown", "s3", "robe", "orange", {}, ["Some mushrooms glow at night. The hexed ones glow PURPLE.", "Practice a little every day. That's how my brother learned to sign!"]),
@@ -145,8 +131,8 @@ export const QUESTS = {
     ],
     steps: [
       {
-        type: "chase", npc: "rowan", critter: "goblin", title: "Catch the goblin who took Rowan's lantern",
-        start: [["rowan", "The second shard hit the Owlery, where Professor Hoot teaches signing. He's hexed now, and his students are lost in these woods."], ["rowan", "And a cheeky goblin just ran off with my trail lantern! Catch him, and sign to calm him down?"]],
+        type: "chase", npc: "rowan", critter: "mossling", title: "Catch the mossling who took Rowan's lantern",
+        start: [["rowan", "The second shard hit the Owlery, where Professor Hoot teaches signing. He's hexed now, and his students are lost in these woods."], ["rowan", "And a cheeky mossling just ran off with my trail lantern! Catch him, and sign to calm him down?"]],
         done: [["rowan", "My lantern! And the little guy says sorry. The students ran toward the Owlery. Follow the trail."]],
       },
       {
@@ -172,12 +158,12 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "rook", creature: "shadowbat",
+        area: 1, type: "rook", creature: "duskwing",
         lines: [["rook", "Hey! Hold it right there."], ["rook", "So you're the last apprentice everyone's whispering about. I'm Rook."], ["rook", "That shard in the Owlery is mine. Let's see how good you really are!"]],
         after: [["rook", "Tch. Lucky. This isn't over, apprentice."], ["pip", "Who WAS that? Why would a Signkeeper want the shards?"]],
       },
       {
-        area: 3, type: "malgrath", creature: "hobgoblin",
+        area: 3, type: "malgrath", creature: "barkbeetle",
         lines: [["malgrath", "Reading old spellbooks? How sweet."], ["malgrath", "The Owlery belongs to me now. Spores, smother them!"]],
         after: [["pip", "His hex gets stronger the closer we get to a shard. We have to hurry!"]],
       },
@@ -194,7 +180,6 @@ export const QUESTS = {
       lou: npc("Lamplighter Lou", "curly", "brown", "s6", "robe", "black"),
       dot: npc("Dot", "bun", "pink", "s4", "tunic", "red"),
     },
-    guide: { npc: "mo", element: "rock", moves: [atk("Pickaxe", "🪨"), shield("Hard Hat", "🛡️"), big("Cave-In", "💥")] },
     folk: [
       folk("Tunnel Tess", "short", "brown", "s4", "tunic", "orange", { hat: "hat-cap" }, ["My lamp went out when the bats flew by.", "In loud mines, workers use hand signs too!"]),
       folk("Gem Polisher Gil", "bald", "black", "s6", "robe", "silver", { glasses: "round" }, ["These crystals hum when someone signs nearby.", "M, N, and S look a lot alike. Watch where the thumb goes!"]),
@@ -238,8 +223,8 @@ export const QUESTS = {
         lines: [["pip", "Wait... I know this place. I've been somewhere like this before."], ["pip", "When the Beacon shattered, I fell. Deep, deep down into the dark. Then I woke up next to you."], ["pip", "Let's keep going. I want to remember more."]],
       },
       {
-        area: 3, type: "malgrath", creature: "darkwisp",
-        lines: [["malgrath", "You chase my shards like a moth chases a flame."], ["malgrath", "And your little friend glows brighter near them, doesn't it? How... interesting."], ["malgrath", "Dark Wisp! Burn them with shadow fire!"]],
+        area: 3, type: "malgrath", creature: "glowbat",
+        lines: [["malgrath", "You chase my shards like a moth chases a flame."], ["malgrath", "And your little friend glows brighter near them, doesn't it? How... interesting."], ["malgrath", "Glowbats! Swarm them!"]],
         after: [["pip", "Why did he look at me like that, {name}?"], ["pip", "Never mind. Let's just get the shard."]],
       },
     ],
@@ -255,7 +240,6 @@ export const QUESTS = {
       sol: npc("Sol", "spiky", "blonde", "s1", "tunic", "pink"),
       ray: npc("Ray", "short", "blue", "s5", "tunic", "silver"),
     },
-    guide: { npc: "cora", element: "water", moves: [atk("Anchor Toss", "💧"), heal("Sea Shanty", "💚"), big("Tidal Wave", "🌊")] },
     folk: [
       folk("Swimmer Bea", "long", "blonde", "s2", "tunic", "teal", {}, ["The water was so clear before the ink.", "R is just two fingers crossed, like you're making a wish!"]),
       folk("Raft Builder Jun", "short", "black", "s4", "tunic", "orange", {}, ["I'm building a raft to follow Inkzilla. Maybe tomorrow.", "Some Deaf people feel music through the floor. Cool, right?"]),
@@ -274,8 +258,8 @@ export const QUESTS = {
         done: [["cora", "A new net! Splendid. Once we're through the next gate, I'll take you upriver."]],
       },
       {
-        type: "chase", npc: "tilly", critter: "lizardman", title: "Catch the lizardman stealing Tilly's planks",
-        start: [["tilly", "A boy in a black robe tried to cross my bridge this morning. And now a lizardman keeps stealing my planks!"], ["tilly", "Catch him, and sign to calm him down. Then my bridge is all yours."]],
+        type: "chase", npc: "tilly", critter: "bubblet", title: "Catch the bubblet stealing Tilly's planks",
+        start: [["tilly", "A boy in a black robe tried to cross my bridge this morning. And now a bubblet keeps stealing my planks!"], ["tilly", "Catch him, and sign to calm him down. Then my bridge is all yours."]],
         done: [["tilly", "He was just cold and lonely. Cross away! That grumpy boy went up the river bank."]],
       },
       {
@@ -291,12 +275,12 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "rook", creature: "crab",
+        area: 1, type: "rook", creature: "reedcrab",
         lines: [["rook", "YOU again! Get out of my way, apprentice."], ["rook", "I NEED that shard. You have no idea what's at stake!"]],
         after: [["rook", "...Fine. You win. But I can't stop. I CAN'T."], ["pip", "He didn't sound mean this time, {name}. He sounded scared."]],
       },
       {
-        area: 3, type: "malgrath", creature: "lizardman",
+        area: 3, type: "malgrath", creature: "bubblet",
         lines: [["malgrath", "Rook works for ME, little apprentice. Didn't he tell you?"], ["malgrath", "He'll bring me every shard. Or his little sister Robin stays hexed. Forever."], ["malgrath", "Now... ink beasts, take them!"]],
         after: [["pip", "His sister?! THAT'S why Rook is doing this!"], ["pip", "{name}, we have to help them both."]],
       },
@@ -313,7 +297,6 @@ export const QUESTS = {
       nell: npc("Nell", "long", "pink", "s2", "tunic", "teal"),
       rook: { ...ROOK },
     },
-    guide: { npc: "juno", element: "light", moves: [atk("Spark", "✨"), shield("Study Shield", "🛡️"), big("Class Project", "🌟")] },
     folk: [
       folk("Student Ravi", "short", "black", "s4", "robe", "blue", {}, ["Our classroom is a hex nest now. Ugh.", "Remember the Signkeeper rule: sign with kindness!"]),
       folk("Student Wen", "bun", "black", "s2", "robe", "purple", { glasses: "round" }, ["I was studying the letter V when it all happened.", "V is a peace sign! Two fingers up and apart."]),
@@ -352,8 +335,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "wraith",
-        lines: [["malgrath", "Welcome home, apprentice. Your little school is MY fortress now."], ["malgrath", "Did you really think you could just walk back in? Wraith! Haunt them!"]],
+        area: 1, type: "malgrath", creature: "torchbug",
+        lines: [["malgrath", "Welcome home, apprentice. Your little school is MY fortress now."], ["malgrath", "Did you really think you could just walk back in? Torchbugs! Burn them out!"]],
         after: [["pip", "He's turning everything we love against us. We won't let him win!"]],
       },
       {
@@ -373,7 +356,6 @@ export const QUESTS = {
       yuki: npc("Yuki", "curly", "pink", "s4", "tunic", "purple"),
       rook: { ...ROOK },
     },
-    guide: { npc: "nova", element: "ice", moves: [atk("Star Shard", "❄️"), stun("Starlight", "✨"), big("Comet", "🌨️")] },
     folk: [
       folk("Skater Lars", "spiky", "white", "s1", "tunic", "blue", {}, ["The ice sings when Signlight touches it.", "Keep your hands warm, signing is easier that way!"]),
       folk("Ice Fisher Ana", "long", "black", "s4", "robe", "teal", { hat: "hat-cap" }, ["I haven't caught a fish since the blizzard.", "E: curl your fingertips down and tuck your thumb under."]),
@@ -382,8 +364,8 @@ export const QUESTS = {
     ],
     steps: [
       {
-        type: "chase", npc: "nova", critter: "frostling", title: "Catch the frostling that froze Nova's telescope",
-        start: [["nova", "Travelers from the island? Three shards streaked through our sky that night."], ["nova", "A frostling froze my telescope solid and skated off! Catch it, and sign to calm it down?"]],
+        type: "chase", npc: "nova", critter: "frostfox", title: "Catch the frostfox that froze Nova's telescope",
+        start: [["nova", "Travelers from the island? Three shards streaked through our sky that night."], ["nova", "A frostfox froze my telescope solid and skated off! Catch it, and sign to calm it down?"]],
         done: [["nova", "Thank you, Signkeeper. One shard froze inside the Glacier Wyrm's lair, at the top of the Spires."]],
       },
       {
@@ -412,8 +394,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "frostling",
-        lines: [["malgrath", "You came to MY realm? Bold. And you brought my little traitor, Rook."], ["malgrath", "Frostlings! Freeze them where they stand!"]],
+        area: 1, type: "malgrath", creature: "frostfox",
+        lines: [["malgrath", "You came to MY realm? Bold. And you brought my little traitor, Rook."], ["malgrath", "Frostfoxes! Freeze them where they stand!"]],
         after: [["rook", "Sorry, partner. That one's on me. He's angry I switched sides."], ["pip", "We're a team now. That's what matters."]],
       },
       {
@@ -433,7 +415,6 @@ export const QUESTS = {
       skye: npc("Skye", "bun", "blonde", "s4", "tunic", "blue"),
       thane: npc("Sir Thane", "short", "black", "s6", "tunic", "silver", { hat: "hat-top" }),
     },
-    guide: { npc: "luna", element: "lightning", moves: [atk("Gust", "🌬️"), heal("Royal Blessing", "💚"), big("Thunderclap", "⚡")] },
     folk: [
       folk("Glider Kit", "spiky", "ginger", "s3", "tunic", "teal", {}, ["I can glide all the way to the next cloud!", "Sky sailors invented hand signals because the wind is so loud."]),
       folk("Rain Maker Oona", "long", "purple", "s5", "robe", "blue", {}, ["I make the gentle rain. The Storm Owl makes the angry kind.", "P is like K, but pointing down."]),
@@ -469,8 +450,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "harpy",
-        lines: [["malgrath", "Seven shards, apprentice. You have done my work for me."], ["malgrath", "But you won't get the last one. Harpy! Blow them off my mountain!"]],
+        area: 1, type: "malgrath", creature: "puffwing",
+        lines: [["malgrath", "Seven shards, apprentice. You have done my work for me."], ["malgrath", "But you won't get the last one. Puffwings! Blow them off my clouds!"]],
         after: [["pip", "He's scared. I can feel it. We're getting close!"]],
       },
       {
@@ -490,7 +471,6 @@ export const QUESTS = {
       kai: npc("Kai", "short", "green", "s5", "tunic", "blue"),
       rook: { ...ROOK },
     },
-    guide: { npc: "sage", element: "light", moves: [atk("Old Magic", "✨"), shield("Ward", "🛡️"), big("Sage Light", "🌟")] },
     folk: [
       folk("Star Child Io", "long", "white", "s1", "robe", "purple", {}, ["I was born in the Void. It's not scary to me.", "The Beacon's light can reach even here!"]),
       folk("Drifter Rex", "spiky", "black", "s4", "tunic", "black", {}, ["I got lost here years ago. Signing kept me brave.", "Sign the whole alphabet and you can spell ANY word!"]),
@@ -514,8 +494,8 @@ export const QUESTS = {
         done: [["sage", "Q-U-E-S-T. Yes. And yours is almost over. Be brave, child."]],
       },
       {
-        type: "chase", npc: "lumi", critter: "voidslime", title: "Catch the void slime that swallowed Lumi's spark",
-        start: [["lumi", "Kai is lost in the dark up ahead. I had a spark of Signlight to guide him, but a void slime gobbled it up!"], ["lumi", "Catch it, and sign so it lets the spark go?"]],
+        type: "chase", npc: "lumi", critter: "shadewisp", title: "Catch the shadewisp that swallowed Lumi's spark",
+        start: [["lumi", "Kai is lost in the dark up ahead. I had a spark of Signlight to guide him, but a shadewisp gobbled it up!"], ["lumi", "Catch it, and sign so it lets the spark go?"]],
         done: [["lumi", "The spark! Kai can see again. The tower gate is right here."]],
       },
       {
@@ -526,8 +506,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "voidslime",
-        lines: [["malgrath", "So you made it to the Rift. Nobody has made it this far in a thousand years."], ["malgrath", "Void Slimes! Show them what the Void really is!"]],
+        area: 1, type: "malgrath", creature: "shadewisp",
+        lines: [["malgrath", "So you made it to the Rift. Nobody has made it this far in a thousand years."], ["malgrath", "Shadewisps! Show them what the Void really is!"]],
         after: [["pip", "Stay close, everyone. The shards are calling me. The last one is right up there."]],
       },
       {
@@ -550,7 +530,6 @@ export const QUESTS = {
       otto: npc("Guard Otto", "spiky", "black", "s6", "tunic", "silver"),
       hale: npc("Captain Hale", "short", "white", "s5", "tunic", "red", { hat: "hat-top" }),
     },
-    guide: { npc: "hale", element: "rock", moves: [atk("Lance", "💥"), shield("Royal Guard", "🛡️"), big("Charge!", "💥")] },
     folk: [
       folk("Squire Tom", "short", "brown", "s3", "tunic", "red", {}, ["I'm training to be a knight. And a Signkeeper!", "The Queen signs every royal speech in ASL."]),
       folk("Royal Gardener Rose", "bun", "ginger", "s4", "robe", "green", { hat: "hat-cap" }, ["The roses wilted when the Queen was sealed away.", "N: tuck your thumb under two fingers. M: under three!"]),
@@ -586,8 +565,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "knightling",
-        lines: [["malgrath", "Ah, the Queen's little castle. She thought waving her hands around could hold back the dark."], ["malgrath", "Knightlings! Show this apprentice how my castle treats guests!"]],
+        area: 1, type: "malgrath", creature: "shieldbug",
+        lines: [["malgrath", "Ah, the Queen's little castle. She thought waving her hands around could hold back the dark."], ["malgrath", "Shieldbugs! Show this apprentice how my castle treats guests!"]],
         after: [["pip", "Waving her hands?! Signing is a real language. Queen Amara was Deaf, and she was the greatest Signkeeper ever!"]],
       },
       {

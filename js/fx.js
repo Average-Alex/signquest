@@ -31,7 +31,7 @@ const BY_ICON = {
   "🔥": "fire", "💦": "water", "🌊": "water", "💧": "water", "🫧": "water", "🌧️": "water", "🐙": "water",
   "❄️": "ice", "🧊": "ice", "🌨️": "ice", "🏔️": "ice", "🥶": "ice",
   "⚡": "lightning", "🌬️": "lightning", "🔊": "lightning", "📢": "lightning",
-  "🍄": "nature", "🥕": "nature", "💤": "nature", "💚": "heal", "🌈": "light",
+  "🍄": "nature", "🌿": "nature", "🥕": "nature", "💤": "nature", "💚": "heal", "🌈": "light",
   "🪨": "rock", "💎": "rock", "💥": "rock", "🦀": "rock", "🛡️": "shield",
   "🌑": "dark", "🌀": "dark", "🦇": "dark", "👻": "dark", "🌫️": "dark", "🌙": "dark", "🟣": "dark", "💜": "dark",
   "✨": "light", "🌟": "light", "🏮": "light", "🦄": "light", "🌤️": "light", "☁️": "light", "🪶": "light",

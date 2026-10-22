@@ -7,6 +7,8 @@
 // painted once onto a canvas and shown as <img> tags scaled up with
 // `image-rendering: pixelated`, so they stay crisp at any size.
 
+import { buildCritter, CRITTERS } from "./critters.js";
+
 const OUTLINE = "#2b1d2e";
 
 // Mirror each half-row: "..KH" -> "..KHHK..".
@@ -27,9 +29,9 @@ const HEAD = mirror([
   ".KSSSSSS",
   ".KSSSSSS",
   ".KSSSSSS",
-  ".KSEEESS",
-  ".KSEBBSS",
-  ".KSEBBSS",
+  ".KSSEBSS",
+  ".KSSBBSS",
+  ".KSSBBSS",
   ".KScSSSS",
   ".KsSSSSK",
   "..KsSSSS",
@@ -980,6 +982,136 @@ const PINE = {
 
 DECOR.pine = PINE;
 
+// More scenery, so each zone has its own look (see THEMES in biome.js).
+DECOR.oak = {
+  colors: { G: "#5aa848", g: "#3c7a34", H: "#8ccf5e", T: "#8a5a32" },
+  rows: mirror([
+    "....KKKK",
+    "..KKGGGG",
+    ".KGGGHGG",
+    ".KGGHGGG",
+    "KGGGGGGG",
+    "KGGGGGgG",
+    "KgGGGGGG",
+    "KggGgGGG",
+    ".KgggggG",
+    "..KKKKKK",
+    "......KT",
+    "......KT",
+    ".....KKK",
+  ]),
+};
+DECOR.oakgold = { rows: DECOR.oak.rows, colors: { G: "#e0a040", g: "#b06a2a", H: "#f6d070", T: "#7a4a2a" } };
+DECOR.bigshroom = {
+  colors: { A: "#c8503a", W: "#f4e8d0", L: "#ecdcb8", l: "#c8b490" },
+  rows: padTop(mirror([
+    "....KKKK",
+    "..KKAAAA",
+    ".KAAWAAA",
+    "KAAAAAAW",
+    "KAWWAAAA",
+    "KKKKKKKK",
+    ".....KlL",
+    ".....KlL",
+    ".....KlL",
+    "....KKKK",
+  ]), 16),
+};
+DECOR.stalagmite = {
+  colors: { R: "#8a809a", r: "#5e5470", w: "#c4bcd2" },
+  rows: mirror([
+    "......KK",
+    "......Kw",
+    ".....KRw",
+    ".....KRR",
+    "....KrRR",
+    "....KrRR",
+    "...KrRRR",
+    "...KrRRR",
+    "..KrrRRR",
+    "..KrrRRR",
+    ".KrrrRRR",
+    ".KKKKKKK",
+  ]),
+};
+DECOR.pillar = {
+  colors: { S: "#d8d0e0", s: "#a49cb4" },
+  rows: mirror([
+    "..KKKKKK",
+    "..KSSSSS",
+    "..KKKKKK",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSSS",
+    "..KKKKKK",
+    "..KSSSSS",
+    ".KKKKKKK",
+  ]),
+};
+DECOR.brokenpillar = {
+  colors: DECOR.pillar.colors,
+  rows: padTop(mirror([
+    "...K.KKK",
+    "...KKsSS",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSSS",
+    "..KKKKKK",
+    "..KSSSSS",
+    ".KKKKKKK",
+  ]), 16),
+};
+DECOR.deadtree = {
+  colors: { T: "#6a5048", t: "#4a3430" },
+  rows: mirror([
+    "K.......",
+    "KTK.....",
+    ".KTK..K.",
+    "..KTKKTK",
+    "...KTTK.",
+    "....KTTK",
+    ".....KTT",
+    "......Kt",
+    "......Kt",
+    "......Kt",
+    ".....KtT",
+    "....KKKK",
+  ]),
+};
+DECOR.voidtree = { rows: DECOR.deadtree.rows, colors: { T: "#5a3f8a", t: "#3a2860" } };
+DECOR.snowpine = { rows: PINE.rows, colors: { G: "#3f7a6a", g: "#eef6fa", T: "#7a5a40" } };
+DECOR.hedge = {
+  colors: { G: "#3f8a3a", g: "#2a6a2e", H: "#5aa848" },
+  rows: padTop(mirror([
+    "KKKKKKKK",
+    "KHHGHGGH",
+    "KGGGGGGG",
+    "KGgGGGgG",
+    "KGGGGGGG",
+    "KgGGgGGG",
+    "KggggGgg",
+    "KKKKKKKK",
+  ]), 16),
+};
+DECOR.reeds = {
+  colors: { G: "#6aa04a", g: "#4a7a34", B: "#8a5a32" },
+  rows: padTop(mirror([
+    "...KB...",
+    "...KB.K.",
+    "..KGK.KB",
+    "..KGK.KB",
+    ".KGgKKGK",
+    ".KGgKGgK",
+    "KGgKKGgK",
+    "KGgKGgK.",
+    "KKKKKKKK",
+  ]), 16),
+};
+
 export const LANDMARKS = {
   // Cottage
   meadow: {
@@ -1240,7 +1372,7 @@ const canvases = new Map(); // data URL -> canvas, for drawing sprites onto othe
 // classic pixel-art upscaler from old game emulators. It rounds off the
 // stair-steps on curves and diagonals but keeps hard pixel edges, so things
 // still look retro, just with finer detail. Each pass doubles the size.
-const SMOOTHING_PASSES = 1;
+const SMOOTHING_PASSES = 0; // 0: chunky pixels, like old games; 1: rounder edges
 export const SPRITE_SCALE = 2 ** SMOOTHING_PASSES;
 
 function scale2x(src) {
@@ -1367,468 +1499,11 @@ const CREATURE_ART = {
   voidkraken: { ...MONSTERS.octopus, colors: { O: "#8a4fd6", o: "#5a2fa0", W: "#7fffd4" } },
 };
 
-// Classic RPG monsters, one more for each zone: a wolf, a goblin, a
-// skeleton, a fire imp, a treasure-chest mimic, and a shadow knight.
-Object.assign(CREATURE_ART, {
-  // A grey wolf sitting up: pointed ears, yellow eyes, pale muzzle and chest.
-  wolf: {
-    colors: { G: "#8d97aa", g: "#5f687a", W: "#e9edf3", Y: "#ffd23f" },
-    rows: [
-      "........................",
-      "........................",
-      "........................",
-      "........................",
-      "........................",
-      "........................",
-      "........................",
-      "...............KK.......",
-      "..............KGGK......",
-      "..............KGgGKKK...",
-      ".............KGGGGGGGK..",
-      ".............KGGGGYKGGK.",
-      ".............KGGGGGGWWWK",
-      "..............KGGGGWWWKK",
-      "..K...........KGGGWWWK..",
-      ".KGK.........KGGGGKKK...",
-      ".KGGK.KKKKKKKGGGGGWK....",
-      "..KGGKGGGGGGGGGGGWWK....",
-      "...KGGGGGGGGGGGGGWWK....",
-      "...KGGgGGGGGGGGGGGK.....",
-      "....KGK.KGK...KGK.KGK...",
-      "....KGK.KGK...KGK.KGK...",
-      "....KWK.KWK...KWK.KWK...",
-      "....KKK.KKK...KKK.KKK...",
-    ],
-  },
-  // A little green goblin: big pointy ears, a toothy grin, a brown tunic.
-  goblin: {
-    colors: { G: "#6cc24a", g: "#3f8a33", E: "#fff6c8", B: "#8a5a32", b: "#5e3a1e", W: "#ffffff" },
-    rows: mirror([
-      "............",
-      "............",
-      "......KKKKKK",
-      ".....KGGGGGG",
-      "K...KGGGGGGG",
-      "KGK.KGGGGGGG",
-      ".KGKGGGGGGGG",
-      "..KGGGEEKGGG",
-      "...KGGEKKGGG",
-      "...KGGGGGGgG",
-      "...KGGGGGGGG",
-      "....KGGKKKKK",
-      "....KGGKWKWK",
-      ".....KKGGGGG",
-      "......KKKKKK",
-      ".....KBBBBBB",
-      "....KGKBBBBB",
-      "....KGKBbBBB",
-      "....KGKBBBBB",
-      ".....KKbbbbb",
-      "......KGGK..",
-      "......KGGK..",
-      ".....KbbbK..",
-      ".....KKKKK..",
-    ]),
-  },
-  // A rattly skeleton: round skull, glowing purple eyes, a ribcage.
-  skeleton: {
-    colors: { W: "#f2eee0", w: "#c8c0ac", P: "#c58cf0" },
-    rows: mirror([
-      "............",
-      "......KKKKKK",
-      "....KKWWWWWW",
-      "...KWWWWWWWW",
-      "...KWWWWWWWW",
-      "..KWWWWWWWWW",
-      "..KWWKKKKWWW",
-      "..KWKKPKKKWW",
-      "..KWKKKKKKWW",
-      "..KWWKKKKWWW",
-      "...KWWWWWWWK",
-      "....KwWWWWWW",
-      ".....KWKWKWK",
-      "......KKKKKK",
-      "..........KW",
-      "....KKKKKKKW",
-      "...KWWWWWKKW",
-      "....KKKKKKKW",
-      "...KWWWWWKKW",
-      "....KKKKKKKW",
-      "..........KW",
-      "........KWWK",
-      ".......KWK.K",
-      ".......KK...",
-    ]),
-  },
-  // A fire imp: little horns, a flame on its head, bat wings, a sunny belly.
-  fireimp: {
-    colors: { R: "#e8413b", r: "#a82e2e", Y: "#ffc93c", O: "#ff8a2a", w: "#f2e6d0", D: "#7a1f3a" },
-    rows: mirror([
-      "............",
-      "..........KK",
-      "..KK.....KYY",
-      "..KwK...KYOO",
-      "...KwK.KOOOO",
-      "....KKKRRRRR",
-      "...KRRRRRRRR",
-      "..KRRRRRRRRR",
-      "..KRRYYKRRRR",
-      "..KRRYKKRRRR",
-      "..KRRRRRRRRR",
-      "...KRRRKKKKK",
-      "....KrRRRRRR",
-      ".....KKKKKKK",
-      "KK...KRRRRRR",
-      "KDK.KRRYYYYY",
-      "KDDKRRRYYYYY",
-      "KDDDKRRYYYYY",
-      ".KDDKRRRYYYY",
-      "..KKKrRRRRRR",
-      "......KrRRRR",
-      "......KRRK..",
-      "......KrrK..",
-      "......KKKK..",
-    ]),
-  },
-  // A treasure chest that bites: open lid, teeth, a tongue, glowing eyes.
-  mimic: {
-    colors: { B: "#a8662f", b: "#7a4520", Y: "#ffd23f", W: "#ffffff", k: "#3a1426", E: "#ffe066", P: "#e8507a" },
-    rows: mirror([
-      "............",
-      "..KKKKKKKKKK",
-      ".KBBBBBBBBBB",
-      ".KBYYBBBBBBY",
-      ".KBBBBBBBBBB",
-      ".KKKKKKKKKKK",
-      ".KWKWKWKWKWK",
-      ".KkkkkkEEkkk",
-      ".KkkkkkEKkkk",
-      ".KkkkkkPPPPP",
-      ".KkkkPPPPPPP",
-      ".KWKWKWKWKWK",
-      ".KKKKKKKKKKK",
-      ".KBBBBBBBBBB",
-      ".KBYYBBBBBBB",
-      ".KBBBBBBKKKK",
-      ".KBBBBBBKYYY",
-      ".KBBBBBBKYKK",
-      ".KBYYBBBKKKK",
-      ".KBBBBBBBBBB",
-      ".KbbbbbbbbbB",
-      ".KKKKKKKKKKK",
-      "..KbK.......",
-      "..KKK.......",
-    ]),
-  },
-  // A knight of shadow: dark armor, a purple plume, eyes glowing through the visor.
-  shadowknight: {
-    colors: { A: "#4a4466", a: "#2e2a44", E: "#e06bff", P: "#9b30d9", C: "#5a1f3a" },
-    rows: mirror([
-      "...........K",
-      "..........KP",
-      ".........KPP",
-      "......KKKKKK",
-      ".....KAAAAAA",
-      "....KAAAAAAA",
-      "...KAaAAAAAA",
-      "...KAaKKKKKK",
-      "...KAaKEEKKK",
-      "...KAaKKKKKK",
-      "...KAaAAAAKA",
-      "....KaAAAAKA",
-      ".....KKKKKKK",
-      "..KKKCCAAAAA",
-      ".KCKAAAAAAAA",
-      "KCCKAaAAAAAP",
-      "KCCKAaAAAAPP",
-      "KCCKAaAAAAAP",
-      "KCCKKAAAAAAA",
-      "KCCC.KAaAAAA",
-      ".KCC.KAaKKAA",
-      "..KC..KAAK..",
-      "......KaaK..",
-      "......KKKK..",
-    ]),
-  },
-});
 
-// Classic RPG enemies (the second roster).
-Object.assign(CREATURE_ART, {
-  // A hooded bandit with a red bandana over the face.
-  bandit: {
-    colors: { H: "#6b4a2e", h: "#4e3420", S: "#e0a878", E: "#ffffff", M: "#c0392b", m: "#8e2a20", T: "#c9a24a", b: "#3a2a20", P: "#4a4a5a" },
-    rows: mirror([
-      "............",
-      ".......KKKKK",
-      ".....KKHHHHH",
-      "....KHHHHHHH",
-      "...KHHhHHHHH",
-      "...KHhKKKKKK",
-      "...KHhKSSSSS",
-      "...KHKSSSEKS",
-      "...KHKMMMMMM",
-      "...KHKMMMMMM",
-      "....KHKMMmMM",
-      ".....KKKKKKK",
-      "....KHHHHTTT",
-      "...KHHHHHHTT",
-      "..KSKHHHHhHH",
-      "..KSKHHHHhHH",
-      "...KKHbbbbbb",
-      "....KHHHHHHH",
-      "....KPPPPPPP",
-      "....KPPPPKKK",
-      "....KPPPK...",
-      "....KbbbK...",
-      "...KbbbbK...",
-      "...KKKKKK...",
-    ]),
-  },
-  // A giant spider: round body, eight legs, four red eyes, little fangs.
-  spider: {
-    colors: { B: "#5a4a7a", b: "#3c3058", P: "#c58cf0", H: "#6e5c94", E: "#ffffff", R: "#ff4d6d", W: "#f2eee0" },
-    rows: mirror([
-      "............",
-      "............",
-      "..KK........",
-      ".KBBK...KKKK",
-      "KBKKBK.KBBBB",
-      "KBK.KBKBBBBB",
-      "KBK..KBBBPBB",
-      ".K...KBBBBPB",
-      "....KBBBBBBB",
-      "...KBKbBBBBB",
-      "..KBK.KbBBBB",
-      "..KBK..KKKKK",
-      ".KBK..KHHHHH",
-      ".KBK.KHHEEHH",
-      "KBKKKKHHEKHR",
-      "KBKBBKHHHHHH",
-      "KK.KBKHHHHHH",
-      "...KBKKHHWHW",
-      "..KBK..KKKKK",
-      "..KBK.......",
-      ".KBK........",
-      ".KK.........",
-      "............",
-      "............",
-    ]),
-  },
-  // A lizardman: orange head fin, slit yellow eyes, pale scaly belly.
-  lizardman: {
-    colors: { G: "#4caf6a", g: "#2f7f48", Y: "#ffd23f", O: "#ff8a2a", L: "#d8e08a", l: "#b8c070" },
-    rows: mirror([
-      "...........K",
-      "..........KO",
-      ".........KOO",
-      "......KKKKKK",
-      ".....KGGGGGG",
-      "....KGGGGGGG",
-      "...KGGYKGGGG",
-      "...KGGYKGGGG",
-      "...KGGGGGGGG",
-      "...KGGGGGGKG",
-      "....KGGGGGGG",
-      "....KKKKKKKK",
-      ".....KLLLLLL",
-      "......KKKKKK",
-      "....KKGGGGGG",
-      "...KGGGLLLLL",
-      "..KGKGGLLLLL",
-      "..KGKGGLlLLL",
-      "..KGKGGLLLLL",
-      "...KKGGGGGGG",
-      "....KGGGKKKK",
-      "....KGGGK...",
-      "...KGGGGK...",
-      "...KKKKKK...",
-    ]),
-  },
-  // A basilisk: a coiled serpent with a red crest and a stony stare.
-  basilisk: {
-    colors: { G: "#6a9e3f", g: "#4a7a2a", L: "#d9d58a", Y: "#ffd23f", C: "#d6453d", R: "#ff5a7a" },
-    rows: [
-      "........................",
-      "........................",
-      "........................",
-      "..............KKK.......",
-      ".............KCCCK......",
-      "............KCKKKKK.....",
-      "...........KGGGGGGGK....",
-      "..........KGGGGGYKGGK...",
-      "..........KGGGGGGGGGGK..",
-      "..........KGLLGGGGGGGKRR",
-      "...........KGLLLLLLLK..R",
-      "...........KGGLLLLKK....",
-      "............KGGLLK......",
-      "............KGGLLK......",
-      "...........KGGGLLK......",
-      "....KKKKKKKGGGLLK.......",
-      "...KGGGGGGGGGLLK........",
-      "..KGGgGGgGGGLLK.........",
-      ".KGGgGGgGGLLLKKKKKKK....",
-      ".KGLLLLLLLLLKGGGGGGGK...",
-      "..KLLLLLLLLKGGgGGgGGGK..",
-      "...KKKKKKKKKGGGGGGGGGLK.",
-      "...........KKKKKKKKKKKK.",
-      "........................",
-    ],
-  },
-  // A wraith: a tattered hood with glowing eyes in the dark, and bony hands.
-  wraith: {
-    colors: { R: "#5a6b7a", r: "#3a4652", k: "#14101c", E: "#7fffe0", W: "#d8d4c8" },
-    rows: mirror([
-      "............",
-      "........KKKK",
-      "......KKRRRR",
-      ".....KRRRRRR",
-      "....KRRrRRRR",
-      "...KRRrKKKKK",
-      "...KRrKkkkkk",
-      "...KRrKkkEkk",
-      "...KRrKkkEkk",
-      "...KRrKkkkkk",
-      "...KRRrKkkkk",
-      "..KRRRrrKKKK",
-      "..KRRRRRRRRR",
-      ".KRRKRRRRRRR",
-      "KRRKRRRRRRRR",
-      "KWWKRRRrRRRR",
-      ".KK.KRRrRRRR",
-      "....KRRrRRRR",
-      "....KRRRrRRR",
-      "....KRRRRRRR",
-      "....KRRKRRKR",
-      "....KRK.KR.K",
-      ".....K...K..",
-      "............",
-    ]),
-  },
-  // A stone gargoyle: bat wings, little horns, red eyes, crouched to pounce.
-  gargoyle: {
-    colors: { S: "#8c8a96", s: "#6a6876", R: "#ff4d4d", W: "#e8e4d8" },
-    rows: mirror([
-      "............",
-      "KK.....KK...",
-      "KSK.....KK..",
-      "KSSK...KSKKK",
-      "KSsSK.KSSSSS",
-      "KSssSKSSSSSS",
-      "KSsSSKSSRKSS",
-      "KSssSKSSRKSS",
-      "KSsSSKSSSSSS",
-      "KSSsSKSSKKKK",
-      ".KSsSKSKWKWK",
-      "..KSSKKSSSSS",
-      "...KKSSSSSSS",
-      "...KSSSSsSSS",
-      "..KSKSSSsSSS",
-      "..KSKSSSSSSS",
-      "..KSKKSSSSSS",
-      "..KKSKSSSSSS",
-      "...KSSKSSSSS",
-      "..KSSSKSSSSS",
-      "..KSSSSKSSSS",
-      "..KSSSSKKKKK",
-      "...KKKKK....",
-      "............",
-    ]),
-  },
-  // A harpy: feathered hair and wings, big eyes, yellow bird feet.
-  harpy: {
-    colors: { F: "#4fa8c8", f: "#2f7898", S: "#f0c8a0", c: "#f29aa6", E: "#ffffff", B: "#2f6be0", W: "#e8f4ff", Y: "#ffc93c" },
-    rows: mirror([
-      "............",
-      "............",
-      ".......KKKKK",
-      ".....KKFFFFF",
-      "....KFFFFfFF",
-      "....KFFKKKKK",
-      "....KFKSSSSS",
-      "K..KFKSSSSSS",
-      "FK.KFKSSEBSS",
-      "FFKKFKSSSSSS",
-      "fFFKKFKScSSS",
-      "FfFFKKKSSSSK",
-      "FFfFFK.KKKKK",
-      "KFFfFFKWWWWW",
-      ".KFFfFKWWWWW",
-      "..KFFFKWWWWW",
-      "...KKKKWWWWW",
-      "......KFFFFF",
-      "......KFFfFF",
-      "......KKKFFF",
-      ".......KYK..",
-      ".......KYK..",
-      "......KYYYK.",
-      "......KKKKK.",
-    ]),
-  },
-  // A thunder hawk: wings spread, a lightning crest, a bright white chest.
-  thunderhawk: {
-    colors: { B: "#3a4a8a", b: "#26306a", W: "#e8ecf8", Y: "#ffe066", O: "#ffb020" },
-    rows: mirror([
-      "............",
-      "............",
-      "............",
-      "............",
-      "............",
-      "K.........KY",
-      "BK.......KYK",
-      "BBK.....KKKK",
-      "bBBK...KBBBB",
-      "BbBBK.KBBBBB",
-      "BBbBBKBBYKBB",
-      "KBBbBBKBBBBK",
-      ".KBBbBBKBBOO",
-      "..KBBbBKWWKO",
-      "...KBBKWWWWW",
-      "....KKWWWWWW",
-      ".....KWWWWWW",
-      ".....KBWWWWW",
-      ".....KBBWWWW",
-      "......KBBBBB",
-      ".......KBBBB",
-      ".......KYK..",
-      "......KYYYK.",
-      "......KKKKK.",
-    ]),
-  },
-});
-// Recolors of other creatures.
-Object.assign(CREATURE_ART, {
-  hobgoblin: { ...CREATURE_ART.goblin, colors: { G: "#c87a3a", g: "#8a5020", E: "#fff6c8", B: "#5a5a6a", b: "#3a3a48", W: "#ffffff" } },
-  voidslime: { ...NEW_CREATURES.slime, colors: { G: "#3a2060", g: "#22123e", W: "#e06bff" } },
-  darkwisp: { ...NEW_CREATURES.ghost, colors: { W: "#7a5ac0", w: "#4a3088", p: "#ffd23f" } },
-  dragonling: { ...PETS["pet-dragon"], colors: { g: "#ff9a3a", G: "#d8602a", y: "#ffe7a0" } },
-});
 
-// Pip, the fox-moth who travels with you (and the Beacon's lost spirit).
-CREATURE_ART.pip = {
-  colors: { O: "#f08a24", o: "#b85f12", W: "#fff4e0", M: "#c58cf0", m: "#8a5ad6", L: "#ffe066", l: "#ffb020" },
-  rows: padTop(mirror([
-    "...L........",
-    "..KlK.......",
-    "...K........",
-    "....K..K....",
-    ".....KKOK...",
-    "......KOOK..",
-    "......KOoOKK",
-    ".....KOOOOOO",
-    ".KK..KOOOOOO",
-    "KMMK.KOKKOOO",
-    "KMmMKKOKKOOW",
-    "KMmmMKOOOOWW",
-    "KMmMmKOOOWWK",
-    "KMmmMKKOOWWW",
-    ".KMmMK.KOOWW",
-    "..KMK..KOOOO",
-    "...K...KOOOO",
-    ".......KOoOO",
-    ".......KOKOO",
-    ".......KKKKK",
-  ]), 24),
-};
+// Every creature except Malgrath is a critter, built from shared parts so
+// they all look like one family (critters.js).
+for (const [id, spec] of Object.entries(CRITTERS)) CREATURE_ART[id] = buildCritter(spec);
 
 // Malgrath the Hollow King, the final boss.
 CREATURE_ART.malgrath = {
@@ -1856,20 +1531,24 @@ CREATURE_ART.malgrath = {
   ]), 24),
 };
 
-// Hexbound creatures: the same sprite, under Malgrath's hex. Their own
-// colors stay (so you can still tell what they are), a little dimmed and
-// tinted purple; small bright spots (their eyes) glow magenta, and jagged hex
-// cracks run across the body. Breaking the hex brings back the real colors.
-const HEX_OUTLINE = "#14091c";
-const HEX_EYES = "#ff4df0";
-const HEX_CRACK = "#b04ae8";
-const HEX_TINT = [120, 50, 170];
+// Hexbound creatures: the same sprite, corrupted by Malgrath's hex. They keep
+// their own colors (a forest critter still looks green), just a little dim
+// and sickly; their eyes glow, dark veins with glowing specks creep across
+// the body, and dark ooze drips from it. Breaking the hex brings back the
+// real colors.
+const HEX_OUTLINE = "#10070f";
+const HEX_EYES = "#ff3a6e";
+const HEX_VEIN = "#2a0f2e"; // the dark of the veins
+const HEX_GLOW = "#e04cff"; // specks glowing in them
+const HEX_OOZE = "#1c0a22";
 
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 const toHex = (rgb) => "#" + rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
 
 function hexedColors(art) {
-  // How much of the creature each color covers: small bright bits are eyes.
+  // Critters (critters.js) mark their eyes: P glows, everything else is dimmed.
+  // Older sprites don't, so there small bright bits are taken to be eyes.
+  const marked = "E" in art.colors;
   const counts = {};
   let total = 0;
   for (const row of art.rows) for (const ch of row) if (ch !== ".") (counts[ch] = (counts[ch] || 0) + 1), total++;
@@ -1877,23 +1556,24 @@ function hexedColors(art) {
   for (const [ch, color] of Object.entries(art.colors)) {
     const [r, g, b] = rgbOf(color);
     const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    if (light > 0.7 && (counts[ch] || 0) / total < 0.1) {
+    if (marked ? ch === "P" : light > 0.7 && (counts[ch] || 0) / total < 0.1) {
       out[ch] = HEX_EYES;
       continue;
     }
+    // Their own color, a little washed out and darker: sickly, not purple.
     const grey = (r + g + b) / 3;
-    out[ch] = toHex([r, g, b].map((v, i) => ((v * 0.75 + grey * 0.25) * 0.72 + HEX_TINT[i] * 0.28) * 0.88));
+    out[ch] = toHex([r, g, b].map((v) => (v * 0.8 + grey * 0.2) * 0.8));
   }
   return out;
 }
 
-// Two jagged cracks, running down from the upper half of the body.
+// Dark veins creeping across the body, with specks glowing in them.
 function hexCracks(ctx, w, h, id) {
   const image = ctx.getImageData(0, 0, w, h);
   const d = image.data;
   const [or, og, ob] = rgbOf(HEX_OUTLINE);
   const [er, eg, eb] = rgbOf(HEX_EYES);
-  const [cr, cg, cb] = rgbOf(HEX_CRACK);
+  const vein = rgbOf(HEX_VEIN), glow = rgbOf(HEX_GLOW);
   const at = (x, y) => (y * w + x) * 4;
   const body = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return false;
@@ -1904,7 +1584,7 @@ function hexCracks(ctx, w, h, id) {
   };
   let seed = [...id].reduce((n, ch) => n * 31 + ch.charCodeAt(0), 7);
   const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
-  for (let crack = 0; crack < 2; crack++) {
+  for (let crack = 0; crack < 3 + Math.floor(rand() * 2); crack++) {
     let x = 0, y = 0, found = false;
     for (let tries = 0; tries < 60 && !found; tries++) {
       x = Math.floor(rand() * w);
@@ -1913,7 +1593,7 @@ function hexCracks(ctx, w, h, id) {
     }
     for (let step = 0; found && step < 4 + Math.floor(rand() * 5); step++) {
       const i = at(x, y);
-      d.set([cr, cg, cb], i);
+      d.set(step % 3 === 1 ? glow : vein, i);
       y++;
       x += Math.floor(rand() * 3) - 1;
       if (!body(x, y)) break;
@@ -2011,9 +1691,10 @@ function shadeSprite(ctx, w, h) {
   ctx.putImageData(image, 0, 0);
 }
 
-// Hexbound creatures give off a dark purple haze: a soft ring just outside
-// their outline (pulsing and drifting sparks are added by CSS and fx.js).
-const HEX_AURA = [176, 64, 255];
+// Hexbound creatures give off dark smoke: a soft ring just outside their
+// outline, and ooze dripping off the bottom (a pulse and drifting motes are
+// added by CSS and game.js).
+const HEX_AURA = [40, 14, 46]; // a dark, smoky edge
 
 function hexAura(ctx, w, h) {
   const image = ctx.getImageData(0, 0, w, h);
@@ -2023,7 +1704,18 @@ function hexAura(ctx, w, h) {
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++)
       if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) ring1.push((y * w + x) * 4);
-  for (const i of ring1) d.set([...HEX_AURA, 150], i);
+  for (const i of ring1) d.set([...HEX_AURA, 110], i);
+  // Ooze: a few dark drips hanging off the bottom of the body.
+  const ooze = rgbOf(HEX_OOZE), shine = rgbOf(HEX_GLOW);
+  let bottom = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (solid(x, y)) bottom = Math.max(bottom, y);
+  for (let x = 2; x < w - 2; x += 3 + ((x * 7) % 3)) {
+    let y = h - 1;
+    while (y > 0 && !solid(x, y)) y--;
+    if (y < bottom - 3) continue;
+    const len = 1 + ((x * 5) % 3);
+    for (let k = 1; k <= len && y + k < h; k++) d.set([...(k === len ? shine : ooze), 255], ((y + k) * w + x) * 4);
+  }
   ctx.putImageData(image, 0, 0);
 }
 
@@ -2134,7 +1826,7 @@ export function creatureImg(id, cls = "", hexed = false, evolved = false) {
 
 // Scenery is toned down (less saturated, a little darker) so the world looks
 // calmer and the creatures stand out against it.
-function mute(ctx, w, h, saturation = 0.7, brightness = 0.9) {
+function mute(ctx, w, h, saturation = 0.85, brightness = 0.95) {
   const image = ctx.getImageData(0, 0, w, h);
   const d = image.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -2180,7 +1872,7 @@ export function landmarkSrc(zoneId) {
   const lm = LANDMARKS[zoneId];
   return draw(`landmark:${zoneId}`, lm.w, lm.h, (ctx) => {
     for (const part of lm.parts) paint(ctx, part.rows, part.colors, part.x || 0, part.y || 0);
-    mute(ctx, lm.w, lm.h, 0.75, 0.92);
+    mute(ctx, lm.w, lm.h, 0.88, 0.96);
   });
 }
 

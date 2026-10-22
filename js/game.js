@@ -26,6 +26,10 @@
 // them for a bit less each. On their turn, one of them attacks, in turn.
 // A trainer's third creature comes in when one is beaten.
 //
+// ⚡ Counter-Sign: when a creature attacks, it sometimes signs a letter at you
+// first (always before a big move). Sign it back in time, or tap the right
+// letter, to block the hit; signing it bounces some damage back too.
+//
 // Taking too long only brings a hint, then a skip button. Skipping still
 // moves you on, but the monster gets its attack. If your HP runs out you're
 // knocked out: you keep some XP and can try again.
@@ -37,7 +41,7 @@ import {
   CHALLENGE_BONUS, CHALLENGE_CHANCE, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, EVOLVED_POWER,
   GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET,
-  monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
+  COUNTER_CHANCE, COUNTER_MS, COUNTER_REFLECT, monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
 import { battleResult } from "./battle-result.js";
 import * as progress from "./progress.js";
@@ -48,6 +52,7 @@ import { playMusic } from "./music.js";
 import { QUESTS, ROOK } from "./quests.js";
 import { playLines } from "./story.js";
 import { creatureImg, heroImg, itemImg } from "./sprites.js";
+import { setText } from "./pixel-emoji.js";
 
 const $ = (id) => document.getElementById(id);
 const PAUSE_AFTER_HIT_MS = 700; // so one held sign can't count twice
@@ -391,13 +396,13 @@ function tick(now) {
 
   const letter = currentLetter();
   const prediction = getPrediction();
-  $("seeing").textContent = prediction?.partial
+  setText($("seeing"), prediction?.partial
     ? "✋ Move your whole hand into view"
     : !prediction
       ? "Show your hand ✋"
       : MOTION_LETTERS.includes(letter)
         ? `Draw ${letter} in the air ✍️` // J and Z are movements, not a held shape
-        : `I see: ${prediction.letter}`;
+        : `I see: ${prediction.letter}`);
   const held = battle.hold.update(letter, prediction, now);
   $("battle-hold").style.width = `${held * 100}%`;
   if (battle.mode === "quick") renderQuick(now);
@@ -643,7 +648,7 @@ function fireMove(letters, fast) {
 
 // An attack on one foe, or on all of them for a group move. Each takes its
 // own type matchup. `hero`: your hero's spell (power-ups apply).
-function strike({ from, attacker, move, base, fast, hero = false, who = null }) {
+function strike({ from, attacker, move, base, fast, hero = false, who = null, delay = 0 }) {
   const classCrit = hero ? progress.heroClass().crit || 0 : 0; // archers crit more
   const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE) + classCrit;
   let mult = crit ? CRIT_MULTIPLIER : 1;
@@ -661,13 +666,13 @@ function strike({ from, attacker, move, base, fast, hero = false, who = null }) 
     best = Math.max(best, eff);
     worst = Math.min(worst, eff);
     const damage = Math.round(base * mult * eff);
-    attackFx({ from, attacker: k === 0 ? attacker : null, move, crit, target: t, delay: k * 110 });
-    hitFoe(t, damage, crit, ATTACK_FX_MS + k * 110);
+    attackFx({ from, attacker: k === 0 ? attacker : null, move, crit, target: t, delay: delay + k * 110 });
+    hitFoe(t, damage, crit, delay + ATTACK_FX_MS + k * 110);
     return `${t.def.name} ${damage}`;
   });
   const group = hits.length > 1;
-  if (big || group) popText(`${move.icon} ${move.name.toUpperCase()}!${group ? " 💥" : ""}`, true);
-  setTimeout(() => popText(crit ? "CRITICAL HIT!" : big || group ? `${move.icon} ${move.name.toUpperCase()}!` : "Hit!", crit || big), ATTACK_FX_MS);
+  if (big || group) setTimeout(() => popText(`${move.icon} ${move.name.toUpperCase()}!${group ? " 💥" : ""}`, true), delay);
+  setTimeout(() => popText(crit ? "CRITICAL HIT!" : big || group ? `${move.icon} ${move.name.toUpperCase()}!` : `${who ? `${who}: ` : ""}Hit!`, crit || big), delay + ATTACK_FX_MS);
   // Type matchups: say the best news (or the bad news if it's all bad).
   const eff = best > 1 ? best : worst;
   if (eff !== 1) {
@@ -907,42 +912,159 @@ function monsterTurn(fast) {
     announce(`${name} uses ${move.name}, but your shield blocks it!`);
   } else {
     const big = move === bigMove;
-    const base = monsterDamage(a.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
-    const damage = Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE) * (a.surge ? 1.3 : 1)));
-    b.playerHp = Math.max(0, b.playerHp - damage);
-    const element = fx.elementOf(move);
-    popText(`${move.icon} ${move.name}!`, big);
-    // The attack: a lunge, or a projectile at you, then the hit.
-    const landed = () => {
-      if (battle !== b) return;
-      restartAnimation($("hero-sprite"), "hurt");
-      if (fx.isPhysical(move)) fx.slash(at.hero(), "danger", { count: big ? 2 : 1, len: big ? 18 : 12 });
-      fx.burst(at.hero(), element, { count: big ? 40 : 20, speed: big ? 2 : 1.2 });
-      fx.burst(at.hero(), "danger", { count: 8, speed: 0.8, life: 300 });
-      fx.ring(at.hero(), element, { maxR: big ? 30 : 16 });
-      fx.shake(big ? 10 : 4, big ? 500 : 280);
-      if (big) {
-        fx.hitStop(120);
-        fx.flash("#e8413b", 300, 0.45);
-      }
-      fx.number(at.hero(), `-${damage}`, big ? "crit" : "bad");
-      updateHp();
-    };
-    if (fx.isPhysical(move)) {
-      restartAnimation(a.art, "lunge");
-      setTimeout(landed, 260);
-    } else {
-      restartAnimation(a.art, "charging");
-      fx.projectile(spot(), at.hero(), element, { ms: 300, size: big ? 5 : 3, arc: -14 }).then(landed);
+    // ⚡ Counter-Sign: it signs at you first. Get it right and the hit is blocked.
+    if (big || Math.random() < COUNTER_CHANCE) {
+      return counterSign(b, a, move, (result) => {
+        if (battle !== b || b.done) return;
+        if (result === "miss" && hitYou(b, a, move, big)) return;
+        endMonsterTurn(b);
+      });
     }
-    announce(`${name} uses ${move.name}! You lose ${damage} HP.`);
-    if (b.playerHp <= 0) return setTimeout(() => battle === b && finish(false), 900);
+    if (hitYou(b, a, move, big)) return;
   }
+  endMonsterTurn(b);
+}
 
+function endMonsterTurn(b) {
   setTimeout(() => {
     for (const e of b.field) e.box.classList.remove("acting");
     nextTurn(b);
   }, MONSTER_TURN_MS);
+}
+
+// How hard creature `a` hits you with `move`.
+function enemyDamage(b, a, big) {
+  const base = monsterDamage(a.level) + (b.stage.type === "boss" ? BOSS_EXTRA_DAMAGE : 0);
+  return Math.max(1, Math.round((base + Math.floor(Math.random() * 5) - 2) * (big ? ENEMY_BIG_DAMAGE : ENEMY_QUICK_DAMAGE) * (a.surge ? 1.3 : 1)));
+}
+
+// The creature's attack lands on you. True if it knocked you out.
+function hitYou(b, a, move, big) {
+  const name = a.def.name;
+  const spot = () => at.foe(a);
+  const damage = enemyDamage(b, a, big);
+  b.playerHp = Math.max(0, b.playerHp - damage);
+  const element = fx.elementOf(move);
+  popText(`${move.icon} ${move.name}!`, big);
+  // The attack: a lunge, or a projectile at you, then the hit.
+  const landed = () => {
+    if (battle !== b) return;
+    restartAnimation($("hero-sprite"), "hurt");
+    if (fx.isPhysical(move)) fx.slash(at.hero(), "danger", { count: big ? 2 : 1, len: big ? 18 : 12 });
+    fx.burst(at.hero(), element, { count: big ? 40 : 20, speed: big ? 2 : 1.2 });
+    fx.burst(at.hero(), "danger", { count: 8, speed: 0.8, life: 300 });
+    fx.ring(at.hero(), element, { maxR: big ? 30 : 16 });
+    fx.shake(big ? 10 : 4, big ? 500 : 280);
+    if (big) {
+      fx.hitStop(120);
+      fx.flash("#e8413b", 300, 0.45);
+    }
+    fx.number(at.hero(), `-${damage}`, big ? "crit" : "bad");
+    updateHp();
+  };
+  if (fx.isPhysical(move)) {
+    restartAnimation(a.art, "lunge");
+    setTimeout(landed, 260);
+  } else {
+    restartAnimation(a.art, "charging");
+    fx.projectile(spot(), at.hero(), element, { ms: 300, size: big ? 5 : 3, arc: -14 }).then(landed);
+  }
+  announce(`${name} uses ${move.name}! You lose ${damage} HP.`);
+  if (b.playerHp <= 0) {
+    setTimeout(() => battle === b && finish(false), 900);
+    return true;
+  }
+  return false;
+}
+
+// ⚡ The creature signs a letter at you (its hand picture). Sign it back
+// before the bar runs out, or tap the right letter, to block the attack.
+// done("block" | "miss").
+function counterSign(b, a, move, done) {
+  const known = progress.get().learned;
+  const pool = [...new Set([...b.zone.letters, ...known])].filter((l) => known.includes(l) || b.zone.letters.includes(l));
+  const letter = progress.weightedPick(pool);
+  const others = [...pool.filter((l) => l !== letter)].sort(() => Math.random() - 0.5).slice(0, 2);
+  const choices = [letter, ...others].sort(() => Math.random() - 0.5);
+  const assist = Boolean(progress.get().settings.assist);
+  const panel = $("counter");
+  $("counter-title").textContent = `⚡ ${a.def.name} signs at you! Sign it back to block ${move.icon} ${move.name}!`;
+  setHandImage($("counter-img"), letter);
+  $("counter-img").alt = "The creature's sign";
+  $("counter-time").hidden = assist; // Assist mode: no time limit
+  restartAnimation(a.art, "charging");
+  const box = $("counter-choices");
+  box.innerHTML = "";
+  let over = false;
+  const end = (result, signed = false) => {
+    if (over) return;
+    over = true;
+    panel.hidden = true;
+    if (result === "block") {
+      progress.addSuccess(letter);
+      restartAnimation($("hero-sprite"), "boost");
+      fx.ring(at.hero(), "shield", { maxR: 30, life: 600, width: 3, squash: 1 });
+      fx.burst(at.hero(), "shield", { count: 24, speed: 1.6 });
+      if (signed) {
+        // Bounced back: some of the blocked damage hits the creature (but never knocks it out).
+        const back = Math.min(a.hp - 1, Math.round(SIGN_DAMAGE * COUNTER_REFLECT));
+        if (back > 0) {
+          a.hp -= back;
+          fx.projectile(at.hero(), at.foe(a), "light", { ms: 280, size: 3 }).then(() => {
+            restartAnimation(a.art, "hit");
+            fx.burst(at.foe(a), "light", { count: 24, speed: 1.6 });
+            fx.number(at.foe(a), `-${back}`, "crit");
+            updateHp();
+          });
+        }
+        popText("⚡ COUNTER-SIGN! Bounced back!", true);
+        announce(`Counter-sign! You blocked it and bounced ${back} damage back.`);
+      } else {
+        popText("🛡️ Blocked!", true);
+        announce("You read the sign! Blocked.");
+      }
+    } else {
+      progress.addMiss(letter);
+      b.practice.add(letter);
+      announce(`That sign was ${letter}.`);
+    }
+    done(result);
+  };
+  choices.forEach((l) => {
+    const btn = document.createElement("button");
+    btn.className = "counter-choice";
+    btn.textContent = l;
+    btn.onclick = () => {
+      if (l === letter) end("block");
+      else {
+        btn.classList.add("wrong");
+        popText(`That sign was ${letter}!`);
+        end("miss");
+      }
+    };
+    box.appendChild(btn);
+  });
+  panel.hidden = false;
+  announce(`${a.def.name} signs at you! Sign it back, or tap the letter, to block.`);
+  const hold = new HoldTimer();
+  const start = performance.now();
+  const limit = COUNTER_MS;
+  const loop = (now) => {
+    if (over || battle !== b) return;
+    requestAnimationFrame(loop);
+    const held = hold.update(letter, getPrediction(), now);
+    $("counter-hold").style.width = `${held * 100}%`;
+    if (held >= 1) return end("block", true);
+    if (!assist) {
+      const left = Math.max(0, 1 - (now - start) / limit);
+      $("counter-time-fill").style.width = `${left * 100}%`;
+      if (left <= 0) {
+        popText(`Too slow! That was ${letter}.`);
+        end("miss");
+      }
+    }
+  };
+  requestAnimationFrame(loop);
 }
 
 // Back to you, with the next target. If the planned ones ran out, the hex

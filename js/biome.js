@@ -43,6 +43,7 @@ import { playCutscene } from "./cutscene.js";
 import { playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
+import { setHtml } from "./pixel-emoji.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,6 +55,9 @@ const W = TW * T;
 const H = TH * T;
 const VIEW_W = 48 * T; // the canvas shows this much at a time
 const VIEW_H = SH * T;
+// Real canvas pixels per game pixel. 4, so buddies drawn at 3/4 size still
+// land on whole pixels (any other size would drop rows and squash faces).
+const VIEW_SCALE = 4;
 const HERO_SPEED = 64; // pixels per second
 const CREATURE_SPEED = 14;
 const RUNNER_SPEED = 50; // a runaway critter (chase quests): a bit slower than you
@@ -66,7 +70,9 @@ const SAFE_MS = 2500; // after a battle, creatures can't start another one right
 const RESPAWN_MS = 5000;
 
 // Tile kinds
-const GROUND = 0, PATH = 1, WATER_TILE = 2, BRIDGE_TILE = 3, GATE = 4;
+// SOLID: rock walls, open sky or the void, where there's no ground at all.
+// ICE: a frozen lake you can walk across.
+const GROUND = 0, PATH = 1, WATER_TILE = 2, BRIDGE_TILE = 3, GATE = 4, SOLID = 5, ICE_TILE = 6;
 
 // Area 0 is the bottom (entrance); the last area is the top (boss).
 const areaTop = (a) => (BIOME_AREAS - 1 - a) * SH; // first tile row of an area
@@ -100,51 +106,108 @@ function exitsFor(zoneId) {
 const SECRET_SEE = 44; // pixels
 const SECRET_COINS = [20, 45];
 
+// Each zone has its own landscape:
+//   shape: how the path runs (PATH_SHAPES).
+//   open: "caverns" or "islands" - the map starts as solid rock / sky / void
+//     (`solid` colors, with a `cliff` face under the ground's edge), and only
+//     the path and the open areas off it are ground.
+//   clearings: open glades off the path (the Forest), with nothing growing in them.
+//   formal: hedges lining a straight avenue (Crown Keep). ruins: broken walls
+//     along the path (the Castle).
+//   water: "pond", "river" (streams across the map), "fountains" (ponds on
+//     both sides of the avenue), "ice" (frozen lakes you can walk on).
+//   decals: little things painted on the ground (DECALS), this often per tile.
 const THEMES = {
   meadow: {
-    ground: ["#7a9c58", "#71924f"], specks: ["#869f5f", "#5f7f45"], speckRate: 0.02,
-    path: ["#b8a57a", "#a8966c"], obstacles: ["bush", "bush", "pine"], wall: "pine", density: 0.75, water: "pond",
+    shape: "wind", ground: ["#81ba59", "#74ae4d"], specks: ["#869f5f", "#5f7f45"], speckRate: 0.02,
+    path: ["#d2bc83", "#c0a970"], obstacles: ["oak", "oak", "bush", "oakgold"], wall: "bush", density: 0.72, water: "pond",
+    decals: ["tuft", "tuft", "flowerPink", "flowerYellow", "flowerWhite"], decalRate: 0.22,
   },
   forest: {
-    ground: ["#46714a", "#406a44"], specks: ["#33573a", "#507d52"], speckRate: 0.035,
-    path: ["#b08a5a", "#9a7448"], obstacles: ["pine"], wall: "pine", density: 0.62, water: null,
+    shape: "zigzag", ground: ["#4a8d4a", "#428442"], specks: ["#33573a", "#507d52"], speckRate: 0.035,
+    path: ["#b08a5a", "#9a7448"], obstacles: ["pine", "pine", "pine", "oak", "bigshroom"], wall: "pine", density: 0.5, water: null,
+    clearings: true, decals: ["tuft", "mushroom", "leaf", "leaf"], decalRate: 0.16,
   },
   caves: {
-    ground: ["#5e5470", "#544a66"], specks: ["#8a809a", "#3e3650"], speckRate: 0.05,
-    path: ["#8a7a6a", "#7a6a5a"], obstacles: ["rock", "crystal", "rock"], wall: "rock", density: 0.67, water: null,
+    shape: "wind", open: "caverns", ground: ["#5e5470", "#544a66"], specks: ["#8a809a", "#3e3650"], speckRate: 0.05,
+    path: ["#8a7a6a", "#7a6a5a"], obstacles: ["stalagmite", "rock", "crystal", "stalagmite"], wall: "rock", density: 0.66, water: null,
+    solid: ["#221b2e", "#271f34"], cliff: ["#4a3f5c", "#3c3250"], rim: "#140f1c", sparkle: "#7fe3ff",
+    decals: ["pebble", "pebble", "crystalbit"], decalRate: 0.12,
   },
   river: {
-    ground: ["#6a9256", "#62894f"], specks: ["#77a062"], speckRate: 0.015,
-    path: ["#c4b488", "#b4a47a"], obstacles: ["pine", "rock", "bush"], wall: "pine", density: 0.73, water: "river",
+    shape: "wind", ground: ["#6bac4f", "#60a146"], specks: ["#77a062"], speckRate: 0.015,
+    path: ["#ddca92", "#ccb87d"], obstacles: ["oak", "reeds", "bush", "rock"], wall: "oak", density: 0.73, water: "river",
+    decals: ["tuft", "pebble", "flowerWhite"], decalRate: 0.14,
   },
   castle: {
-    ground: ["#a89a8a", "#9a8c7c"], specks: ["#8a7e70", "#c4b8a8"], speckRate: 0.05,
-    path: ["#c9b9a0", "#b8a890"], obstacles: ["wall", "bush"], wall: "wall", density: 0.71, water: null,
+    shape: "steps", ground: ["#a89a8a", "#9a8c7c"], specks: ["#8a7e70", "#c4b8a8"], speckRate: 0.05,
+    path: ["#c9b9a0", "#b8a890"], obstacles: ["wall", "brokenpillar", "deadtree", "rock"], wall: "wall", density: 0.7, water: null,
+    ruins: true, decals: ["crack", "crack", "pebble", "bone"], decalRate: 0.14,
   },
-  // Crown Keep: pale royal stone, a red carpet for a path, hedges, and moat ponds.
+  // Crown Keep: pale royal stone, a red carpet for a path, hedges, and fountains.
   keep: {
-    ground: ["#b4adc2", "#aaa2b9"], specks: ["#9c94ad"], speckRate: 0.02,
-    path: ["#c8414b", "#b3343e"], obstacles: ["wall", "bush", "bush"], wall: "wall", density: 0.72, water: "pond",
+    shape: "straight", ground: ["#9cc27a", "#92b870"], specks: ["#b4d494"], speckRate: 0.02,
+    path: ["#c8414b", "#b3343e"], obstacles: ["oak", "pillar", "bush"], wall: "wall", density: 0.7, water: "fountains",
+    formal: true, decals: ["flowerPink", "flowerYellow", "flowerWhite", "tuft"], decalRate: 0.12,
   },
   spires: {
-    ground: ["#b3c2cf", "#a8b8c6"], specks: ["#c6d2dc"], speckRate: 0.025,
-    path: ["#9ab8d6", "#88a8c8"], obstacles: ["icecrystal", "crystal", "icecrystal"], wall: "icecrystal", density: 0.69, water: "pond",
+    shape: "zigzag", ground: ["#c2d4e2", "#b3c8db"], specks: ["#c6d2dc"], speckRate: 0.025,
+    path: ["#9ab8d6", "#88a8c8"], obstacles: ["snowpine", "icecrystal", "snowpine"], wall: "icecrystal", density: 0.69, water: "ice",
+    decals: ["snow", "snow", "pebble"], decalRate: 0.12,
   },
   clouds: {
-    ground: ["#d6d9e3", "#cdd1dc"], specks: ["#bfc4d2"], speckRate: 0.02,
-    path: ["#ffe9a8", "#f2d88a"], obstacles: ["cloud", "cloud", "bush"], wall: "cloud", density: 0.67, water: null,
+    shape: "wind", open: "islands", ground: ["#e5e8f2", "#d9ddeb"], specks: ["#bfc4d2"], speckRate: 0.02,
+    path: ["#ffe9a8", "#f2d88a"], obstacles: ["cloud", "cloud", "oakgold"], wall: "cloud", density: 0.72, water: null,
+    solid: ["#8fc4ec", "#99caef"], cliff: ["#c8d4ea", "#b4c2de"], rim: "#7aa8d0", sparkle: "#ffffff",
+    decals: ["sparkle", "flowerYellow", "flowerWhite"], decalRate: 0.1,
   },
   void: {
-    ground: ["#2a1f3d", "#241a35"], specks: ["#4e3d74", "#8a6abf"], speckRate: 0.02,
-    path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidrock"], wall: "voidrock", density: 0.69, water: null,
+    shape: "zigzag", open: "islands", ground: ["#2a1f3d", "#241a35"], specks: ["#4e3d74", "#8a6abf"], speckRate: 0.02,
+    path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidtree"], wall: "voidrock", density: 0.69, water: null,
+    solid: ["#0b0814", "#0e0a19"], cliff: ["#3a2c5a", "#2c2046"], rim: "#05030a", sparkle: "#c8b0ff",
+    decals: ["star", "crack"], decalRate: 0.1,
   },
 };
 
-// A zone's ground colors and scenery, for the battle arena (arena/arena.js).
-export const zoneTheme = (zoneId) => THEMES[zoneId];
+// How the path runs from the entrance (bottom) to the boss (top). It's 6
+// tiles wide and drifts at most ~2 tiles per row, so it's always easy to walk
+// along (steeper bends left gaps too narrow for the hero).
+const clampX = (x) => Math.max(6, Math.min(TW - 7, Math.round(x)));
+const STEP_ROWS = 14; // "steps": a hall turns every this many rows
+const stepX = (seg, seed) => clampX(12 + hash(seg, 1, seed) * (TW - 24));
+const PATH_SHAPES = {
+  // Snakes gently side to side.
+  wind: (seed) => (ty) => clampX(TW / 2 + Math.sin(ty * 0.06 + seed) * 26 + Math.sin(ty * 0.02 + seed * 2) * 6),
+  // Straight slopes that switch back, like a trail up a hill.
+  zigzag: (seed) => (ty) => {
+    const t = ((ty + seed * 7) % 56) / 56;
+    return clampX(TW / 2 + (Math.abs(t * 2 - 1) * 2 - 1) * 24);
+  },
+  // Straight up, with sharp turns (build() carves the halls across).
+  steps: (seed) => (ty) => stepX(Math.floor((ty + STEP_ROWS / 2) / STEP_ROWS), seed),
+  // One straight avenue up the middle.
+  straight: () => () => TW / 2,
+};
 
-const WATER = ["#2e6385", "#376e90"];
-const SHORE = "#c4b488";
+// Little things painted on the ground. d / l: a bit darker / lighter than the ground.
+const DECALS = {
+  tuft: { rows: ["d.d", ".d."] },
+  flowerPink: { rows: [".p.", "pyp", ".p."], colors: { p: "#f08cb0", y: "#ffe066" } },
+  flowerYellow: { rows: [".y.", "yoy", ".y."], colors: { y: "#ffd84a", o: "#e08a2a" } },
+  flowerWhite: { rows: [".w.", "wyw", ".w."], colors: { w: "#f6f6f0", y: "#ffd84a" } },
+  mushroom: { rows: [".rr.", "rwrr", ".ss."], colors: { r: "#d0503a", w: "#ffffff", s: "#efe0c0" } },
+  leaf: { rows: ["oo.", ".oO"], colors: { o: "#c0782e", O: "#e0a040" } },
+  pebble: { rows: [".l", "ld", "dd"] },
+  crystalbit: { rows: [".w", "cC", "cC"], colors: { c: "#3fa8d0", C: "#7fe3ff", w: "#e8fbff" } },
+  bone: { rows: ["w...w", ".www.", "w...w"], colors: { w: "#e8e0d0" } },
+  crack: { rows: ["d..", ".d.", ".dd", "...d"] },
+  snow: { rows: [".w.", "w.w", ".w."], colors: { w: "#ffffff" } },
+  sparkle: { rows: [".y.", "yWy", ".y."], colors: { y: "#ffe9a8", W: "#ffffff" } },
+  star: { rows: [".s.", "sSs", ".s."], colors: { s: "#6e52a8", S: "#e0c8ff" } },
+};
+
+const WATER = ["#357eb0", "#448ebc"];
+const SHORE = "#ddca92";
 const BRIDGE = ["#a8743a", "#8a5a2a"];
 
 // One saved biome per zone, so creatures and your spot stay put while you battle.
@@ -174,13 +237,55 @@ function build(z) {
       for (let tx = Math.max(1, cols[0]); tx <= Math.min(TW - 2, cols[1]); tx++) kind[at(tx, ty)] = PATH;
   };
 
-  // A long path that snakes side to side from the entrance (bottom) to the boss (top).
-  // It's 6 tiles wide and drifts at most ~2 tiles per row, so it's always
-  // easy to walk along (steeper bends left gaps too narrow for the hero).
-  const pathX = (ty) => Math.max(6, Math.min(TW - 7, Math.round(TW / 2 + Math.sin(ty * 0.06 + seed) * 26 + Math.sin(ty * 0.02 + seed * 2) * 6)));
+  // Caverns and islands: no ground at all, until it's carved out below.
+  if (theme.open) kind.fill(SOLID);
+  const open = (tx, ty) => {
+    if (tx >= 0 && ty >= 0 && tx < TW && ty < TH && kind[at(tx, ty)] === SOLID) kind[at(tx, ty)] = GROUND;
+  };
+  // A round patch with a wobbly edge: open ground (caverns, islands), or a
+  // glade (`clear`) where nothing grows.
+  const clear = new Uint8Array(TW * TH);
+  const blob = (cx, cy, rx, ry) => {
+    for (let ty = Math.floor(cy - ry - 2); ty <= cy + ry + 2; ty++)
+      for (let tx = Math.floor(cx - rx - 2); tx <= cx + rx + 2; tx++) {
+        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
+        if (Math.hypot((tx - cx) / rx, (ty - cy) / ry) > 0.8 + noise(tx, ty, 3, seed + 40) * 0.4) continue;
+        open(tx, ty);
+        clear[at(tx, ty)] = 1;
+      }
+  };
+
+  // The path from the entrance (bottom) to the boss (top).
+  const pathX = PATH_SHAPES[theme.shape](seed);
   for (let ty = 0; ty < TH; ty++) {
     const cx = pathX(ty);
     carve([ty, ty], [cx - 3, cx + 2]);
+    // A strip of ground along the path in caverns (on islands it's a bridge).
+    if (theme.open === "caverns") for (let tx = cx - 5; tx <= cx + 4; tx++) open(tx, ty);
+  }
+  // Castle halls: where the path turns, a hall runs across to the next stretch.
+  if (theme.shape === "steps")
+    for (let row = STEP_ROWS / 2; row < TH; row += STEP_ROWS) {
+      const [x0, x1] = [pathX(row - 1), pathX(row)].sort((m, n) => m - n);
+      carve([row - 3, row + 2], [x0 - 3, x1 + 2]);
+    }
+
+  // Open ground off the path (caverns, islands, the Forest's glades): a few
+  // patches in each area, just touching the path, on alternating sides.
+  if (theme.open || theme.clearings) {
+    for (let a = 0; a < BIOME_AREAS; a++) {
+      [7, 14, 21].forEach((dy, k) => {
+        if (theme.clearings && k === 1) return;
+        const cy = areaTop(a) + dy;
+        const side = (a + k) % 2 ? 1 : -1;
+        let cx = pathX(cy) + side * 10;
+        if (cx < 10 || cx > TW - 11) cx = pathX(cy) - side * 10;
+        const big = theme.open ? 1 + hash(a, k, seed + 41) * 0.4 : 0.9;
+        blob(cx, cy, 9 * big, (theme.open ? 6 : 5) * big);
+      });
+    }
+    // Room at the top for the landmark and the boss.
+    if (theme.open) blob(TW / 2, 6, 18, 8);
   }
   // Side roads to the neighboring zones, right out to the edge of the map.
   const exits = exitsFor(zone.id);
@@ -200,19 +305,30 @@ function build(z) {
   carve([2, 10], [TW / 2 - 11, TW / 2 + 10]);
   carve([9, 11], [Math.min(pathX(10), TW / 2) - 2, Math.max(pathX(10), TW / 2) + 1]);
 
-  // Water: a pond in each area, or a river across the middle areas.
+  // Water: ponds, streams, fountains, or frozen lakes.
+  const pool = (px, py, rx, ry, tile) => {
+    for (let ty = Math.floor(py - ry); ty <= py + ry; ty++)
+      for (let tx = Math.floor(px - rx); tx <= px + rx; tx++)
+        if (tx > 0 && tx < TW - 1 && Math.hypot((tx - px) / rx, (ty - py) / ry) < 1 && kind[at(tx, ty)] === GROUND) kind[at(tx, ty)] = tile;
+  };
   for (let a = 0; a < BIOME_AREAS; a++) {
     const mid = areaTop(a) + 15;
-    if (theme.water === "pond") {
-      const px = pathX(mid) < TW / 2 ? TW - 16 : 15;
-      for (let ty = mid - 4; ty <= mid + 4; ty++)
-        for (let tx = px - 8; tx <= px + 8; tx++)
-          if (Math.hypot((tx - px) / 7, (ty - mid) / 3.5) < 1 && kind[at(tx, ty)] !== PATH) kind[at(tx, ty)] = WATER_TILE;
+    const far = pathX(mid) < TW / 2 ? TW - 16 : 15; // the side away from the path
+    if (theme.water === "pond") pool(far, mid, 7, 3.5, WATER_TILE);
+    else if (theme.water === "fountains" && a < BIOME_AREAS - 1) {
+      pool(TW / 2 - 13, mid, 4, 2.5, WATER_TILE);
+      pool(TW / 2 + 12, mid, 4, 2.5, WATER_TILE);
+    } else if (theme.water === "ice") {
+      pool(far, mid - 2, 11, 5, ICE_TILE);
+      if (a % 2) pool(TW - far, mid + 7, 7, 3, ICE_TILE);
     } else if (theme.water === "river" && a > 0 && a < BIOME_AREAS - 1) {
+      // A wide stream winding across, with a bridge where the path crosses.
       for (let tx = 0; tx < TW; tx++) {
-        const r = mid + Math.round(Math.sin(tx * 0.2 + a) * 1.5);
-        for (let ty = r - 1; ty <= r + 1; ty++) kind[at(tx, ty)] = kind[at(tx, ty)] === PATH ? BRIDGE_TILE : WATER_TILE;
+        const r = mid + Math.round(Math.sin(tx * 0.12 + a) * 3);
+        const half = 2 + Math.round(noise(tx, a, 5, seed + 30));
+        for (let ty = r - half; ty <= r + half; ty++) kind[at(tx, ty)] = kind[at(tx, ty)] === PATH ? BRIDGE_TILE : WATER_TILE;
       }
+      pool(far, mid - 8, 6, 3, WATER_TILE);
     }
   }
 
@@ -232,7 +348,7 @@ function build(z) {
     gates.push({ area: a, tiles, minX: Math.min(...xs), maxX: Math.max(...xs), y: (areaTop(a) + 2) * T, open: true });
   }
 
-  for (let i = 0; i < kind.length; i++) if (kind[i] === WATER_TILE) blocked[i] = 1;
+  for (let i = 0; i < kind.length; i++) if (kind[i] === WATER_TILE || kind[i] === SOLID) blocked[i] = 1;
 
   // Trees, rocks, etc. on a grid of 2 x 2 tiles: a solid border, the gate
   // walls, and clumps inside.
@@ -244,13 +360,23 @@ function build(z) {
       const tiles = [[2 * bx, 2 * by], [2 * bx + 1, 2 * by], [2 * bx, 2 * by + 1], [2 * bx + 1, 2 * by + 1]];
       if (tiles.some(([tx, ty]) => kind[at(tx, ty)] !== GROUND)) continue;
       let type;
+      const fromPath = bx * 2 - pathX(by * 2 + 1); // from the middle of the path, in tiles
+      const pick = (list) => list[Math.floor(hash(bx, by, seed + 1) * list.length)];
       if (gateBlockRows.has(by)) type = theme.wall;
-      else {
+      else if (theme.formal && (fromPath === -8 || fromPath === 6)) {
+        // Hedges along the avenue, with a gap now and then to walk through.
+        if (by % 5 === 0) continue;
+        type = "hedge";
+      } else {
         const border = bx === 0 || by === 0 || bx === BW - 1 || by === BH - 1;
         const nearStart = by >= BH - 3 && Math.abs(bx * 2 - pathX(TH - 2)) < 8;
         const clump = noise(bx, by, 3, seed) > theme.density || hash(bx, by, seed) < 0.06;
-        if (!border && (nearStart || !clump)) continue;
-        type = theme.obstacles[Math.floor(hash(bx, by, seed + 1) * theme.obstacles.length)];
+        // Broken walls and pillars just off the castle's halls.
+        const ruin = theme.ruins && Math.abs(fromPath) >= 5 && Math.abs(fromPath) <= 7 && hash(bx, by, seed + 3) < 0.45;
+        const glade = tiles.some(([tx, ty]) => clear[at(tx, ty)]);
+        const lawn = theme.formal && Math.abs(fromPath) < 16;
+        if (!border && !ruin && (nearStart || !clump || glade || lawn)) continue;
+        type = ruin ? (hash(bx, by, seed + 4) < 0.5 ? "wall" : "brokenpillar") : pick(theme.obstacles);
       }
       decor.push({ type, x: bx * 16 + 8, y: by * 16 + 16 });
       for (const [tx, ty] of tiles) blocked[at(tx, ty)] = 1;
@@ -421,9 +547,16 @@ function paintGround(theme, kind, seed) {
     for (let x = 0; x < W; x++) {
       const k = kindAt(x, y);
       let c;
-      if (k === WATER_TILE) {
+      if (k === SOLID) {
+        c = solidColor(theme, kindAt, x, y, seed);
+      } else if (k === ICE_TILE) {
+        c = ICE[noise(x, y, 8, seed + 12) > 0.55 ? 1 : 0];
+        if (noise(x, y, 3, seed + 13) > 0.78) c = ICE_CRACK;
+        if (hash(x, y, seed + 14) < 0.006) c = "#ffffff";
+        if ([kindAt(x - 1, y), kindAt(x + 1, y), kindAt(x, y - 1), kindAt(x, y + 1)].some((n) => n !== ICE_TILE)) c = ICE_EDGE;
+      } else if (k === WATER_TILE) {
         c = WATER[noise(x, y, 6, seed + 5) > 0.6 ? 1 : 0];
-        if (hash(x, y, seed + 6) < 0.01) c = "#7fa6ba";
+        if (hash(x, y, seed + 6) < 0.01) c = "#96c6e0";
         // Sandy edge where water meets land.
         if ([kindAt(x - 1, y), kindAt(x + 1, y), kindAt(x, y - 1), kindAt(x, y + 1)].some((n) => n === GROUND || n === PATH)) c = SHORE;
       } else if (k === BRIDGE_TILE) {
@@ -443,8 +576,50 @@ function paintGround(theme, kind, seed) {
       px[i + 3] = 255;
     }
   }
+  paintDecals(theme, kind, px, seed);
   ctx.putImageData(image, 0, 0);
   return canvas;
+}
+
+const ICE = ["#d8ecf8", "#cce4f4"];
+const ICE_CRACK = "#a8cce4";
+const ICE_EDGE = "#9cc0dc";
+
+// Where there's no ground: rock, sky, or the void. Just under the ground's
+// edge is a cliff face, so the ground looks raised (islands look like they're
+// floating); a dark rim outlines the edge, and the rest has the odd sparkle.
+const CLIFF = 6; // pixels
+function solidColor(theme, kindAt, x, y, seed) {
+  const ground = (n) => n !== SOLID;
+  for (let d = 1; d <= CLIFF; d++)
+    if (ground(kindAt(x, y - d))) return d === 1 ? theme.rim : theme.cliff[(x + (d > 3 ? 1 : 0)) % 3 === 0 ? 1 : 0];
+  if ([kindAt(x - 1, y), kindAt(x + 1, y), kindAt(x, y - 1), kindAt(x, y + 1)].some(ground)) return theme.rim;
+  if (hash(x, y, seed + 15) < 0.004) return theme.sparkle;
+  return theme.solid[noise(x, y, 10, seed + 16) > 0.62 ? 1 : 0];
+}
+
+// Little flowers, pebbles, and such, here and there on open ground.
+function paintDecals(theme, kind, px, seed) {
+  if (!theme.decals) return;
+  for (let ty = 0; ty < TH; ty++) {
+    for (let tx = 0; tx < TW; tx++) {
+      if (kind[ty * TW + tx] !== GROUND || hash(tx, ty, seed + 20) >= theme.decalRate) continue;
+      const decal = DECALS[theme.decals[Math.floor(hash(ty, tx, seed + 21) * theme.decals.length)]];
+      const w = decal.rows[0].length, h = decal.rows.length;
+      const x0 = tx * T + Math.floor(hash(tx, ty, seed + 22) * (T - w));
+      const y0 = ty * T + Math.floor(hash(ty, tx, seed + 23) * (T - h));
+      decal.rows.forEach((row, dy) => {
+        [...row].forEach((ch, dx) => {
+          if (ch === ".") return;
+          const i = ((y0 + dy) * W + x0 + dx) * 4;
+          if (ch === "d" || ch === "l") {
+            const f = ch === "d" ? 0.78 : 1.18;
+            for (let k = 0; k < 3; k++) px[i + k] = Math.min(255, px[i + k] * f);
+          } else px.set([1, 3, 5].map((j) => parseInt(decal.colors[ch].slice(j, j + 2), 16)), i);
+        });
+      });
+    }
+  }
 }
 
 // ---------- Battle backdrops ----------
@@ -485,7 +660,7 @@ export function battleBackdropSrc(zoneId) {
         const d = blob(x, y, pond.cx, pond.cy, pond.rx, pond.ry, 9);
         if (d < 1.08) c = SHORE;
         if (d < 1) c = WATER[noise(x, y, 6, seed + 4) > 0.6 ? 1 : 0];
-        if (d < 1 && hash(x, y, seed + 5) < 0.012) c = "#7fa6ba";
+        if (d < 1 && hash(x, y, seed + 5) < 0.012) c = "#96c6e0";
       }
       const [r, g, b] = rgb(c);
       const i = (y * FIELD_W + x) * 4;
@@ -1322,8 +1497,8 @@ $("chest-cancel").onclick = () => current?.chest && closeChestPanel(current);
 
 function draw(biome, now) {
   const ctx = $("biome-canvas").getContext("2d");
-  // Everything below is in game pixels; the canvas has SPRITE_SCALE real pixels for each.
-  ctx.setTransform(SPRITE_SCALE, 0, 0, SPRITE_SCALE, 0, 0);
+  // Everything below is in game pixels; the canvas has VIEW_SCALE real pixels for each.
+  ctx.setTransform(VIEW_SCALE, 0, 0, VIEW_SCALE, 0, 0);
   ctx.imageSmoothingEnabled = false;
   const camX = Math.round(biome.camX), camY = Math.round(biome.camY);
   ctx.drawImage(biome.bg, camX, camY, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
@@ -1404,7 +1579,6 @@ function draw(biome, now) {
     if (t.y < camY - 4 || t.y - h > camY + VIEW_H + 4 || t.x + w / 2 < camX || t.x - w / 2 > camX + VIEW_W) continue; // off screen
     const x = Math.round(t.x - w / 2) - camX, y = Math.round(t.y - h - (t.lift || 0)) - camY;
     if (t.shadow) {
-      // Hexbound creatures stand in a purple glow instead of a plain shadow.
       // Hexbound creatures cast a darker, murky shadow.
       ctx.fillStyle = t.hex ? "rgba(30,6,40,0.45)" : "rgba(0,0,0,0.22)";
       ctx.beginPath();
@@ -1476,7 +1650,7 @@ function draw(biome, now) {
     const left = m.x - camX, top = m.y - camY;
     el.hidden = top < -10 || top > VIEW_H || left < -10 || left > VIEW_W + 10;
     if (el.hidden) return;
-    if (el.innerHTML !== m.html) el.innerHTML = m.html;
+    setHtml(el, m.html);
     el.className = `biome-label${m.cls}`;
     el.style.left = `${(left / VIEW_W) * 100}%`;
     el.style.top = `${(top / VIEW_H) * 100}%`;
@@ -1528,7 +1702,7 @@ function renderHud(biome) {
   const beaten = biome.trainers.filter((t) => t.beaten).length;
   const secrets = biome.secrets.filter((sc) => sc.found).length;
   const html = `<span class="goal">📍 Area ${here + 1} of ${BIOME_AREAS}</span><span class="goal">${doing}</span><span class="goal">❗ Side quests ${questsDone} / ${quests.length}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">✨ Secrets ${secrets} / ${biome.secrets.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
-  if ($("biome-goals").innerHTML !== html) $("biome-goals").innerHTML = html;
+  setHtml($("biome-goals"), html);
 }
 
 function renderCoins() {
@@ -1616,8 +1790,8 @@ export function enterBiome(z, from = null) {
   $("chest-panel").hidden = true;
   biome.chest = null;
   const canvas = $("biome-canvas");
-  canvas.width = VIEW_W * SPRITE_SCALE;
-  canvas.height = VIEW_H * SPRITE_SCALE;
+  canvas.width = VIEW_W * VIEW_SCALE;
+  canvas.height = VIEW_H * VIEW_SCALE;
   $("biome-title").textContent = `${biome.zone.icon} ${biome.zone.name}`;
   $("biome-labels").innerHTML = "";
   renderHud(biome);

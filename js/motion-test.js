@@ -7,6 +7,7 @@ import { getLastHand } from "./classifier.js";
 import { MOTION_TIPS } from "./config.js";
 import { getMotionGuess, initMotion, motionLabels, resetMotion } from "./motion.js";
 import { isShowing, show, showHooks } from "./screens.js";
+import { setText } from "./pixel-emoji.js";
 
 const $ = (id) => document.getElementById(id);
 const GUESS_EVERY = 3; // frames between guesses (it's a bigger model than the letters)
@@ -26,7 +27,7 @@ export async function initMotionTest() {
       $("motion-start-camera").hidden = true;
       show("motion"); // move the camera view into this screen
     } catch {
-      $("motion-guess").textContent = "The camera didn't start. Allow it in the address bar, then try again.";
+      setText($("motion-guess"), "The camera didn't start. Allow it in the address bar, then try again.");
     }
     $("motion-start-camera").disabled = false;
   };
@@ -35,7 +36,7 @@ export async function initMotionTest() {
     renderLog();
   };
   if (!ready) {
-    $("motion-guess").textContent = "No moving-sign model yet. Train one with training/train_motion.py.";
+    setText($("motion-guess"), "No moving-sign model yet. Train one with training/train_motion.py.");
     return;
   }
   buildRows();
@@ -75,7 +76,7 @@ function tick(now) {
 
   if (guess?.sign) {
     // Count it once, then start watching fresh so the same movement can't count twice.
-    $("motion-guess").textContent = `${guess.sign}! ${Math.round(guess.confidence * 100)}%`;
+    setText($("motion-guess"), `${guess.sign}! ${Math.round(guess.confidence * 100)}%`);
     $("motion-guess").className = "motion-guess good";
     shownUntil = now + SHOW_MS;
     log.unshift(`${guess.sign} (${Math.round(guess.confidence * 100)}%)`);
@@ -83,7 +84,7 @@ function tick(now) {
     resetMotion();
   } else if (now > shownUntil) {
     $("motion-guess").className = "motion-guess";
-    $("motion-guess").textContent = !isRunning() ? "" : getLastHand() ? "Watching… do a sign" : "Show your hand ✋";
+    setText($("motion-guess"), !isRunning() ? "" : getLastHand() ? "Watching… do a sign" : "Show your hand ✋");
   }
 }
 

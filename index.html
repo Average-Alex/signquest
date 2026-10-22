@@ -134,49 +134,6 @@
   </section>
 
   <!-- 4. Battle -->
-  <!-- Arena battle: real time, top-down (js/arena/) -->
-  <section id="screen-arena" class="screen arena-screen" hidden>
-    <div class="screen-top">
-      <button id="arena-flee" class="btn small">⬅ Map</button>
-      <h2 tabindex="-1" id="arena-title" class="battle-title"></h2>
-      <span id="arena-timer" class="count">⏱ 0:00</span>
-    </div>
-    <div id="arena-stage" class="arena-stage">
-      <canvas id="arena-canvas" class="arena-canvas" width="640" height="360" aria-hidden="true"></canvas>
-      <div class="arena-bars">
-        <div class="arena-bar you">
-          <span id="arena-you-name" class="arena-name"></span>
-          <div class="arena-hp"><div id="arena-you-hp" class="arena-hp-fill"></div><span id="arena-you-hp-text" class="arena-hp-text"></span></div>
-          <span id="arena-you-badges" class="arena-badges"></span>
-        </div>
-        <div class="arena-bar foe">
-          <span id="arena-foe-name" class="arena-name"></span>
-          <div class="arena-hp"><div id="arena-foe-hp" class="arena-hp-fill"></div><span id="arena-foe-hp-text" class="arena-hp-text"></span></div>
-          <span id="arena-foe-sub" class="arena-sub"></span>
-          <span id="arena-foe-badges" class="arena-badges"></span>
-        </div>
-      </div>
-      <div id="arena-pops" class="arena-pops" aria-hidden="true"></div>
-      <div id="arena-stick" class="arena-stick" aria-hidden="true"><div class="knob"></div></div>
-    </div>
-    <div class="arena-bottom">
-      <div class="arena-cam">
-        <div class="camera-slot"></div>
-        <p id="arena-seeing" class="seeing"></p>
-      </div>
-      <div class="arena-controls">
-        <button id="arena-word" class="arena-word" aria-label="Spell this word for a team combo">
-          <span class="arena-word-label">Spell it for a <b>TEAM COMBO</b></span>
-          <span class="arena-word-letters"></span>
-          <span class="arena-card-hand-box"><img class="arena-word-hand" alt=""></span>
-        </button>
-        <div id="arena-cards" class="arena-cards"></div>
-        <p class="arena-help">Sign a teammate's letter to make them act (or tap). Dodge the striped rings!</p>
-      </div>
-      <button id="arena-dash" class="btn arena-dash">💨 Dash<small>Shift / Space</small></button>
-    </div>
-  </section>
-
   <section id="screen-battle" class="screen" hidden>
     <div class="screen-top">
       <button class="btn small" data-go="map">⬅ Map</button>
@@ -187,6 +144,21 @@
       <img id="arena-bg" class="sprite arena-bg" alt="">
       <canvas id="fx" class="fx-canvas" aria-hidden="true"></canvas>
       <div id="fx-flash" class="fx-flash" aria-hidden="true"></div>
+      <!-- ⚡ Counter-Sign (game.js counterSign) -->
+      <div id="counter" class="counter" role="dialog" aria-labelledby="counter-title" hidden>
+        <p id="counter-title" class="counter-title"></p>
+        <div class="counter-body">
+          <span class="counter-hand-box"><img id="counter-img" class="counter-hand" alt=""></span>
+          <div class="counter-side">
+            <p class="counter-ask">Sign it back, or tap it:</p>
+            <div id="counter-choices" class="counter-choices"></div>
+          </div>
+        </div>
+        <div class="counter-bars">
+          <div class="hold" aria-hidden="true"><div id="counter-hold" class="hold-fill"></div></div>
+          <div id="counter-time" class="counter-time" aria-hidden="true"><div id="counter-time-fill"></div></div>
+        </div>
+      </div>
       <!-- Name / HP panels -->
       <div class="hud hud-you">
         <div id="hud-you-portrait" class="hud-portrait" aria-hidden="true"></div>

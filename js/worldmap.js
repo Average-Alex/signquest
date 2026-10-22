@@ -13,23 +13,23 @@ export const MAP_H = 120;
 // Muted, slightly dusky colors: a world under a hex, not a sunny cartoon.
 // Specks are sparse and close to the ground color, so the land reads calm.
 const GROUND = {
-  meadow: { base: "#7a9c58", dark: "#6c8d4d", specks: ["#869f5f", "#5f7f45"], rate: 0.03 },
-  forest: { base: "#46714a", dark: "#3c6541", specks: ["#33573a", "#507d52"], rate: 0.08 },
-  caves: { base: "#8b8494", dark: "#7c7586", specks: ["#6c6578", "#9a93a2"], rate: 0.06 },
-  river: { base: "#6a9256", dark: "#5e854c", specks: ["#77a062"], rate: 0.025 },
-  castle: { base: "#80975e", dark: "#728852", specks: ["#9a9070"], rate: 0.025 },
-  keep: { base: "#97a872", dark: "#889966", specks: ["#a89d6e"], rate: 0.03 },
-  spires: { base: "#b3c2cf", dark: "#a3b3c2", specks: ["#c6d2dc"], rate: 0.04 },
-  clouds: { base: "#d6d9e3", dark: "#c8ccd8", specks: ["#bfc4d2"], rate: 0.03 },
+  meadow: { base: "#81ba59", dark: "#6fa94b", specks: ["#869f5f", "#5f7f45"], rate: 0.03 },
+  forest: { base: "#4a8d4a", dark: "#3e7e40", specks: ["#33573a", "#507d52"], rate: 0.08 },
+  caves: { base: "#9890a3", dark: "#888194", specks: ["#6c6578", "#9a93a2"], rate: 0.06 },
+  river: { base: "#6bac4f", dark: "#5d9d44", specks: ["#77a062"], rate: 0.025 },
+  castle: { base: "#8aaf5c", dark: "#7a9d4e", specks: ["#9a9070"], rate: 0.025 },
+  keep: { base: "#a9c376", dark: "#98b368", specks: ["#a89d6e"], rate: 0.03 },
+  spires: { base: "#c2d4e2", dark: "#afc5d8", specks: ["#c6d2dc"], rate: 0.04 },
+  clouds: { base: "#e5e8f2", dark: "#d5d9ea", specks: ["#bfc4d2"], rate: 0.03 },
   void: { base: "#352a52", dark: "#2c2346", specks: ["#4e3d74", "#8a6abf"], rate: 0.04 },
 };
 
 // Sea and shore colors for each dimension.
 const PALETTES = [
-  { deep: "#24506e", water: "#2e6385", shallow: "#457d9a", wave: "#7fa6ba", sand: "#c4b488", cliff: "#365a36", islets: 2 },
+  { deep: "#276a9b", water: "#357eb0", shallow: "#52a4c5", wave: "#96c6e0", sand: "#ddca92", cliff: "#3b6c35", islets: 2 },
   { deep: "#120a24", water: "#1c1236", shallow: "#2e2052", wave: "#ffffff", sand: "#b8a8e8", cliff: "#5a3f8a", islets: 5 },
 ];
-const RIVER = "#4d86a8";
+const RIVER = "#4e9fd8";
 
 // Repeatable "random" numbers, so the map looks the same every time.
 export function hash(x, y, seed = 0) {

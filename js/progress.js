@@ -34,7 +34,7 @@ function defaults() {
 
 // Older saves bought pets in the shop. They become creatures on your team.
 // (Declared before load() runs below.)
-const OLD_PETS = { "pet-cat": "cat", "pet-dog": "wolf", "pet-bunny": "bandit", "pet-unicorn": "dragonling", "pet-dragon": "drake" };
+const OLD_PETS = { "pet-cat": "cat", "pet-dog": "thistlefox", "pet-bunny": "sproutling", "pet-unicorn": "drakeling", "pet-dragon": "drake" };
 
 let state = load();
 

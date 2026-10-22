@@ -136,7 +136,8 @@ export function effectiveness(attack, defend) {
 }
 
 // ---------- Creatures ----------
-// Every creature in the game, in creature-book order. Wild ones roam their
+// Every creature in the game, in creature-book order. They're all critters
+// born from their zone's element, drawn from shared parts (critters.js). Wild ones roam their
 // zone's biome, put under a hex by Malgrath (see story.js). Each zone's boss
 // waits by its landmark, guarding a Beacon Shard. A few can only be bought in
 // the Shop. Breaking a creature's hex the first time makes it join your team.
@@ -158,43 +159,51 @@ const heal = (name, icon) => m(name, icon, "heal", 4);
 const stun = (name, icon, cost = 4) => m(name, icon, "stun", cost);
 export const CREATURES = [
   { id: "pip", name: "Pip", zone: null, kind: "starter", element: "light", moves: [quick("Ember Nip", "🔥"), stun("Lantern Flash", "🏮", 3), big("Beacon Beam", "🌟")] },
-  { id: "slime", name: "Slime", zone: "meadow", kind: "wild", element: "water", moves: [quick("Bounce", "🟢"), shield("Goo Wall", "🫧"), big("Slime Wave", "🌊")] },
-  { id: "bandit", name: "Bandit", zone: "meadow", kind: "wild", element: "rock", moves: [quick("Dagger Jab", "💥"), stun("Smoke Bomb", "🌫️", 3), big("Ambush", "💨")] },
-  { id: "wolf", name: "Wolf", zone: "meadow", kind: "wild", element: "nature", moves: [quick("Bite", "🐾"), stun("Howl", "📢", 3), big("Pounce", "🦶")] },
+  { id: "puddlepup", name: "Puddlepup", zone: "meadow", kind: "wild", element: "water", moves: [quick("Splash", "💦"), shield("Bubble Wall", "🫧"), big("Puddle Wave", "🌊")] },
+  { id: "sproutling", name: "Sproutling", zone: "meadow", kind: "wild", element: "nature", moves: [quick("Leaf Toss", "🍄"), heal("Sunshine", "💚"), big("Seed Storm", "🌧️")] },
+  { id: "thistlefox", name: "Thistlefox", zone: "meadow", kind: "wild", element: "nature", moves: [quick("Bite", "🐾"), stun("Prickle", "💤", 3), big("Thistle Pounce", "🦶")] },
+  { id: "petalpuff", name: "Petalpuff", zone: "meadow", kind: "wild", element: "nature", moves: [quick("Petal Toss", "🍄"), heal("Pollen Puff", "💚"), big("Blossom Storm", "🌧️")] },
   { id: "frog", name: "Croak King", zone: "meadow", kind: "boss", element: "water", moves: [quick("Splash", "💦"), stun("Croak Shout", "📢"), big("Tongue Lash", "👅", 5)] },
-  { id: "goblin", name: "Goblin", zone: "forest", kind: "wild", element: "nature", moves: [quick("Club Bonk", "💥"), shield("Leaf Cloak", "🛡️"), big("Goblin Rush", "💨")] },
-  { id: "hobgoblin", name: "Hobgoblin", zone: "forest", kind: "wild", element: "fire", moves: [quick("Spear Jab", "🔥"), shield("Shield Wall", "🛡️"), big("War Cry", "📢", 4)] },
-  { id: "spider", name: "Giant Spider", zone: "forest", kind: "wild", element: "dark", moves: [quick("Bite", "🐾"), stun("Web Shot", "🌀"), big("Venom Fang", "🟣")] },
+  { id: "mossling", name: "Mossling", zone: "forest", kind: "wild", element: "nature", moves: [quick("Moss Bonk", "🍄"), shield("Bark Skin", "🛡️"), big("Overgrow", "🌧️")] },
+  { id: "barkbeetle", name: "Barkbeetle", zone: "forest", kind: "wild", element: "rock", moves: [quick("Horn Poke", "🪨"), shield("Shell Up", "🛡️"), big("Log Roll", "💥")] },
+  { id: "vinesnap", name: "Vinesnap", zone: "forest", kind: "wild", element: "nature", moves: [quick("Thorn Bite", "🐾"), stun("Vine Snare", "🌀"), big("Thicket Pounce", "🦶")] },
+  { id: "brambling", name: "Brambling", zone: "forest", kind: "wild", element: "nature", moves: [quick("Thorn Jab", "🌿"), shield("Bramble Wall", "🛡️"), big("Briar Burst", "💥")] },
+  { id: "snapvine", name: "Snapvine", zone: "forest", kind: "wild", element: "nature", moves: [quick("Vine Whip", "🌿"), stun("Tangle", "🌀"), big("Overgrowth", "🌧️")] },
   { id: "owl", name: "Professor Hoot", zone: "forest", kind: "boss", element: "lightning", moves: [quick("Peck", "🪶"), heal("Wise Glow", "💚"), big("Hoot Blast", "🦉", 5)] },
-  { id: "skeleton", name: "Skeleton", zone: "caves", kind: "wild", element: "dark", moves: [quick("Bone Toss", "💥"), shield("Bone Wall", "🛡️"), big("Rattle Storm", "🌀")] },
-  { id: "golem", name: "Stone Golem", zone: "caves", kind: "wild", element: "rock", moves: [quick("Pebble Toss", "🪨"), shield("Stone Skin", "🛡️"), big("Rock Slam", "💥")] },
-  { id: "darkwisp", name: "Dark Wisp", zone: "caves", kind: "wild", element: "dark", moves: [quick("Shadow Tap", "🌑"), stun("Flicker", "✨"), big("Dark Flame", "🌙")] },
+  { id: "pebblit", name: "Pebblit", zone: "caves", kind: "wild", element: "rock", moves: [quick("Pebble Toss", "🪨"), shield("Stone Skin", "🛡️"), big("Rock Slide", "💥")] },
+  { id: "gemmole", name: "Gemmole", zone: "caves", kind: "wild", element: "rock", moves: [quick("Dig", "🐾"), stun("Gem Flash", "💎"), big("Crystal Crash", "💥")] },
+  { id: "glowbat", name: "Glowbat", zone: "caves", kind: "wild", element: "dark", moves: [quick("Wing Flap", "🦇"), stun("Echo Screech", "🔊"), big("Night Dive", "🌙")] },
+  { id: "geodite", name: "Geodite", zone: "caves", kind: "wild", element: "rock", moves: [quick("Gem Punch", "💎"), shield("Crystal Skin", "🛡️"), big("Geode Smash", "💥")] },
   { id: "bat", name: "Count Flap", zone: "caves", kind: "boss", element: "dark", moves: [quick("Wing Flap", "🦇"), stun("Echo Screech", "🔊"), big("Night Dive", "🌙", 5)] },
-  { id: "lizardman", name: "Lizardman", zone: "river", kind: "wild", element: "water", moves: [quick("Tail Whip", "💦"), shield("Scale Guard", "🛡️"), big("Spear Dive", "🌊")] },
-  { id: "crab", name: "Giant Crab", zone: "river", kind: "wild", element: "rock", moves: [quick("Pinch", "🦀"), shield("Shell Up", "🛡️"), big("Crab Crush", "💥")] },
-  { id: "basilisk", name: "Basilisk", zone: "river", kind: "wild", element: "nature", moves: [quick("Fang Strike", "🐾"), stun("Stone Gaze", "🪨"), big("Coil Crush", "🌀")] },
+  { id: "bubblet", name: "Bubblet", zone: "river", kind: "wild", element: "water", moves: [quick("Bubble", "🫧"), heal("Splash Heal", "💧"), big("Tidal Leap", "🌊")] },
+  { id: "reedcrab", name: "Reedcrab", zone: "river", kind: "wild", element: "rock", moves: [quick("Pinch", "🦀"), shield("Shell Up", "🛡️"), big("Crab Crush", "💥")] },
+  { id: "tidesprite", name: "Tidesprite", zone: "river", kind: "wild", element: "water", moves: [quick("Water Jet", "💧"), stun("Whirlpool", "🌀"), big("Riptide", "🌊")] },
+  { id: "lilyhop", name: "Lilyhop", zone: "river", kind: "wild", element: "water", moves: [quick("Lily Splash", "💦"), heal("Pond Nap", "💚"), big("Leap Splash", "🌊")] },
   { id: "octopus", name: "Inkzilla", zone: "river", kind: "boss", element: "water", moves: [quick("Tentacle Slap", "🐙"), stun("Ink Cloud", "🌫️"), big("Eight-Arm Spin", "🌀", 5)] },
-  { id: "fireimp", name: "Fire Imp", zone: "castle", kind: "wild", element: "fire", moves: [quick("Fire Flick", "🔥"), stun("Smoke Puff", "🌫️"), big("Flame Burst", "🔥", 5)] },
-  { id: "wraith", name: "Wraith", zone: "castle", kind: "wild", element: "dark", moves: [quick("Chill Touch", "👻"), shield("Fade", "🌫️"), big("Haunt", "🌙")] },
-  { id: "mimic", name: "Mimic", zone: "castle", kind: "wild", element: "rock", moves: [quick("Chomp", "👅"), shield("Lid Slam", "🛡️"), big("Gold Rain", "💎")] },
-  { id: "dragonling", name: "Dragonling", zone: "castle", kind: "wild", element: "fire", moves: [quick("Claw", "🐾"), shield("Wing Guard", "🛡️"), big("Flame Breath", "🔥", 5)] },
+  { id: "cinderling", name: "Cinderling", zone: "castle", kind: "wild", element: "fire", moves: [quick("Fire Flick", "🔥"), stun("Smoke Puff", "🌫️"), big("Flame Burst", "🔥", 5)] },
+  { id: "torchbug", name: "Torchbug", zone: "castle", kind: "wild", element: "fire", moves: [quick("Glow Zap", "🔥"), heal("Warm Glow", "💚"), big("Torch Swarm", "🔥")] },
+  { id: "kilnlizard", name: "Kiln Lizard", zone: "castle", kind: "wild", element: "fire", moves: [quick("Tail Whip", "🐾"), shield("Hot Scales", "🛡️"), big("Kiln Blast", "🔥", 5)] },
+  { id: "drakeling", name: "Drakeling", zone: "castle", kind: "wild", element: "fire", moves: [quick("Claw", "🐾"), shield("Wing Guard", "🛡️"), big("Flame Breath", "🔥", 5)] },
   { id: "dragon", name: "Blaze", zone: "castle", kind: "boss", element: "fire", moves: [quick("Claw", "🐾"), stun("Smoke Screen", "🌫️"), big("Fire Breath", "🔥", 5)] },
-  { id: "frostling", name: "Frostling", zone: "spires", kind: "wild", element: "ice", moves: [quick("Snowball", "❄️"), shield("Frost Armor", "🛡️"), big("Avalanche", "🏔️")] },
-  { id: "shardgolem", name: "Crystal Golem", zone: "spires", kind: "wild", element: "rock", moves: [quick("Shard Toss", "💎"), shield("Crystal Wall", "🛡️"), big("Crystal Crash", "💥")] },
+  { id: "frostfox", name: "Frostfox", zone: "spires", kind: "wild", element: "ice", moves: [quick("Snowball", "❄️"), shield("Frost Fur", "🛡️"), big("Avalanche", "🏔️")] },
+  { id: "prismit", name: "Prismit", zone: "spires", kind: "wild", element: "rock", moves: [quick("Shard Toss", "💎"), stun("Prism Flash", "✨"), big("Crystal Crash", "💥")] },
+  { id: "shiverling", name: "Shiverling", zone: "spires", kind: "wild", element: "ice", moves: [quick("Ice Chip", "❄️"), stun("Chill", "🥶"), big("Frost Burst", "🌨️")] },
   { id: "icewyrm", name: "Glacier Wyrm", zone: "spires", kind: "boss", element: "ice", moves: [quick("Ice Fang", "🧊"), stun("Deep Freeze", "🥶"), big("Blizzard", "🌨️", 5)] },
-  { id: "harpy", name: "Harpy", zone: "clouds", kind: "wild", element: "lightning", moves: [quick("Talon Swipe", "🪶"), stun("Shriek", "🔊"), big("Gale Dive", "🌬️")] },
-  { id: "thunderhawk", name: "Thunder Hawk", zone: "clouds", kind: "wild", element: "lightning", moves: [quick("Peck", "🪶"), shield("Static Shield", "🛡️"), big("Thunder Dive", "⚡", 5)] },
+  { id: "puffwing", name: "Puffwing", zone: "clouds", kind: "wild", element: "lightning", moves: [quick("Gust", "🌬️"), heal("Cloud Nap", "💚"), big("Thunder Puff", "⚡")] },
+  { id: "voltkit", name: "Voltkit", zone: "clouds", kind: "wild", element: "lightning", moves: [quick("Spark Nip", "⚡"), stun("Static", "📢", 3), big("Bolt Dash", "⚡", 5)] },
+  { id: "nimbling", name: "Nimbling", zone: "clouds", kind: "wild", element: "lightning", moves: [quick("Drizzle", "💧"), stun("Thunder Clap", "📢", 3), big("Downpour", "⚡")] },
   { id: "stormowl", name: "Storm Owl", zone: "clouds", kind: "boss", element: "lightning", moves: [quick("Gust", "🌬️"), shield("Static Shield", "🛡️"), big("Thunder Wing", "⚡", 5)] },
-  { id: "shadowbat", name: "Shadow Bat", zone: "void", kind: "wild", element: "dark", moves: [quick("Bite", "🦇"), stun("Night Screech", "🔊"), big("Eclipse", "🌑")] },
-  { id: "voidkraken", name: "Void Kraken", zone: "void", kind: "wild", element: "water", moves: [quick("Grab", "🐙"), stun("Void Grip", "🌀"), big("Abyss Crush", "💥")] },
-  { id: "voidslime", name: "Void Slime", zone: "void", kind: "wild", element: "dark", moves: [quick("Goo Ball", "🟣"), shield("Void Shield", "🛡️"), big("Void Flood", "🌀")] },
-  { id: "shadowknight", name: "Shadow Knight", zone: "void", kind: "wild", element: "dark", moves: [quick("Shadow Slash", "🌑"), shield("Dark Guard", "🛡️"), big("Night Blade", "🌙")] },
   { id: "cat", name: "Whiskers", zone: null, kind: "shop", element: "lightning", price: 60, moves: [quick("Swipe", "🐾"), heal("Catnap", "💚"), big("Pounce Storm", "⚡")] },
   { id: "drake", name: "Drake", zone: null, kind: "shop", element: "fire", price: 150, moves: [quick("Ember", "🔥"), shield("Wing Guard", "🛡️"), big("Inferno", "🔥", 5)] },
+  { id: "shieldbug", name: "Shieldbug", zone: "keep", kind: "wild", element: "rock", moves: [quick("Shell Bash", "🪨"), shield("Royal Guard", "🛡️"), big("Crown Charge", "💥")] },
+  { id: "griffling", name: "Griffling", zone: "keep", kind: "wild", element: "light", moves: [quick("Peck", "🪶"), heal("Royal Song", "💚"), big("Sun Dive", "✨")] },
+  { id: "squirepup", name: "Squirepup", zone: "keep", kind: "wild", element: "rock", moves: [quick("Shield Bash", "🪨"), shield("Guard Up", "🛡️"), big("Royal Charge", "💥")] },
   // Crown Keep. Aurelion is Queen Amara's royal gryphon, hexed to guard her keep.
-  { id: "knightling", name: "Knightling", zone: "keep", kind: "wild", element: "rock", moves: [quick("Sword Poke", "🗡️"), shield("Royal Guard", "🛡️"), big("Valor Charge", "💥")] },
-  { id: "gargoyle", name: "Gargoyle", zone: "keep", kind: "wild", element: "rock", moves: [quick("Stone Claw", "🪨"), shield("Statue Form", "🛡️"), big("Dive Bomb", "💥")] },
   { id: "gryphon", name: "Aurelion", zone: "keep", kind: "boss", element: "lightning", moves: [quick("Talon Swipe", "🦅"), stun("Royal Screech", "📢"), big("Sky Sovereign", "⚡", 5)] },
+  { id: "shadewisp", name: "Shadewisp", zone: "void", kind: "wild", element: "dark", moves: [quick("Shadow Tap", "🌑"), shield("Fade Out", "🛡️"), big("Void Wave", "🌀")] },
+  { id: "duskwing", name: "Duskwing", zone: "void", kind: "wild", element: "dark", moves: [quick("Bite", "🦇"), stun("Night Screech", "🔊"), big("Eclipse", "🌑")] },
+  { id: "gloomfox", name: "Gloomfox", zone: "void", kind: "wild", element: "dark", moves: [quick("Shadow Bite", "🌑"), shield("Gloom Cloak", "🛡️"), big("Night Howl", "🌙")] },
+  { id: "abyssling", name: "Abyssling", zone: "void", kind: "wild", element: "water", moves: [quick("Grab", "🐙"), stun("Void Grip", "🌀"), big("Abyss Crush", "💥")] },
   // The final boss. He can't join your team, and isn't in the creature book.
   { id: "malgrath", name: "Malgrath the Hollow King", zone: "void", kind: "boss", element: "dark", catchable: false, moves: [quick("Hollow Bolt", "🌑"), heal("Dark Mend", "💜"), big("Shatter", "💥", 5)] },
 ];
@@ -228,35 +237,43 @@ export const RARITIES = {
 };
 export const CREATURE_RARITY = {
   pip: "legendary",
-  slime: "common", bandit: "common", wolf: "uncommon",
-  goblin: "common", hobgoblin: "uncommon", spider: "rare",
-  skeleton: "common", golem: "uncommon", darkwisp: "rare",
-  lizardman: "common", crab: "uncommon", basilisk: "rare",
-  fireimp: "common", wraith: "uncommon", mimic: "rare", dragonling: "epic",
-  knightling: "uncommon", gargoyle: "rare",
-  frostling: "uncommon", shardgolem: "rare",
-  harpy: "uncommon", thunderhawk: "rare",
-  voidslime: "rare", shadowknight: "epic", shadowbat: "epic", voidkraken: "legendary",
+  puddlepup: "common", sproutling: "common", thistlefox: "uncommon", petalpuff: "common",
+  mossling: "common", barkbeetle: "uncommon", vinesnap: "rare", brambling: "common", snapvine: "uncommon",
+  pebblit: "common", gemmole: "uncommon", glowbat: "rare", geodite: "uncommon",
+  bubblet: "common", reedcrab: "uncommon", tidesprite: "rare", lilyhop: "common",
+  cinderling: "common", torchbug: "uncommon", kilnlizard: "rare", drakeling: "epic",
+  shieldbug: "uncommon", griffling: "rare", squirepup: "common",
+  frostfox: "uncommon", prismit: "rare", shiverling: "common",
+  puffwing: "uncommon", voltkit: "rare", nimbling: "common",
+  shadewisp: "rare", duskwing: "epic", gloomfox: "epic", abyssling: "legendary",
   cat: "rare", drake: "epic",
 };
-// Creatures from older versions, and who replaced them (progress.js moves
-// saves over, keeping levels).
+// Creatures from older versions, and the critter that replaced each one
+// (progress.js moves saves over, keeping levels).
 export const RENAMED_CREATURES = {
-  bunny: "bandit", shroom: "hobgoblin", pup: "wolf", gloop: "darkwisp", splash: "lizardman",
-  ghost: "wraith", unicorn: "dragonling", crownbug: "gargoyle", puffcap: "harpy", skyhop: "thunderhawk", voidghost: "voidslime",
+  bunny: "sproutling", shroom: "barkbeetle", pup: "thistlefox", gloop: "glowbat", splash: "bubblet",
+  ghost: "torchbug", unicorn: "drakeling", crownbug: "griffling", puffcap: "puffwing", skyhop: "voltkit",
+  voidghost: "shadewisp", slime: "puddlepup", bandit: "sproutling", wolf: "thistlefox", goblin: "mossling",
+  hobgoblin: "barkbeetle", spider: "vinesnap", skeleton: "pebblit", golem: "gemmole", darkwisp: "glowbat",
+  lizardman: "bubblet", crab: "reedcrab", basilisk: "tidesprite", fireimp: "cinderling", wraith: "torchbug",
+  mimic: "kilnlizard", dragonling: "drakeling", knightling: "shieldbug", gargoyle: "griffling",
+  frostling: "frostfox", shardgolem: "prismit", harpy: "puffwing", thunderhawk: "voltkit",
+  voidslime: "shadewisp", shadowbat: "duskwing", shadowknight: "gloomfox", voidkraken: "abyssling",
+  emberfox: "vinesnap",
 };
 export const rarityOf = (c) => RARITIES[c.kind === "boss" ? "boss" : CREATURE_RARITY[c.id] || "common"];
 
 export const EVOLUTIONS = {
-  pip: "Lumos", slime: "King Slime", bandit: "Bandit Chief", wolf: "Dire Wolf", frog: "Croak Emperor",
-  goblin: "Goblin Chief", hobgoblin: "Hobgoblin Warlord", spider: "Broodmother", owl: "Archsage Hoot",
-  skeleton: "Bone Baron", golem: "Boulder Titan", darkwisp: "Shade Lantern", bat: "Duke Flap",
-  lizardman: "Lizard King", crab: "Siege Crab", basilisk: "Elder Basilisk", octopus: "Inkzilla Prime",
-  fireimp: "Fire Fiend", wraith: "Banshee", mimic: "Hoard King", dragonling: "Wyvern", dragon: "Infernus",
-  frostling: "Frostgiant", shardgolem: "Prism Colossus", icewyrm: "Glacier King",
-  harpy: "Storm Harpy", thunderhawk: "Thunderbird", stormowl: "Tempest Owl",
-  voidslime: "Abyss Ooze", shadowbat: "Eclipse Wing", shadowknight: "Night Lord", voidkraken: "Abyss Lord",
-  cat: "Thunderpaws", drake: "Dragonlord", knightling: "Paladin", gargoyle: "Gargoyle Lord", gryphon: "Sky Monarch",
+  pip: "Lumos", puddlepup: "Puddlehound", sproutling: "Bloomling", thistlefox: "Thornfox", frog: "Croak Emperor",
+  mossling: "Mossgiant", barkbeetle: "Oakbeetle", vinesnap: "Thornjaw", brambling: "Briarback", snapvine: "Vinelord", petalpuff: "Bloompuff", geodite: "Geodon", lilyhop: "Lilyleap", squirepup: "Knightpup", shiverling: "Glacieling", nimbling: "Stormling", owl: "Archsage Hoot",
+  pebblit: "Boulderling", gemmole: "Geodemole", glowbat: "Lumibat", bat: "Duke Flap",
+  bubblet: "Bubblord", reedcrab: "Tidecrab", tidesprite: "Tidecaller", octopus: "Inkzilla Prime",
+  cinderling: "Infernling", torchbug: "Beaconbug", kilnlizard: "Forge Lizard", drakeling: "Wyvern", dragon: "Infernus",
+  shieldbug: "Paladin Beetle", griffling: "Gryphling", gryphon: "Sky Monarch",
+  frostfox: "Blizzard Fox", prismit: "Prismight", icewyrm: "Glacier King",
+  puffwing: "Stormwing", voltkit: "Thunderkit", stormowl: "Tempest Owl",
+  shadewisp: "Shade Lantern", duskwing: "Eclipse Wing", gloomfox: "Nightfox", abyssling: "Abyss Lord",
+  cat: "Thunderpaws", drake: "Dragonlord",
 };
 export const isEvolved = (level) => level >= EVOLVE_LEVEL;
 // A buddy's name at a given level.
@@ -300,6 +317,13 @@ export const HERO_CLASSES = {
   monk: { name: "Monk", icon: "🥋", trait: "Focused · Calm", perk: "Start battles with 2 extra energy", look: { outfitStyle: "gi", weapon: "fists" }, energy: 2 },
 };
 export const DEFAULT_CLASS = "mage";
+
+// ⚡ Counter-Sign: when a creature attacks, it sometimes signs a letter at you
+// as it winds up (always for its big moves). Sign it back in time (or tap the
+// right letter) to block the hit; signing it also bounces some damage back.
+export const COUNTER_CHANCE = 0.5;
+export const COUNTER_MS = 4500; // how long you have (Assist mode: no time limit)
+export const COUNTER_REFLECT = 1.2; // bounced back at the creature when you sign it, in letters' worth of damage
 
 // Damage is in HP points. Each letter you sign deals SIGN_DAMAGE (times your
 // move's power). Only one character acts each turn: the one whose move you pick.

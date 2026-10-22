@@ -2,6 +2,7 @@
 
 import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
+import { startPixelEmoji } from "./pixel-emoji.js";
 import * as progress from "./progress.js";
 import { ENOUGH, openCalibration } from "./calibrate.js";
 import { playCutscene } from "./cutscene.js";
@@ -22,6 +23,7 @@ document.addEventListener("click", (e) => {
   if (button) show(button.dataset.go);
 });
 
+startPixelEmoji(); // emoji -> pixel icons, everywhere
 await initClassifier();
 initRecordPage();
 await initMotionTest();

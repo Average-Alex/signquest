@@ -23,6 +23,11 @@
 // three Trials, each a much tougher rematch with the boss (TRIALS). Trial III
 // starts with the boss's helpers already out. Big coin prizes.
 //
+// 🎯 Each zone also has a mission (missions.js): someone at the entrance
+// shows you a problem, and you head down the zone's three branching trails
+// (carved below, each to its own clearing) to fix it and come back. A glowing
+// trail on the ground, with an arrow, leads to whatever's next.
+//
 // Each area also has a villager with a quest (quests.js lists the kinds:
 // learn a sign, chat, spot the sign, chase, collect sign cards, free, find,
 // riddle, deliver, gate guard). A tracker under the map says what to do
@@ -51,6 +56,7 @@ import { playBattleSting, playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
 import { setHtml } from "./pixel-emoji.js";
+import { MISSION_COINS, MISSION_XP, MISSIONS } from "./missions.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -332,6 +338,8 @@ export function resetBiomes() {
   current = null;
 }
 let current = null; // the biome on screen
+// For testing with ?dev: the biome on screen, from the browser console.
+if (new URLSearchParams(location.search).has("dev")) window.signquestDebug = { biome: () => current };
 const keys = new Set();
 let pendingToast = null; // shown when you come back from a battle
 
@@ -383,6 +391,9 @@ function build(z) {
       const [x0, x1] = [pathX(row - 1), pathX(row)].sort((m, n) => m - n);
       carve([row - 3, row + 2], [x0 - 3, x1 + 2]);
     }
+
+  // The main walkway so far (the path, and the castle's halls): mission trails may cross it.
+  const mainTile = Uint8Array.from(kind, (k) => (k === PATH ? 1 : 0));
 
   // Open ground off the path (caverns, islands, the forest's glades): a few
   // patches in each area, just touching the path, on alternating sides.
@@ -496,6 +507,122 @@ function build(z) {
       boulders.push({ id, area: a, tx: bx, ty: row, x: (bx + 2) * T, y: (row + 4) * T, broken: trail.chests.includes(id), letter: zone.letters[(a * 2 + 1) % zone.letters.length] });
       nooks.push({ area: a, x: nx * T + T / 2, y: ny * T + T - 1 });
       break;
+    }
+  }
+
+  // Mission trails (missions.js): three winding trails off the path, each to
+  // its own clearing, lined with scenery. Tried one per area from the
+  // entrance up, on either side, wherever one fits without touching a scene,
+  // a nook, a road, or another trail.
+  const missionSpots = [];
+  const missionTiles = new Uint8Array(TW * TH);
+  const corridor = (cx, cy, r, each) => {
+    for (let ty = Math.floor(cy - r); ty <= Math.ceil(cy + r); ty++)
+      for (let tx = Math.floor(cx - r); tx <= Math.ceil(cx + r); tx++) each(tx, ty, Math.hypot(tx - cx, ty - cy));
+  };
+  // The trail's middle line: out from the path for `len` tiles, a bend up or
+  // down `rise` tiles, then on into the clearing.
+  const trailRoute = (a, row, side, len, rise) => {
+    const sx = pathX(row) + side * 3;
+    const x1 = sx + side * len;
+    const ey = row + rise, ex = x1 + side * 5;
+    if (ey - 4 < areaTop(a) + 3 || ey + 4 > areaTop(a) + SH - 2 || ex - 6 < 1 || ex + 6 > TW - 2) return null;
+    const vdir = Math.sign(rise);
+    const pts = [];
+    const line = (x0, y0, xa, ya) => {
+      const n = Math.ceil(Math.hypot(xa - x0, ya - y0) * 2);
+      for (let i = 0; i <= n; i++) pts.push([x0 + ((xa - x0) * i) / n, y0 + ((ya - y0) * i) / n]);
+    };
+    const bend = (x0, y0, qx, qy, xa, ya) => {
+      for (let i = 0; i <= 8; i++) {
+        const t = i / 8;
+        pts.push([(1 - t) ** 2 * x0 + 2 * (1 - t) * t * qx + t * t * xa, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * qy + t * t * ya]);
+      }
+    };
+    line(sx, row, x1 - side * 2, row);
+    bend(x1 - side * 2, row, x1, row, x1, row + vdir * 2);
+    line(x1, row + vdir * 2, x1, ey - vdir * 2);
+    bend(x1, ey - vdir * 2, x1, ey, x1 + side * 2, ey);
+    line(x1 + side * 2, ey, ex, ey);
+    return { pts, tx: ex, ty: ey };
+  };
+  // Room for it? The trail itself (and its clearing) can't touch a scene, a
+  // nook or its fence, another trail, or a road; the scenery lining it can
+  // share space with other scenery.
+  const trailFits = (route) => {
+    let ok = true;
+    const farPath = (tx, ty) => {
+      const k = kind[at(tx, ty)];
+      return (k === PATH || k === GATE || k === BRIDGE_TILE) && !mainTile[at(tx, ty)] && Math.abs(tx - pathX(ty)) > 5;
+    };
+    const check = (tx, ty, inner) => {
+      if (!ok) return;
+      if (tx < 1 || ty < 0 || tx > TW - 2 || ty >= TH) return (ok = false);
+      const n = at(tx, ty);
+      if (sceneTile[n] || nookTile[n] || missionTiles[n] || farPath(tx, ty) || (inner && fence[n])) ok = false;
+    };
+    for (const [x, y] of route.pts) {
+      if (Math.abs(x - pathX(Math.round(y))) <= 4) continue; // still on the main path
+      corridor(x, y, 3.6, (tx, ty, d) => d <= 3.6 && check(tx, ty, d <= 2));
+    }
+    corridor(route.tx, route.ty, 7, (tx, ty) => {
+      const d = Math.hypot((tx - route.tx) / 4, (ty - route.ty) / 3);
+      if (d < 1.7) check(tx, ty, d < 1.1);
+    });
+    return ok;
+  };
+  const carveTrail = (route) => {
+    const wide = theme.open === "caverns" || theme.beach; // a strip of ground along it, like the main path
+    for (const [x, y] of route.pts) {
+      corridor(x, y, 3.6, (tx, ty, d) => {
+        if (tx < 1 || ty < 0 || tx > TW - 2 || ty >= TH) return;
+        const n = at(tx, ty);
+        if (wide && d <= 3.2) open(tx, ty);
+        if (d <= 1.6 && kind[n] !== GATE) kind[n] = PATH;
+        missionTiles[n] = 1;
+      });
+    }
+    for (const [x, y] of route.pts)
+      corridor(x, y, 3.6, (tx, ty, d) => {
+        if (tx >= 1 && ty >= 0 && tx <= TW - 2 && ty < TH && d > 2.2 && kind[at(tx, ty)] === GROUND && Math.abs(tx - pathX(ty)) > 4) fence[at(tx, ty)] = 1;
+      });
+    // The clearing at the end.
+    corridor(route.tx, route.ty, 7, (tx, ty) => {
+      if (tx < 1 || ty < 0 || tx > TW - 2 || ty >= TH) return;
+      const n = at(tx, ty);
+      const d = Math.hypot((tx - route.tx) / 4, (ty - route.ty) / 3);
+      if (d < 1) {
+        open(tx, ty);
+        if (kind[n] !== PATH) kind[n] = GROUND;
+        nookTile[n] = 1;
+        clear[n] = 1;
+        fence[n] = 0;
+      } else if (d < 1.7 && kind[n] === GROUND && !nookTile[n]) fence[n] = 1;
+      missionTiles[n] = 1;
+    });
+    missionSpots.push({ x: route.tx * T + T / 2, y: route.ty * T + T - 1 });
+  };
+  if (MISSIONS[zone.id]) {
+    // One trail per area from the entrance up, trying every row, a few
+    // lengths, and bends either way - in an order that differs per zone, so
+    // the trails don't all look alike.
+    for (let pass = 0; pass < 2 && missionSpots.length < 3; pass++) {
+      for (let a = 0; a < BIOME_AREAS - 1 && missionSpots.length < 3; a++) {
+        if (pass === 0 && missionSpots.some((sp) => areaOf(sp.y) === a)) continue;
+        const tries = [];
+        for (let off = 5; off <= SH - 4; off++)
+          for (const side of [-1, 1])
+            for (const len of [8, 11, 14, 17])
+              for (const rise of [-7, -6, -5, -4, -3, 3, 4, 5, 6, 7]) tries.push([off, side, len, rise, hash(off * 31 + len, rise * 7 + side, seed + a)]);
+        tries.sort((m, n) => m[4] - n[4]);
+        for (const [off, side, len, rise] of tries) {
+          const route = trailRoute(a, areaTop(a) + off, side, len, rise);
+          if (route && trailFits(route)) {
+            carveTrail(route);
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -638,6 +765,10 @@ function build(z) {
     dust: [], // little puffs from footsteps
     atSign: null,
     trial: trialSpot, // 🏛️ the Trial shrine
+    mission: null, // the zone's mission (missions.js), if there's room for its trails
+    cinematic: false, // the mission's opening is playing
+    camFocus: null, // where the camera looks instead of at you, during the opening
+    guide: null, // the glowing trail to the mission's next goal
   };
 
   // Chests, signposts, and coins go on open ground you can reach once every
@@ -719,6 +850,33 @@ function build(z) {
   for (const t of trainersFor(z)) {
     const p = spot(t.area, 600, true);
     if (p) biome.trainers.push({ ...t, ...p, homeX: p.x, homeY: p.y, beaten: progress.trainerBeaten(t.id) });
+  }
+
+  // 🎯 The zone's mission: whoever asks for help, a few steps from the
+  // entrance, and the goals out in the trail clearings.
+  const missionDef = MISSIONS[zone.id];
+  const needSpots = missionDef ? Math.max(...missionDef.phases.flatMap((ph) => [...(ph.goals || []), ...(ph.extras || [])]).map((g) => g.at)) + 1 : 0;
+  if (missionDef && missionSpots.length >= needSpots) {
+    let giverAt = null;
+    const gy = TH - 7, gx = pathX(gy) + 5;
+    for (let r = 0; r < 10 && !giverAt; r++)
+      for (let dy = -r; dy <= r && !giverAt; dy++)
+        for (let dx = -r; dx <= r && !giverAt; dx++) {
+          const tx = gx + dx, ty = gy + dy, n = at(tx, ty);
+          if (tx > 1 && tx < TW - 2 && ty < TH - 1 && everywhere[n] && kind[n] === GROUND && !blocked[n] && Math.abs(tx - pathX(ty)) >= 4) giverAt = { x: tx * T + T / 2, y: ty * T + T - 1 };
+        }
+    const goals = missionDef.phases.flatMap((ph, phase) =>
+      [...(ph.goals || []), ...(ph.extras || []).map((g) => ({ ...g, extra: true }))].map((g) => ({ ...g, phase, ...missionSpots[g.at], homeX: missionSpots[g.at].x, homeY: missionSpots[g.at].y })),
+    );
+    biome.mission = { def: missionDef, spots: missionSpots, giver: { ...missionDef.giver, ...(giverAt || { x: hero.x + 24, y: hero.y - 16 }) }, goals, fx: null, deadline: 0 };
+    // Something you were carrying against the clock is gone when you come back.
+    const st = progress.missionState(z);
+    for (const g of goals) {
+      if (g.timer && st.done.includes(g.id) && st.phase === g.phase + 1 && st.carry.includes(g.item)) {
+        st.carry.splice(st.carry.indexOf(g.item), 1);
+        progress.updateMission(z, { phase: g.phase, done: st.done.filter((id) => id !== g.id), carry: st.carry });
+      }
+    }
   }
 
   for (const gate of gates) if (!gate.open) for (const i of gate.tiles) blocked[i] = 1;
@@ -1412,6 +1570,13 @@ function checkTouch(biome, now) {
   if (trainer?.beaten) return say(biome, [[trainerSpeaker(trainer), trainer.chat]]);
   if (trainer) return askToBattle(biome, trainer, now);
 
+  // 🎯 The mission: its giver, and its goals out in the clearings.
+  if (biome.mission) {
+    if (near(biome.mission.giver, hero, 12)) return talkToMissionGiver(biome);
+    const goal = missionActive(biome) && missionGoals(biome).find((g) => near(g, hero, 12));
+    if (goal) return touchGoal(biome, goal);
+  }
+
   // 💬 Villagers: walk up to talk.
   const villager = biome.npcs.find((v) => near(v, hero, 12));
   if (villager) return talkTo(biome, villager);
@@ -1834,6 +1999,376 @@ function completeQuest(biome, area) {
   announce(`Side quest complete! You got ${QUEST_COINS} coins and a ${gift.name}.`);
 }
 
+// ---------- 🎯 Missions (missions.js) ----------
+// The opening: the giver explains, then you watch what went wrong - each
+// thing flies or runs off to its clearing with the camera following - then
+// the giver says what to do. After that, the mission's goals show up in the
+// clearings, and a glowing trail leads to whatever's next.
+
+const missionState = (biome) => progress.missionState(biome.z);
+const missionPhase = (biome) => biome.mission?.def.phases[missionState(biome).phase];
+const missionActive = (biome) => Boolean(biome.mission) && missionState(biome).started && !missionState(biome).finished;
+const giverSpeaker = (biome) => ({ name: biome.mission.giver.name, art: () => heroImg(biome.mission.giver.look, biome.mission.giver.hat, "", false) });
+const missionLines = (biome, lines) => lines.map(([who, text]) => [who === "giver" ? giverSpeaker(biome) : who, text.replaceAll("{name}", progress.get().name || "Signkeeper")]);
+
+function startMissionIntro(biome) {
+  if (biome.cinematic) return;
+  biome.cinematic = true;
+  keys.clear();
+  biome.hero.path = [];
+  $("biome-wrap").classList.add("cinematic");
+  biome.camFocus = { x: biome.mission.giver.x, y: biome.mission.giver.y };
+  biome.mission.fx = { k: -1, waitUntil: performance.now() + 900, intro: true };
+}
+
+// Steps through the opening, one frame at a time.
+function runScatter(biome, now) {
+  const m = biome.mission, fx = m.fx;
+  if (!fx || now < fx.waitUntil) return;
+  if (fx.intro) {
+    fx.intro = false;
+    fx.waitUntil = Infinity;
+    say(biome, missionLines(biome, m.def.intro), () => {
+      toast(m.def.scatter.text, 5000);
+      fx.waitUntil = performance.now() + 300;
+    });
+    return;
+  }
+  const tokens = m.def.scatter.emoji;
+  if (fx.token && now < fx.token.start + fx.token.dur) return; // still on its way
+  if (fx.token && !fx.token.landed) {
+    fx.token.landed = true;
+    floatText("💫", fx.token.to);
+    fx.waitUntil = now + 550;
+    return;
+  }
+  fx.k++;
+  if (fx.k < tokens.length && fx.k < m.spots.length) {
+    const from = { x: m.giver.x, y: m.giver.y - 8 }, to = m.spots[fx.k];
+    const run = m.def.scatter.style === "run";
+    const route = run ? findPath(biome, tileOf(from.x), tileOf(from.y + 8) , tileOf(to.x), tileOf(to.y)) : [];
+    const length = run && route.length ? route.length * T : Math.hypot(to.x - from.x, to.y - from.y);
+    fx.token = { emoji: tokens[fx.k], from, to, route, start: now, dur: Math.max(900, Math.min(3200, (length / (run ? 150 : 210)) * 1000)), run, landed: false };
+    return;
+  }
+  // All done: back to you, and what to do about it.
+  fx.token = null;
+  biome.camFocus = null;
+  fx.waitUntil = Infinity;
+  setTimeout(() => say(biome, missionLines(biome, m.def.afterIntro), () => {
+    biome.mission.fx = null;
+    biome.cinematic = false;
+    $("biome-wrap").classList.remove("cinematic");
+    const carry = m.def.start?.carry || [];
+    progress.updateMission(biome.z, { started: true, carry: [...carry] });
+    toast(`🎯 New mission: ${m.def.title}`, 4000);
+    if (m.def.start?.toast) setTimeout(() => toast(m.def.start.toast, 4000), 1500);
+    announce(`New mission: ${m.def.title}. Follow the glowing trail.`);
+  }), 700);
+}
+
+// Where a flying or running thing is during the opening.
+function tokenAt(token, now) {
+  const t = Math.min(1, (now - token.start) / token.dur);
+  if (token.run && token.route.length) {
+    const i = Math.min(token.route.length - 1, Math.floor(t * token.route.length));
+    const hop = Math.abs(Math.sin(t * token.route.length * 0.9)) * 3;
+    return { x: token.route[i].x, y: token.route[i].y - hop };
+  }
+  const ease = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+  const arc = Math.sin(t * Math.PI) * Math.min(60, Math.hypot(token.to.x - token.from.x, token.to.y - token.from.y) * 0.35);
+  return { x: token.from.x + (token.to.x - token.from.x) * ease, y: token.from.y + (token.to.y - token.from.y) * ease - arc };
+}
+
+// The goals you can walk up to right now (the current phase's, not done yet).
+function missionGoals(biome) {
+  const st = missionState(biome);
+  return biome.mission.goals.filter((g) => g.phase === st.phase && !st.done.includes(g.id));
+}
+
+// The next thing to do: the next goal (in order, if the phase has one; else
+// the nearest), or the giver when it's time to go back.
+function missionTarget(biome) {
+  const ph = missionPhase(biome);
+  if (!ph || ph.return) return biome.mission.giver;
+  const goals = missionGoals(biome);
+  if (ph.ordered) return goals.find((g) => !g.extra) || null;
+  const h = biome.hero;
+  return goals.sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0] || biome.mission.giver;
+}
+
+function talkToMissionGiver(biome) {
+  const st = missionState(biome), m = biome.mission;
+  if (!st.started) return startMissionIntro(biome);
+  if (st.finished) return say(biome, [[giverSpeaker(biome), "Thanks again, Signkeeper! I'll never forget it."]]);
+  const ph = missionPhase(biome);
+  if (!ph.return) return say(biome, [[giverSpeaker(biome), m.def.remind]]);
+  // Back with everything: they take what you brought, and the next phase starts (or it's all done).
+  say(biome, missionLines(biome, ph.lines), () => {
+    const next = st.phase + 1;
+    progress.updateMission(biome.z, { phase: next, carry: [], followers: [] });
+    m.deadline = 0;
+    if (next >= m.def.phases.length) return finishMission(biome);
+    toast("🎯 Mission: on to the next part! Follow the glowing trail.", 4000);
+  });
+}
+
+function finishMission(biome) {
+  const m = biome.mission;
+  progress.updateMission(biome.z, { finished: true });
+  progress.addCoins(MISSION_COINS);
+  progress.addTeamXp(MISSION_XP);
+  const gift = CONSUMABLES[Math.floor(Math.random() * CONSUMABLES.length)];
+  progress.addConsumable(gift.id);
+  renderCoins();
+  floatText(`+${MISSION_COINS} 🪙`, m.giver);
+  toast(`🏆 Mission complete: ${m.def.title}! +${MISSION_COINS} 🪙, +${MISSION_XP} team XP, and a ${gift.name}!`, 5500);
+  announce(`Mission complete! You got ${MISSION_COINS} coins, team experience, and a ${gift.name}.`);
+}
+
+// Finish a goal: mark it done, then move on if that was the phase's last one.
+function goalDone(biome, g, changes = {}) {
+  const st = missionState(biome);
+  progress.updateMission(biome.z, { done: [...st.done, g.id], ...changes });
+  const ph = missionPhase(biome);
+  if (ph.goals.every((goal) => missionState(biome).done.includes(goal.id))) {
+    progress.updateMission(biome.z, { phase: st.phase + 1 });
+    if (ph.after) say(biome, missionLines(biome, ph.after));
+  }
+}
+
+const carryName = (biome, item) => biome.mission.goals.find((g) => g.item === item && g.kind !== "deliver")?.name || item;
+
+function touchGoal(biome, g) {
+  const now = performance.now();
+  const st = missionState(biome), ph = missionPhase(biome);
+  const m = biome.mission;
+  // Out of order?
+  if (ph.ordered && !g.extra) {
+    const next = missionGoals(biome).find((goal) => !goal.extra);
+    if (next && next !== g) {
+      bumpBack(biome, now);
+      if (ph.strict) {
+        // Bells: the wrong one undoes the ones you'd rung.
+        progress.updateMission(biome.z, { done: st.done.filter((id) => !ph.goals.some((goal) => goal.id === id)) });
+        $("biome-wrap").classList.remove("hexflash");
+        void $("biome-wrap").offsetWidth;
+        $("biome-wrap").classList.add("hexflash");
+      }
+      return toast(ph.wrongOrder.replace("{next}", next.name), 5000);
+    }
+  }
+  const sign = (title, onDone) => openSignPanel(biome, { title, word: g.letter, onDone });
+  switch (g.kind) {
+    case "rescue":
+      return sign(`${g.emoji} ${g.name} is scared stiff! Sign <b>${g.letter}</b>, gently, to calm it down.`, () => {
+        goalDone(biome, g, { followers: [...missionState(biome).followers, g.follower] });
+        toast(`${g.emoji} ${g.name} calms down, and follows you!`, 3500);
+      });
+    case "fetch":
+    case "drift":
+      return sign(`${g.emoji} You found ${g.name}! Sign <b>${g.letter}</b> to pick it up.`, () => {
+        if (g.timer) m.deadline = performance.now() + g.timer * 1000;
+        goalDone(biome, g, { carry: [...missionState(biome).carry, g.item] });
+        toast(g.timer ? `${g.item} Got it! Hurry back before it melts! ⏱️ ${g.timer}s` : `🎒 You've got ${g.name}!`, 4000);
+      });
+    case "decoy":
+      return sign(`${g.emoji} A bottle, sealed with the letter <b>${g.letter}</b>. Sign it to open it.`, () => {
+        progress.updateMission(biome.z, { done: [...missionState(biome).done, g.id] });
+        say(biome, [["pip", g.note]]);
+      });
+    case "station": {
+      if (g.needs && !st.carry.includes(g.needs)) {
+        bumpBack(biome, now);
+        return toast(`${g.emoji} You'll need ${carryName(biome, g.needs)} first!`, 4000);
+      }
+      return sign(`${g.emoji} Sign <b>${g.letter}</b> to use ${carryName(biome, g.needs)} on ${g.name}.`, () => {
+        const s2 = missionState(biome);
+        const carry = [...s2.carry];
+        if (g.consume) carry.splice(carry.indexOf(g.needs), 1);
+        goalDone(biome, g, { carry, followers: g.follower ? [...s2.followers, g.follower] : s2.followers });
+        toast(g.freed || `${g.doneEmoji || "✨"} ${g.name[0].toUpperCase()}${g.name.slice(1)} is glowing again!`, 4500);
+      });
+    }
+    case "deliver": {
+      if (!st.carry.includes(g.item)) {
+        bumpBack(biome, now);
+        return toast(`${g.item} You don't have anything for ${g.name}.`, 3500);
+      }
+      return sign(`${g.emoji} It's ${g.name}! Sign <b>${g.letter}</b>, their first letter, as you hand over the invitation.`, () => {
+        const carry = [...missionState(biome).carry];
+        carry.splice(carry.indexOf(g.item), 1);
+        goalDone(biome, g, { carry });
+        say(biome, [[{ name: g.name, art: () => `<span class="story-emoji">${g.emoji}</span>` }, g.thanks]]);
+      });
+    }
+    case "bell":
+      return sign(`${g.emoji} ${g.name[0].toUpperCase()}${g.name.slice(1)}! Sign <b>${g.letter}</b> to ring it.`, () => {
+        goalDone(biome, g);
+        floatText("🎶", g);
+        toast(`🔔 DING! ${g.letter}...`, 2500);
+      });
+  }
+}
+
+// Fallen stars drift around their clearings, and away from you.
+const STAR_FLEE = 48, STAR_SPEED = 26, STAR_WANDER = 9, STAR_ROAM = 30;
+function moveMission(biome, dt, now) {
+  if (!missionActive(biome)) return;
+  const h = biome.hero;
+  for (const g of missionGoals(biome)) {
+    if (g.kind !== "drift") continue;
+    const dx = g.x - h.x, dy = g.y - h.y, d = Math.hypot(dx, dy);
+    let vx, vy;
+    if (d < STAR_FLEE) [vx, vy] = [(dx / (d || 1)) * STAR_SPEED, (dy / (d || 1)) * STAR_SPEED];
+    else {
+      if (!g.wanderTo || now > g.wanderUntil) {
+        g.wanderTo = { x: g.homeX + (Math.random() - 0.5) * STAR_ROAM * 1.4, y: g.homeY + (Math.random() - 0.5) * STAR_ROAM };
+        g.wanderUntil = now + 2500;
+      }
+      const wx = g.wanderTo.x - g.x, wy = g.wanderTo.y - g.y, wd = Math.hypot(wx, wy) || 1;
+      [vx, vy] = [(wx / wd) * STAR_WANDER, (wy / wd) * STAR_WANDER];
+    }
+    const nx = g.x + vx * dt, ny = g.y + vy * dt;
+    // It stays in its clearing (so you can corner it), on open ground.
+    if (Math.hypot(nx - g.homeX, (ny - g.homeY) * 1.3) < STAR_ROAM && feetFree(biome, nx, ny)) Object.assign(g, { x: nx, y: ny });
+  }
+}
+
+// Carrying something that melts: when time's up, it's gone, and a fresh one
+// waits where you found it.
+function missionClock(biome, now) {
+  const m = biome.mission;
+  if (!m?.deadline || now < m.deadline) return;
+  m.deadline = 0;
+  const st = missionState(biome);
+  const g = m.goals.find((goal) => goal.timer && st.done.includes(goal.id) && st.phase === goal.phase + 1);
+  if (!g) return;
+  const carry = [...st.carry];
+  if (carry.includes(g.item)) carry.splice(carry.indexOf(g.item), 1);
+  progress.updateMission(biome.z, { phase: g.phase, done: st.done.filter((id) => id !== g.id), carry });
+  toast(`💧 Oh no, it melted! There's another one where you found it. Faster this time!`, 4500);
+}
+
+// The glowing trail: dots along the walk to the next goal, and an arrow by your feet.
+function drawGuide(biome, ctx, now, camX, camY) {
+  if (!missionActive(biome) || biome.cinematic) return;
+  const target = missionTarget(biome);
+  if (!target) return;
+  const h = biome.hero;
+  const key = `${tileOf(h.x)},${tileOf(h.y - 1)}>${tileOf(target.x)},${tileOf(target.y)}`;
+  if (!biome.guide || (biome.guide.key !== key && now - biome.guide.at > 250)) {
+    const tx = Math.max(0, Math.min(TW - 1, tileOf(target.x))), ty = Math.max(0, Math.min(TH - 1, tileOf(target.y)));
+    const goal = biome.blocked[ty * TW + tx] ? nearestReachable(biome, tx, ty) || [tx, ty] : [tx, ty];
+    biome.guide = { key, at: now, route: findPath(biome, tileOf(h.x), tileOf(h.y - 1), goal[0], goal[1]) };
+  }
+  const route = biome.guide.route;
+  if (route.length < 3) return;
+  // Dots that ripple along toward the goal, fading out further ahead.
+  const ripple = (now / 140) % 3;
+  for (let i = 2; i < Math.min(route.length, 46); i += 3) {
+    const p = route[i];
+    const fade = 1 - i / 46;
+    const pulse = Math.abs(((i / 3) % 3) - ripple) < 0.6 ? 1.35 : 1;
+    const glow = ctx.createRadialGradient(p.x - camX, p.y - 3 - camY, 0, p.x - camX, p.y - 3 - camY, 6 * pulse);
+    glow.addColorStop(0, `rgba(255, 236, 140, ${0.55 * fade})`);
+    glow.addColorStop(1, "rgba(255, 236, 140, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(p.x - camX - 7, p.y - 10 - camY, 14, 14);
+    ctx.fillStyle = `rgba(43, 29, 46, ${0.7 * fade})`;
+    ctx.beginPath();
+    ctx.arc(p.x - camX, p.y - 3 - camY, 2.9 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255, 210, 63, ${fade})`;
+    ctx.beginPath();
+    ctx.arc(p.x - camX, p.y - 3 - camY, 2.1 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // The arrow: just ahead of your feet, pointing along the trail.
+  const ahead = route[Math.min(4, route.length - 1)];
+  const angle = Math.atan2(ahead.y - h.y, ahead.x - h.x);
+  const bob = Math.sin(now / 180) * 2;
+  const ax = h.x - camX + Math.cos(angle) * (13 + bob), ay = h.y - 4 - camY + Math.sin(angle) * (9 + bob);
+  ctx.save();
+  ctx.translate(ax, ay);
+  ctx.rotate(angle);
+  ctx.fillStyle = "#2b1d2e";
+  ctx.beginPath();
+  ctx.moveTo(7, 0);
+  ctx.lineTo(-4, -5.5);
+  ctx.lineTo(-1.5, 0);
+  ctx.lineTo(-4, 5.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffd23f";
+  ctx.beginPath();
+  ctx.moveTo(5.2, 0);
+  ctx.lineTo(-2.8, -3.8);
+  ctx.lineTo(-0.8, 0);
+  ctx.lineTo(-2.8, 3.8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// HTML markers: the giver, the goals, whatever's following you, what you're
+// carrying, and the opening's flying things.
+function missionMarkers(biome, now) {
+  const m = biome.mission;
+  if (!m) return [];
+  const st = missionState(biome), h = biome.hero;
+  const out = [];
+  const ph = missionPhase(biome);
+  const icon = !st.started ? "❗" : st.finished ? "💬" : ph?.return ? "❓" : "🎯";
+  out.push({ x: m.giver.x, y: m.giver.y - 31, html: `<span class="npc-icon">${icon}</span><small>${m.giver.name}</small>`, cls: " npc mission-giver" });
+  if (m.fx?.token) {
+    const p = tokenAt(m.fx.token, now);
+    if (!m.fx.token.landed) biome.camFocus = p;
+    out.push({ x: p.x, y: p.y, html: m.fx.token.emoji, cls: " item mission-fx" });
+  }
+  if (!st.started) return out;
+  const next = missionTarget(biome);
+  for (const g of m.goals) {
+    const done = st.done.includes(g.id);
+    if (done) {
+      if (g.doneEmoji) out.push({ x: g.homeX, y: g.homeY - 4, html: g.doneEmoji, cls: " item mission-done" });
+      continue;
+    }
+    if (g.phase < st.phase || st.finished) continue;
+    const now_ = g.phase === st.phase;
+    // Later phases' goals show faintly, so you can see what's coming (a dark lantern...).
+    const cls = now_ ? (g === next ? " item mission-goal next" : " item mission-goal") : " item mission-goal later";
+    out.push({ x: g.x, y: g.y - 4, html: `${g.emoji}<small>${now_ ? g.letter : "…"}</small>`, cls });
+  }
+  // Followers trot along behind you (after your buddies).
+  const team = progress.team().length;
+  st.followers.forEach((f, n) => {
+    const back = h.trail.length - 1 - (team + n + 1) * 8;
+    const spot = h.trail[Math.max(0, back)] || { x: h.x - 12 * (team + n + 1), y: h.y };
+    const hop = h.moving ? Math.abs(Math.sin(now / 110 + n)) * 2 : 0;
+    out.push({ x: spot.x, y: spot.y - hop, html: f, cls: " item mission-follower" });
+  });
+  // What you're carrying floats above your head (with the clock, if it melts).
+  if (st.carry.length) {
+    const left = m.deadline ? Math.max(0, Math.ceil((m.deadline - now) / 1000)) : null;
+    out.push({ x: h.x, y: h.y - 40, html: `${st.carry.join("")}${left !== null ? `<small class="${left <= 10 ? "hurry" : ""}">⏱️ ${left}s</small>` : ""}`, cls: " item mission-carry" });
+  }
+  return out;
+}
+
+// The mission's chip in the status bar.
+function missionChip(biome) {
+  const m = biome.mission;
+  if (!m) return "";
+  const st = missionState(biome);
+  if (!st.started) return `<span class="goal mission">🎯 Talk to ${m.giver.name}</span>`;
+  if (st.finished) return `<span class="goal mission done">🏆 ${m.def.title}</span>`;
+  const ph = missionPhase(biome);
+  if (ph.return) return `<span class="goal mission">🎯 ${m.def.title}: go back to ${m.giver.name}</span>`;
+  const done = ph.goals.filter((g) => st.done.includes(g.id)).length;
+  return `<span class="goal mission">🎯 ${m.def.title}: ${done} / ${ph.goals.length}</span>`;
+}
+
 // ---------- Story events ----------
 // The first time you walk into an area, its event (quests.js) plays:
 // Malgrath appears and sends a hexed creature at you, Rook challenges you, or
@@ -1888,6 +2423,7 @@ function runEvent(biome, ev) {
 // The compass points to the nearest thing one of your accepted side quests
 // needs. No accepted quests: no compass - go wherever you like.
 function questTarget(biome) {
+  if (missionActive(biome)) return missionTarget(biome);
   const h = biome.hero;
   const dist = (t) => Math.hypot(t.x - h.x, t.y - h.y);
   const goals = [];
@@ -2134,6 +2670,9 @@ function draw(biome, now) {
     const lift = stepLift(frame);
     things.push({ y: f.y, img: spriteCanvas(heroSrc(f.look, f.hat, frame, false)), x: f.x, flip: f.moving ? f.flip : hero.x < f.x, lift, tilt: lean(f.moving, !f.flip), shadow: true });
   }
+  // The mission's giver faces you too.
+  const mission = biome.mission;
+  if (mission) things.push({ y: mission.giver.y, img: spriteCanvas(heroSrc(mission.giver.look, mission.giver.hat, 0, false)), x: mission.giver.x, flip: hero.x < mission.giver.x, shadow: true });
   // Villagers face you.
   for (const v of biome.npcs) {
     things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, Boolean(v.wand))), x: v.x, flip: hero.x < v.x, shadow: true });
@@ -2163,6 +2702,8 @@ function draw(biome, now) {
     ctx.ellipse(p.x - camX + (hero.flip ? age * 3 : -age * 3), p.y - 1 - camY - age * 2, 1.5 + age * 2, 1 + age, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  drawGuide(biome, ctx, now, camX, camY);
 
   things.sort((a, b) => a.y - b.y);
   for (const t of things) {
@@ -2246,6 +2787,7 @@ function draw(biome, now) {
     trialMarker(biome),
     // Townsfolk: their names.
     ...biome.folk.map((f) => ({ x: f.x, y: f.y - 31, html: `<small>${f.name}</small>`, cls: " npc folk" })),
+    ...missionMarkers(biome, now),
   ];
   const labels = $("biome-labels");
   if (labels.children.length !== markers.length) labels.innerHTML = markers.map(() => `<span class="biome-label"></span>`).join("");
@@ -2305,7 +2847,7 @@ function renderHud(biome) {
   const opened = biome.chests.filter((c) => c.open).length;
   const beaten = biome.trainers.filter((t) => t.beaten).length;
   const secrets = biome.secrets.filter((sc) => sc.found).length;
-  const html = `<span class="goal">📍 Area ${here + 1} of ${BIOME_AREAS}</span><span class="goal">${doing}</span><span class="goal">❗ Side quests ${questsDone} / ${quests.length}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">✨ Secrets ${secrets} / ${biome.secrets.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
+  const html = `${missionChip(biome)}<span class="goal">📍 Area ${here + 1} of ${BIOME_AREAS}</span><span class="goal">${doing}</span><span class="goal">❗ Side quests ${questsDone} / ${quests.length}</span><span class="goal">🔐 Chests ${opened} / ${biome.chests.length}</span><span class="goal">✨ Secrets ${secrets} / ${biome.secrets.length}</span><span class="goal">⚔️ Trainers ${beaten} / ${biome.trainers.length}</span>`;
   setHtml($("biome-goals"), html);
 }
 
@@ -2326,10 +2868,13 @@ function floatText(text, at) {
 
 // ---------- Loop, screen, and input ----------
 
-const cameraTarget = (biome) => ({
-  x: Math.max(0, Math.min(W - VIEW_W, biome.hero.x - VIEW_W / 2)),
-  y: Math.max(0, Math.min(H - VIEW_H, biome.hero.y - VIEW_H * 0.6)),
-});
+const cameraTarget = (biome) => {
+  const look = biome.camFocus || biome.hero; // the mission's opening points the camera elsewhere
+  return {
+    x: Math.max(0, Math.min(W - VIEW_W, look.x - VIEW_W / 2)),
+    y: Math.max(0, Math.min(H - VIEW_H, look.y - VIEW_H * 0.6)),
+  };
+};
 
 function frame(now) {
   if (!current || !isShowing("biome")) return;
@@ -2337,8 +2882,10 @@ function frame(now) {
   const biome = current;
   const dt = Math.min(0.05, (now - (biome.last || now)) / 1000);
   biome.last = now;
-  const talking = isStoryPlaying();
-  if (biome.chest) {
+  const talking = isStoryPlaying() || biome.cinematic;
+  if (biome.cinematic) {
+    if (!isStoryPlaying()) runScatter(biome, now);
+  } else if (biome.chest) {
     signTick(biome, now);
   } else if (biome.spotted) {
     if (!talking) runSpot(biome, now, dt);
@@ -2347,10 +2894,12 @@ function frame(now) {
     moveCreatures(biome, dt, now);
     moveRunners(biome, dt);
     moveFolk(biome, dt, now);
+    moveMission(biome, dt, now);
   }
   const target = cameraTarget(biome);
-  biome.camX += (target.x - biome.camX) * Math.min(1, dt * 6);
-  biome.camY += (target.y - biome.camY) * Math.min(1, dt * 6);
+  const follow = biome.cinematic ? 3.5 : 6; // a slower, smoother pan during the opening
+  biome.camX += (target.x - biome.camX) * Math.min(1, dt * follow);
+  biome.camY += (target.y - biome.camY) * Math.min(1, dt * follow);
 
   if (now > biome.nextSpawn) {
     for (let a = 0; a < BIOME_AREAS; a++) {
@@ -2364,7 +2913,8 @@ function frame(now) {
   biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
   if (!biome.chest && !biome.spotted && !talking && current === biome) checkEvents(biome);
-  if (!biome.chest && !biome.spotted && !biome.asking && !biome.spotOpen && !isStoryPlaying() && current === biome) checkTouch(biome, now);
+  if (!biome.chest && !talking && current === biome) missionClock(biome, now);
+  if (!biome.chest && !biome.spotted && !biome.asking && !biome.spotOpen && !biome.cinematic && !isStoryPlaying() && current === biome) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);
 }
 
@@ -2415,7 +2965,7 @@ export function enterBiome(z, from = null) {
       const { lines, after } = pendingLines;
       pendingLines = null;
       say(biome, lines, after);
-    }
+    } else if (biome.mission && !progress.missionState(biome.z).started) startMissionIntro(biome);
     requestAnimationFrame(frame);
   }));
 }

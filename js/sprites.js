@@ -1977,7 +1977,7 @@ const canvases = new Map(); // data URL -> canvas, for drawing sprites onto othe
 // classic pixel-art upscaler from old game emulators. It rounds off the
 // stair-steps on curves and diagonals but keeps hard pixel edges, so things
 // still look retro, just with finer detail. Each pass doubles the size.
-const SMOOTHING_PASSES = 1; // 0: chunky pixels, like old games; 1: rounder edges
+const SMOOTHING_PASSES = 0; // 0: chunky pixels, like old games; 1: rounder edges
 export const SPRITE_SCALE = 2 ** SMOOTHING_PASSES;
 
 function scale2x(src) {
@@ -2380,8 +2380,9 @@ export const WALK_FRAMES = 4;
 
 function liftFoot(ctx, w, h, frame) {
   if (frame % 2 === 0) return;
-  // Bigger sprites lift their foot 2 pixels, so the step shows at game size.
-  for (let i = 0; i < (h >= 24 ? 2 : 1); i++) liftFootOnce(ctx, w, h, frame);
+  // Lift the foot high, so every step reads clearly: 3 pixels on bigger
+  // sprites, 2 on small ones.
+  for (let i = 0; i < (h >= 24 ? 3 : 2); i++) liftFootOnce(ctx, w, h, frame);
 }
 
 function liftFootOnce(ctx, w, h, frame) {

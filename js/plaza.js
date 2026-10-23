@@ -11,7 +11,7 @@
 // Stand on a glowing pad to join a queue - ⚔️ 1v1 Ranked or 🎉 Party Battle -
 // and step off it to leave.
 
-import { decorSrc, heroSrc, spriteCanvas } from "./sprites.js";
+import { decorSrc, heroSrc, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 
 export const PLAZA_W = 400;
 export const PLAZA_H = 240;
@@ -262,13 +262,15 @@ export function createPlaza(canvas, { onNear, onPad }) {
       const moving = Math.hypot(o.tx - o.x, o.ty - o.y) > 0.6;
       if (moving) o.flip = o.tx < o.x;
       const f = walk(moving, 120, o.x);
-      things.push({ y: o.y, x: o.x, img: spriteCanvas(heroSrc(o.look, null, f, false)), flip: o.flip, person: o, lift: f % 2 });
+      things.push({ y: o.y, x: o.x, img: spriteCanvas(heroSrc(o.look, null, f, false)), flip: o.flip, person: o, lift: f % 2 ? 2 : 0 });
     }
     const f = walk(me.moving, 110);
-    things.push({ y: me.y, x: me.x, img: spriteCanvas(heroSrc(look, hat, f)), flip: me.flip, person: { name: "You", me: true }, lift: f % 2 });
+    things.push({ y: me.y, x: me.x, img: spriteCanvas(heroSrc(look, hat, f)), flip: me.flip, person: { name: "You", me: true }, lift: f % 2 ? 2 : 0 });
     things.sort((a, b) => a.y - b.y);
     for (const t of things) {
-      const w = t.img.width * (t.scale || 1), h = t.img.height * (t.scale || 1); // sprites here are 1 game pixel per pixel
+      // Sprites here are drawn at 2 plaza pixels per sprite pixel (whatever SPRITE_SCALE is).
+      const k = 2 / SPRITE_SCALE;
+      const w = t.img.width * k * (t.scale || 1), h = t.img.height * k * (t.scale || 1);
       if (t.person) {
         ctx.fillStyle = "rgba(0,0,0,0.22)";
         ctx.beginPath();

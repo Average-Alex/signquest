@@ -23,7 +23,7 @@
   --hp: #e8413b;
   --radius: 10px;
   --outline: 3px solid var(--ink);
-  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  font-family: "Pixelify Sans", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
 }
 
@@ -1184,3 +1184,27 @@ input[type=text], select {
 /* A trainer asking for a battle. */
 .biome-ask { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; width: min(420px, 92%); padding: 14px; text-align: center; }
 .biome-ask p { margin: 0 0 10px; font-weight: 700; }
+
+
+/* ---------- Retro look ----------
+   Square corners, hard pixel shadows, and pixel fonts everywhere, like an
+   old handheld game. (Round things like portraits and dots stay round.) */
+:root { --radius: 0px; --title-font: "Press Start 2P", "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif; }
+*, *::before, *::after { border-radius: 0 !important; }
+.hud-portrait, .story-portrait, .move-tab.has-pick::after, .tab-face, .biome-compass,
+.foe-team .ball, .evolve-stage, .cine-dots span, .rp-frame, .fighter::after { border-radius: 50% !important; }
+button, input, select, textarea { font-family: inherit; }
+h1, h2 { font-family: var(--title-font); font-weight: 400; letter-spacing: 0.02em; line-height: 1.35; }
+/* Press Start 2P is wide: make titles a bit smaller so they still fit. */
+h1 { font-size: clamp(22px, 5vw, 44px); }
+h2 { font-size: clamp(14px, 2.6vw, 22px); }
+/* Map, plaza, and battle effects scale up as crisp pixels. */
+.biome-canvas, .world-bg, .arena-bg { image-rendering: pixelated; image-rendering: crisp-edges; }
+/* Bigger, snappier bobbing for everyone standing on the battle field. */
+@keyframes bob { 50% { transform: translateY(-8px); } }
+.hero-sprite .hero { animation-duration: 0.8s; }
+.buddy-slot .buddy { animation-duration: 0.8s; }
+.monster { animation-duration: 1s; }
+@media (prefers-reduced-motion: reduce) { .hero-sprite .hero, .buddy-slot .buddy, .monster { animation: none; } }
+/* The big title: Press Start 2P is very wide, so keep it on one line. */
+.logo { font-size: clamp(20px, 5.2vw, 46px); white-space: nowrap; }

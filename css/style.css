@@ -23,7 +23,9 @@
   --hp: #e8413b;
   --radius: 10px;
   --outline: 3px solid var(--ink);
-  font-family: "Pixelify Sans", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  font-family: "Jersey 10", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  /* Jersey 10 is small for its size: scale it up to match the old font. */
+  font-size-adjust: 0.56;
   color: var(--ink);
 }
 
@@ -1189,7 +1191,7 @@ input[type=text], select {
 /* ---------- Retro look ----------
    Square corners, hard pixel shadows, and pixel fonts everywhere, like an
    old handheld game. (Round things like portraits and dots stay round.) */
-:root { --radius: 0px; --title-font: "Press Start 2P", "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif; }
+:root { --radius: 0px; --title-font: "Press Start 2P", "Jersey 10", "Trebuchet MS", system-ui, sans-serif; }
 *, *::before, *::after { border-radius: 0 !important; }
 .hud-portrait, .story-portrait, .move-tab.has-pick::after, .tab-face, .biome-compass,
 .foe-team .ball, .evolve-stage, .cine-dots span, .rp-frame, .fighter::after { border-radius: 50% !important; }
@@ -1208,3 +1210,25 @@ h2 { font-size: clamp(14px, 2.6vw, 22px); }
 @media (prefers-reduced-motion: reduce) { .hero-sprite .hero, .buddy-slot .buddy, .monster { animation: none; } }
 /* The big title: Press Start 2P is very wide, so keep it on one line. */
 .logo { font-size: clamp(20px, 5.2vw, 46px); white-space: nowrap; }
+
+
+/* ---------- Arena game modes ---------- */
+.mode-picker { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-top: 10px; }
+.mode-btn { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border: 3px solid var(--ink); background: #fffaf0; cursor: pointer; box-shadow: 0 3px 0 var(--ink); font: inherit; color: var(--ink); }
+.mode-btn.on { background: var(--gold); transform: translateY(-2px); }
+.mode-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.mode-name { font-weight: 700; }
+.mode-blurb { font-size: 12px; opacity: 0.8; }
+.mode-tag { display: inline-block; padding: 0 6px; border: 2px solid var(--ink); background: #fffaf0; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.pvp-clue { margin: 4px 0 8px; padding: 8px 12px; font-size: 18px; font-weight: 700; background: #fff6c8; border: 3px solid var(--ink); color: var(--ink); max-width: 420px; text-align: center; }
+.pvp-energy { margin: 6px 0 4px; font-weight: 700; color: var(--ink); }
+.pvp-energy small { font-weight: 400; opacity: 0.75; }
+.pvp-moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 6px; width: 100%; max-width: 640px; }
+.pvp-move { display: grid; gap: 2px; padding: 6px 8px; text-align: left; border: 3px solid var(--ink); background: #fffaf0; color: var(--ink); cursor: pointer; font: inherit; box-shadow: 0 3px 0 var(--ink); }
+.pvp-move small { font-size: 11px; opacity: 0.8; }
+.pvp-move.picked { background: var(--gold); transform: translateY(-2px); }
+.pvp-move:disabled { opacity: 0.5; cursor: not-allowed; }
+.pvp-buddy .sprite { width: 44px; }
+.pvp-fighter { position: relative; }
+.pvp-buddy { position: absolute; right: -18px; bottom: 18px; }
+.pvp-shield { margin: 2px 0; font-weight: 700; color: #2a5ab0; }

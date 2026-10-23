@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SignQuest</title>
-  <!-- Pixel fonts: Pixelify Sans for text, Press Start 2P for big titles. -->
+  <!-- Pixel fonts: Jersey 10 for text (its numbers are easy to read), Press Start 2P for big titles. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Press+Start+2P&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -294,14 +294,17 @@
   <section id="screen-pvp" class="screen" hidden>
     <div class="screen-top">
       <button id="pvp-leave" class="btn small">🏳️ Give up</button>
-      <h2 tabindex="-1" class="battle-title">⚔️ Sign Duel</h2>
+      <h2 tabindex="-1" class="battle-title" id="pvp-title">⚔️ Sign Duel</h2>
       <span id="pvp-round" class="count"></span>
     </div>
     <div class="pvp-field">
       <div id="pvp-side-0" class="pvp-side mine"></div>
       <div class="pvp-center">
         <p id="pvp-label" class="cmd-label" aria-live="polite"></p>
+        <p id="pvp-clue" class="pvp-clue" hidden></p>
         <div id="pvp-target" class="target"></div>
+        <p id="pvp-energy" class="pvp-energy" hidden></p>
+        <div id="pvp-moves" class="pvp-moves" role="group" aria-label="Pick your move" hidden></div>
         <div class="pvp-time" aria-hidden="true"><div id="pvp-time-fill"></div></div>
         <ul id="pvp-log" class="pvp-log"></ul>
       </div>

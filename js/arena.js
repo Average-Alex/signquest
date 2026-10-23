@@ -15,10 +15,9 @@
 //   ⚡ Sign Duel: everyone gets the same letter (every third round, a short
 //      word). Whoever signs it hits the other side, harder the faster they
 //      are, and the first one to sign gets a bonus.
-//   ⚔️ Creature Clash: the RPG mode. Pick a move (Spark, Blast, Nova,
-//      Shield, Heal), then sign the letter to use it. Signing earns energy
-//      for bigger moves, and your lead buddy's element makes Blast and Nova
-//      super effective (or weak) against theirs.
+//   ⚔️ Creature Clash: the RPG mode, a turn-based battle in the Colosseum
+//      like the creature battles in the zones (clash.js), with your hero's
+//      spells and your buddies.
 //   🧩 Riddle Rush: you get a clue about the handshape, not the letter.
 //      Work out which letter it is and sign it. Wrong guesses cost HP.
 // The side whose HP runs out loses, and ranks go up or down.
@@ -28,11 +27,12 @@
 // reading stay on this device.
 
 import { getPrediction, HoldTimer } from "./classifier.js";
-import { CREATURES, creatureName, ELEMENTS, MOTION_LETTERS } from "./config.js";
+import { MOTION_LETTERS } from "./config.js";
 import * as progress from "./progress.js";
 import { announce, flashCamera, isShowing, setGuide, show, showHooks } from "./screens.js";
-import { creatureImg, heroImg } from "./sprites.js";
+import { heroImg } from "./sprites.js";
 import { createPlaza } from "./plaza.js";
+import { clashLoadout, initClash, renderClash as drawClash } from "./clash.js";
 import { playBattleSting } from "./music.js";
 import { setText } from "./pixel-emoji.js";
 
@@ -57,27 +57,11 @@ const rankBadge = (rating) => {
 // The game modes (serve.py runs the rules).
 const MODES = {
   duel: { icon: "⚡", name: "Sign Duel", blurb: "Everyone gets the same letter. Sign it fastest to hit hardest." },
-  clash: { icon: "⚔️", name: "Creature Clash", blurb: "RPG battle: pick a move, then sign to use it. Your buddy's element counts!" },
+  clash: { icon: "⚔️", name: "Creature Clash", blurb: "Turn-based battle in the Colosseum with your hero and buddies, like in the zones!" },
   riddle: { icon: "🧩", name: "Riddle Rush", blurb: "Get a clue about the handshape, work out the letter, and sign it. Wrong guesses hurt!" },
 };
 const modeNow = () => (MODES[progress.get().arenaMode] ? progress.get().arenaMode : "duel");
 const modeTag = (mode) => `<span class="mode-tag">${MODES[mode]?.icon || ""} ${MODES[mode]?.name || ""}</span>`;
-
-// Creature Clash moves (costs come from the server).
-const CLASH_MOVES = [
-  { id: "spark", icon: "✨", name: "Spark", desc: "Normal hit" },
-  { id: "blast", icon: "💥", name: "Blast", desc: "2x, uses your element" },
-  { id: "nova", icon: "🌟", name: "Nova", desc: "3.5x, uses your element" },
-  { id: "shield", icon: "🛡️", name: "Shield", desc: "Blocks their next hit" },
-  { id: "heal", icon: "💚", name: "Heal", desc: "Heals a quarter of your HP" },
-];
-
-// Your lead buddy fights beside you in Creature Clash.
-function leadBuddy() {
-  const pet = progress.team()[0];
-  const c = pet && CREATURES.find((x) => x.id === pet.id);
-  return c ? { id: c.id, name: creatureName(c.id, pet.level), element: c.element || "" } : null;
-}
 
 const esc = (text) => String(text).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
@@ -151,14 +135,14 @@ async function call(path, body = {}) {
 
 async function hello() {
   const p = progress.get();
-  const out = await call("hello", { name: p.name || "Hero", look: progress.heroLook(), rating: p.rating, buddy: leadBuddy() });
+  const out = await call("hello", { name: p.name || "Hero", look: progress.heroLook(), rating: p.rating, loadout: clashLoadout() });
   if (out.id && out.id !== p.arenaId) progress.update({ arenaId: out.id });
 }
 
 // ---------- Polling ----------
 
 async function poll() {
-  if (!isShowing("arena") && !isShowing("pvp")) {
+  if (!isShowing("arena") && !isShowing("pvp") && !isShowing("clash")) {
     polling = false;
     plaza.stop();
     return;
@@ -190,6 +174,7 @@ function startPolling() {
 showHooks.arena = () => {
   const p = progress.get();
   plaza.start(progress.heroLook(), p.equipped.hat);
+  if (polling) hello().catch(() => {}); // your spells and team may have changed
   startPolling();
 };
 
@@ -201,14 +186,16 @@ function render() {
   }
   if (!state) return;
   if (state.match) {
-    if (!isShowing("pvp")) {
-      show("pvp");
+    // Creature Clash has its own battle screen in the Colosseum.
+    const screen = state.match.mode === "clash" ? "clash" : "pvp";
+    if (!isShowing(screen)) {
+      show(screen);
       playBattleSting();
       announce(`A ${state.match.modeName || "Sign Duel"} is starting!`);
     }
-    return renderDuel(state.match);
+    return screen === "clash" ? drawClash(state.match) : renderDuel(state.match);
   }
-  if (isShowing("pvp")) show("arena");
+  if (isShowing("pvp") || isShowing("clash")) show("arena");
   renderLobby();
 }
 
@@ -344,14 +331,8 @@ function renderDuel(m) {
     const hp = m.hp[s], max = m.max[s];
     el.innerHTML = `<p class="pvp-side-label">${label}</p>
       <div class="hp"><div class="hp-fill" style="width:${(hp / max) * 100}%"></div><span class="hp-text">${hp} / ${max}</span></div>
-      ${m.mode === "clash" && m.shield[s] ? `<p class="pvp-shield">🛡️ Shield ×${m.shield[s]}</p>` : ""}
       <div class="pvp-fighters">${m.sides[s]
-        .map((f, n) => {
-          const pet = m.mode === "clash" ? m.buddies?.[s]?.[n] : null;
-          const el = pet && ELEMENTS[pet.element];
-          const petArt = pet && CREATURES.some((c) => c.id === pet.id) ? `<span class="pvp-buddy">${creatureImg(pet.id)}</span>` : "";
-          return `<figure class="pvp-fighter${f.signed ? " signed" : ""}">${heroImg(f.look, null, s === mine ? "" : "foe-hero")}${petArt}<figcaption>${f.signed ? "✅ " : ""}${esc(f.name)}${el ? `<br><small>${esc(pet.name)} · ${el.icon} ${el.name}</small>` : ""}</figcaption></figure>`;
-        })
+        .map((f) => `<figure class="pvp-fighter${f.signed ? " signed" : ""}">${heroImg(f.look, null, s === mine ? "" : "foe-hero")}<figcaption>${f.signed ? "✅ " : ""}${esc(f.name)}</figcaption></figure>`)
         .join("")}</div>`;
   };
   side(mine, $("pvp-side-0"), m.sides[mine].length > 1 ? "Your party" : "You");
@@ -385,7 +366,6 @@ function renderDuel(m) {
   }
   $("pvp-result").hidden = true;
 
-  renderClash(m);
   // Countdown, then the target (or, in Riddle Rush, the clue).
   const live = m.mode === "riddle" ? Boolean(m.clue) : Boolean(m.target);
   $("pvp-clue").hidden = m.mode !== "riddle" || !live;
@@ -425,44 +405,7 @@ function logLine(e) {
   const who = esc(e.name);
   if (e.wrong) return `${who} guessed wrong${e.wrong > 1 ? ` ×${e.wrong}` : ""}: -${e.hurt} HP`;
   const first = e.first ? "⚡ " : "";
-  if (!e.move) return `${first}${who} signed it in ${e.secs}s: ${e.dmg} damage${e.first ? " (first!)" : ""}`;
-  const mv = CLASH_MOVES.find((x) => x.id === e.move) || CLASH_MOVES[0];
-  if (e.move === "shield") return `${first}${who} used 🛡️ Shield`;
-  if (e.move === "heal") return `${first}${who} used 💚 Heal: +${e.heal} HP`;
-  if (e.blocked) return `${first}${who} used ${mv.icon} ${mv.name}... blocked by a shield!`;
-  const eff = e.eff > 1 ? " Super effective!" : e.eff < 1 ? " Not very effective..." : "";
-  return `${first}${who} used ${mv.icon} ${mv.name}: ${e.dmg} damage.${eff}`;
-}
-
-// Creature Clash: your energy and the move buttons.
-function renderClash(m) {
-  const on = m.mode === "clash" && m.winner === null;
-  $("pvp-energy").hidden = !on;
-  $("pvp-moves").hidden = !on;
-  if (!on) return;
-  const energy = m.energy ?? 0;
-  if ((m.moves?.[duel.move] ?? 0) > energy) duel.move = "spark";
-  $("pvp-energy").innerHTML = `⚡ Energy ${energy} / 10 <small>(+1 for signing, +1 if you're first)</small>`;
-  const theirs = m.buddies?.[1 - m.you]?.[0]?.element;
-  const minePet = m.buddies?.[m.you]?.[0]?.element;
-  $("pvp-moves").innerHTML = CLASH_MOVES.map((mv) => {
-    const cost = m.moves?.[mv.id] ?? 0;
-    const elemental = mv.id === "blast" || mv.id === "nova";
-    let tag = "";
-    if (elemental && minePet && theirs) {
-      const beats = ELEMENTS[minePet]?.beats || [];
-      tag = beats.includes(theirs) ? ` <span class="move-eff up">▲ Super</span>` : minePet === theirs || (ELEMENTS[theirs]?.beats || []).includes(minePet) ? ` <span class="move-eff down">▼ Weak</span>` : "";
-    }
-    return `<button class="pvp-move${duel.move === mv.id ? " picked" : ""}" data-move="${mv.id}" ${cost > energy || duel.sent ? "disabled" : ""} aria-pressed="${duel.move === mv.id}">
-      <span>${mv.icon} ${mv.name}${tag}</span><small>${mv.desc} · ${cost ? `${cost}⚡` : "Free"}</small></button>`;
-  }).join("");
-  for (const b of $("pvp-moves").querySelectorAll("button")) {
-    b.onclick = () => {
-      duel.move = b.dataset.move;
-      renderClash(m);
-      announce(`${CLASH_MOVES.find((x) => x.id === duel.move).name} ready. Sign to use it!`);
-    };
-  }
+  return `${first}${who} signed it in ${e.secs}s: ${e.dmg} damage${e.first ? " (first!)" : ""}`;
 }
 
 // A damage number that floats up off a side. `ours`: we hit them.
@@ -497,7 +440,7 @@ function duelTick(now) {
   $("pvp-hold").style.width = "0%";
   if (duel.i >= duel.target.length) {
     duel.sent = true;
-    call("match/sign", { round: duel.round, move: duel.mode === "clash" ? duel.move : undefined });
+    call("match/sign", { round: duel.round });
     announce("Signed! Waiting for the others.");
   }
   if (state?.match) renderDuel(state.match);
@@ -559,3 +502,12 @@ $("pvp-done").onclick = () => {
   });
 };
 showHooks.pvp = startPolling;
+showHooks.clash = startPolling;
+initClash({
+  call,
+  back: () =>
+    call("match/leave").then(() => {
+      plaza.respawn(); // back by the entrance, off the pads
+      show("arena");
+    }),
+});

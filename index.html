@@ -326,6 +326,76 @@
     </div>
   </section>
 
+  <!-- 4d. Creature Clash: a turn-based battle against another player, in the Colosseum (clash.js) -->
+  <section id="screen-clash" class="screen" hidden>
+    <div class="screen-top">
+      <button id="clash-leave" class="btn small">🏳️ Give up</button>
+      <h2 tabindex="-1" class="battle-title">⚔️ Creature Clash</h2>
+      <span id="clash-count" class="count"></span>
+    </div>
+    <div id="clash-field" class="arena clash-field">
+      <img id="clash-bg" class="sprite arena-bg" alt="">
+      <!-- Name / HP panels: you on the left, them on the right -->
+      <div class="hud hud-you">
+        <div id="clash-you-face" class="hud-portrait" aria-hidden="true"></div>
+        <div class="hud-info">
+          <div id="clash-you-name" class="hud-name"></div>
+          <div class="hp player-hp" aria-hidden="true"><div id="clash-you-hp" class="hp-fill"></div><span id="clash-you-hp-text" class="hp-text"></span></div>
+          <div id="clash-you-sub" class="hud-sub"></div>
+        </div>
+      </div>
+      <div class="hud hud-foe">
+        <div id="clash-foe-face" class="hud-portrait" aria-hidden="true"></div>
+        <div class="hud-info">
+          <div id="clash-foe-name" class="hud-name"></div>
+          <div class="hp hex" aria-hidden="true"><div id="clash-foe-hp" class="hp-fill"></div><span id="clash-foe-hp-text" class="hp-text"></span></div>
+          <div id="clash-foe-sub" class="hud-sub"></div>
+        </div>
+      </div>
+      <div id="clash-banner" class="turn-banner" aria-hidden="true"></div>
+      <!-- Your team in a column on the left (a buddy, you, a buddy); theirs on the right -->
+      <div id="clash-l0" class="fighter buddy-slot top"></div>
+      <div id="clash-l1" class="fighter hero-slot"></div>
+      <div id="clash-l2" class="fighter buddy-slot bottom"></div>
+      <div id="clash-r0" class="fighter foe-slot top"></div>
+      <div id="clash-r1" class="fighter monster-side clash-foe-hero"></div>
+      <div id="clash-r2" class="fighter foe-slot bottom"></div>
+      <div id="clash-pop" class="pop" aria-hidden="true"></div>
+      <div id="clash-result" class="pvp-result" hidden>
+        <p id="clash-result-text"></p>
+        <button id="clash-done" class="btn big go">Back to the Arena</button>
+      </div>
+    </div>
+    <div class="command">
+      <div class="cmd-cam">
+        <div class="camera-slot"></div>
+        <p id="clash-seeing" class="seeing"></p>
+        <div class="hold" aria-hidden="true"><div id="clash-hold" class="hold-fill"></div></div>
+      </div>
+      <div class="cmd-sign">
+        <p id="clash-label" class="cmd-label" aria-live="polite"></p>
+        <div class="sign-row">
+          <div id="clash-target" class="target"></div>
+          <img id="clash-guide" class="hand-img sign-guide" alt="" hidden>
+        </div>
+        <div class="pvp-time" aria-hidden="true"><div id="clash-time-fill"></div></div>
+        <ul id="clash-log" class="pvp-log"></ul>
+      </div>
+      <div class="cmd-moves spellbook">
+        <div class="cmd-moves-top">
+          <div id="clash-tabs" class="move-tabs" role="tablist" aria-label="Whose moves"></div>
+          <span id="clash-energy" class="move-energy"></span>
+        </div>
+        <div id="clash-moves" class="moves" role="group" aria-label="Pick a move, then sign to use it"></div>
+        <div class="book-nav">
+          <button id="clash-prev" class="btn small" aria-label="Previous page">◀</button>
+          <span id="clash-page"></span>
+          <button id="clash-next" class="btn small" aria-label="Next page">▶</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- 5. Results -->
   <section id="screen-results" class="screen" hidden>
     <div class="results-ribbon"><h2 tabindex="-1" id="results-title" class="results-title">Victory!</h2></div>

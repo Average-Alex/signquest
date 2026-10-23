@@ -1232,3 +1232,29 @@ h2 { font-size: clamp(14px, 2.6vw, 22px); }
 .pvp-fighter { position: relative; }
 .pvp-buddy { position: absolute; right: -18px; bottom: 18px; }
 .pvp-shield { margin: 2px 0; font-weight: 700; color: #2a5ab0; }
+
+
+/* ---------- Creature Clash in the Colosseum (clash.js) ---------- */
+/* The other player's hero faces left, toward you. */
+.clash-field .foe-hero, .clash-field .clash-foe-hero .hero { scale: -1 1; }
+.clash-field .hero-slot .hero, .clash-field .clash-foe-hero .hero { width: 8.5cqw; animation: bob 0.8s steps(2) infinite; }
+.clash-field .buddy-slot .creature { width: 7cqw; animation: bob 0.8s steps(2) 0.4s infinite; scale: -1 1; } /* your buddies face right */
+.clash-field .foe-slot .creature { width: 7cqw; animation: bob 0.8s steps(2) 0.2s infinite; }
+.clash-field .creature.small { width: 5.5cqw !important; }
+.fighter.foe-slot.top { left: 82%; bottom: 59.5%; transform: translateX(-50%); }
+.fighter.foe-slot.bottom { left: 82%; bottom: 14%; transform: translateX(-50%); }
+.clash-field .fighter.monster-side { left: 76%; bottom: 31%; }
+.clash-name { font-size: max(10px, 1.4cqw); font-weight: 700; color: #fff; text-shadow: 0 0.2cqw 0 var(--ink); white-space: nowrap; }
+/* Attacks: the attacker dashes at the other side, the target shakes. */
+.fighter.pounce-left { animation: pounce-left 0.55s ease-in-out; }
+@keyframes pounce-left { 0%, 100% { translate: 0 0; } 45% { translate: -16cqw 0; scale: 1.1; } }
+.fighter.clash-hit { animation: clash-hit 0.5s steps(5); }
+@keyframes clash-hit { 0%, 100% { translate: 0 0; filter: none; } 20% { translate: -1.5cqw 0; filter: brightness(2); } 40% { translate: 1.2cqw 0; } 60% { translate: -0.8cqw 0; filter: brightness(1.6); } 80% { translate: 0.4cqw 0; } }
+.fighter.clash-boost { animation: boost 0.6s; }
+.clash-dmg { position: absolute; z-index: 6; font-size: max(20px, 4cqw); font-weight: 700; pointer-events: none; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; color: #ff5a4f; animation: float-up 1s ease-out forwards; }
+.clash-dmg.good { color: #6dff5a; }
+.clash-dmg.big { color: var(--gold); font-size: max(26px, 5.4cqw); }
+.clash-sub-energy { display: inline-flex; gap: 2px; align-items: center; }
+.clash-sub-energy i { width: max(5px, 0.9cqw); height: max(8px, 1.4cqw); background: #3a2a3e; border: 1px solid var(--ink); }
+.clash-sub-energy i.full { background: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .clash-field .hero, .clash-field .creature { animation: none !important; } .fighter.pounce-left, .fighter.clash-hit { animation: none; } }

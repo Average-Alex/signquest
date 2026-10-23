@@ -99,6 +99,14 @@
         <p id="chest-status" class="status" aria-live="polite"></p>
         <button id="chest-cancel" class="btn small">Not now</button>
       </div>
+      <!-- A trainer asking for a battle (biome.js askToBattle) -->
+      <div id="biome-ask" class="card biome-ask" role="dialog" aria-labelledby="biome-ask-text" hidden>
+        <p id="biome-ask-text"></p>
+        <div class="row center">
+          <button id="biome-ask-yes" class="btn go">⚔️ Battle!</button>
+          <button id="biome-ask-no" class="btn">Not now</button>
+        </div>
+      </div>
       <!-- Spot the sign (spot-panel.js) -->
       <div id="spot-panel" class="card chest-panel spot-panel" hidden>
         <p id="spot-title" class="chest-title"></p>
@@ -108,7 +116,7 @@
       </div>
     </div>
     <div id="biome-goals" class="biome-goals"></div>
-    <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Go anywhere you like! Bump into a creature to battle it. ❗ side quest · 🌟 rare creature · ⚔️ trainer · 👑 boss · 🔐 chest · 🪧 sign</p>
+    <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Go anywhere you like! Walk into a creature to battle it, or walk up to a trainer to ask. ❗ side quest · 🌟 rare creature · ⚔️ trainer · 👑 boss · 🔐 chest · 🪧 sign</p>
   </section>
 
   <!-- 3. Learn card -->
@@ -214,9 +222,11 @@
         <p id="battle-warning" class="battle-warning" role="alert" hidden></p>
         <p id="sign-label" class="cmd-label">Sign this</p>
         <p id="challenge" class="challenge" hidden></p>
-        <div id="target" class="target" aria-live="polite"></div>
+        <div class="sign-row">
+          <div id="target" class="target" aria-live="polite"></div>
+          <img id="sign-guide" class="hand-img sign-guide" alt="" hidden>
+        </div>
         <div class="cmd-tools">
-          <button id="hint-btn" class="btn small">💡 Hint</button>
           <button id="bag-btn" class="btn small" aria-expanded="false" aria-controls="bag">🎒 Bag</button>
           <button id="skip-btn" class="btn small" hidden>Skip ⏭</button>
         </div>
@@ -229,21 +239,93 @@
           <div id="battle-items" class="items-bar"></div>
         </div>
       </div>
-      <div class="cmd-moves">
+      <div class="cmd-moves spellbook">
         <div class="cmd-moves-top">
           <div id="move-tabs" class="move-tabs" role="tablist" aria-label="Whose moves"></div>
           <span id="move-energy" class="move-energy"></span>
         </div>
         <div id="battle-moves" class="moves" role="group" aria-label="Pick a move, then sign to use it"></div>
+        <div class="book-nav">
+          <button id="book-prev" class="btn small" aria-label="Previous page">◀</button>
+          <span id="book-page"></span>
+          <button id="book-next" class="btn small" aria-label="Next page">▶</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4b. Battle Arena lobby: battle other players (arena.js) -->
+  <section id="screen-arena" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <h2 tabindex="-1" class="battle-title">⚔️ Battle Arena</h2>
+      <span id="arena-rank" class="count"></span>
+    </div>
+    <p id="arena-offline" class="error" hidden></p>
+    <div class="arena-lobby">
+      <div id="arena-me" class="card arena-card arena-me"></div>
+      <div class="card arena-card plaza-wrap">
+        <canvas id="plaza" class="plaza" aria-label="The Arena plaza. Walk with the arrow keys or tap where to go. Walk up to someone to challenge them; stand on a glowing pad to find a match."></canvas>
+        <div id="plaza-action" class="plaza-action" hidden></div>
+        <p class="arena-hint">Walk with the arrow keys or tap. Walk up to someone to challenge them. Stand on a glowing pad to find a match; step off to stop.</p>
+      </div>
+      <div class="card arena-card">
+        <h3 class="arena-head">🎉 Your party</h3>
+        <div id="arena-party"></div>
+      </div>
+      <div class="card arena-card">
+        <h3 class="arena-head">📨 Requests</h3>
+        <div id="arena-requests"></div>
+      </div>
+      <div class="card arena-card arena-players-card">
+        <h3 class="arena-head">👥 Players here <small>(or walk up to them)</small></h3>
+        <div id="arena-players"></div>
+      </div>
+    </div>
+    <p class="privacy">Players here see your name, hero, and rank. Your camera never leaves your device.</p>
+    <p id="arena-toast" class="arena-toast" role="status" hidden></p>
+  </section>
+
+  <!-- 4c. Sign Duel: a live match against other players (arena.js) -->
+  <section id="screen-pvp" class="screen" hidden>
+    <div class="screen-top">
+      <button id="pvp-leave" class="btn small">🏳️ Give up</button>
+      <h2 tabindex="-1" class="battle-title">⚔️ Sign Duel</h2>
+      <span id="pvp-round" class="count"></span>
+    </div>
+    <div class="pvp-field">
+      <div id="pvp-side-0" class="pvp-side mine"></div>
+      <div class="pvp-center">
+        <p id="pvp-label" class="cmd-label" aria-live="polite"></p>
+        <div id="pvp-target" class="target"></div>
+        <div class="pvp-time" aria-hidden="true"><div id="pvp-time-fill"></div></div>
+        <ul id="pvp-log" class="pvp-log"></ul>
+      </div>
+      <div id="pvp-side-1" class="pvp-side theirs"></div>
+      <div id="pvp-result" class="pvp-result" hidden>
+        <p id="pvp-result-text"></p>
+        <button id="pvp-done" class="btn big go">Back to the Arena</button>
+      </div>
+    </div>
+    <div class="pvp-bottom">
+      <div class="cmd-cam">
+        <div class="camera-slot"></div>
+        <p id="pvp-seeing" class="seeing"></p>
+        <div class="hold" aria-hidden="true"><div id="pvp-hold" class="hold-fill"></div></div>
+      </div>
+      <div class="pvp-help">
+        <img id="pvp-guide" class="hand-img sign-guide" alt="" hidden>
       </div>
     </div>
   </section>
 
   <!-- 5. Results -->
   <section id="screen-results" class="screen" hidden>
-    <h2 tabindex="-1" id="results-title" class="results-title">You won!</h2>
+    <div class="results-ribbon"><h2 tabindex="-1" id="results-title" class="results-title">Victory!</h2></div>
+    <div id="results-team" class="results-team"></div>
     <div class="card results">
       <div id="results-stars" class="stars-big"></div>
+      <p id="results-armor" class="caught armor-won" hidden></p>
       <p class="rewards"><span id="results-xp"></span> &nbsp; <span id="results-coins"></span></p>
       <p id="results-shard" class="shard-line" hidden></p>
       <p id="results-loot" class="loot" hidden></p>
@@ -296,7 +378,7 @@
   <section id="screen-hero" class="screen" hidden>
     <div class="screen-top">
       <button id="hero-back" class="btn small">⬅ Back</button>
-      <h2 tabindex="-1">✏️ Make your hero</h2>
+      <h2 tabindex="-1">🛡️ Your hero</h2>
       <span></span>
     </div>
     <div class="maker">

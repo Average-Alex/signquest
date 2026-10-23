@@ -1,8 +1,9 @@
 // Player progress: XP, coins, stars, learned letters, miss counts, closet,
-// settings. Saved in localStorage - no accounts, nothing leaves the device.
+// settings. Saved in localStorage - no accounts. (In the Battle Arena, your
+// name, hero, and rank are shared with the players there; see arena.js.)
 
 import {
-  BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, RENAMED_CREATURES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
+  armorById, ARMOR, BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, RENAMED_CREATURES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
   TEAM_SIZE, ZONES,
 } from "./config.js";
 import { normalizeLook } from "./sprites.js";
@@ -19,8 +20,9 @@ function defaults() {
     stars: {}, // stageId -> best stars (1-3)
     learned: [], // letters whose learn card has been completed
     misses: {}, // letter -> miss weight, drives review mode
+    signed: {}, // letter -> times signed without help (the hand picture fades as this grows)
     owned: [], // hats
-    equipped: { hat: null },
+    equipped: { hat: null, armor: "tunic" }, // armor: see ARMOR in config.js
     consumables: { ...STARTING_CONSUMABLES }, // potion id -> how many
     creatures: { [STARTER_CREATURE]: { level: 1, xp: 0 } }, // every creature you've freed: id -> level/xp
     team: [STARTER_CREATURE], // up to TEAM_SIZE buddies that fight beside you
@@ -29,6 +31,8 @@ function defaults() {
     trainers: [], // trainers beaten (trainers.js)
     trails: {}, // zone id -> { gates: gates opened, wins: [creatures beaten per area] }
     settings: { ...DEFAULT_SETTINGS },
+    arenaId: null, // who you are to the Arena server (arena.js)
+    rating: 1000, // your Arena rank points
   };
 }
 
@@ -192,10 +196,20 @@ export function addMiss(letter) {
 }
 
 export function addSuccess(letter) {
-  if (state.misses[letter]) {
-    state.misses[letter] = Math.max(0, state.misses[letter] - 0.5);
-    save();
-  }
+  state.signed ||= {};
+  state.signed[letter] = (state.signed[letter] || 0) + 1;
+  if (state.misses[letter]) state.misses[letter] = Math.max(0, state.misses[letter] - 0.5);
+  save();
+}
+
+// How much of the hand picture to show for a letter: "full" while you're
+// learning it, "faded" once you've signed it a few times, then "none". Misses
+// bring it back.
+export const GUIDE_FULL_UNTIL = 3;
+export const GUIDE_FADED_UNTIL = 7;
+export function guideFor(letter) {
+  const known = (state.signed?.[letter] || 0) - (state.misses[letter] || 0) * 2;
+  return known < GUIDE_FULL_UNTIL ? "full" : known < GUIDE_FADED_UNTIL ? "faded" : "none";
 }
 
 export function weightedPick(letters, avoid = null) {
@@ -385,3 +399,19 @@ export function equip(item) {
   state.equipped[item.kind] = state.equipped[item.kind] === item.id ? null : item.id;
   save();
 }
+
+// ---------- Armor ----------
+// You win a zone's armor set by beating its boss (so older saves have theirs).
+export function ownsArmor(id) {
+  const armor = armorById(id);
+  return !armor.zone || bossBeaten(ZONES.findIndex((zn) => zn.id === armor.zone));
+}
+export const ownedArmor = () => ARMOR.filter((a) => ownsArmor(a.id));
+export const heroArmor = () => armorById(state.equipped.armor);
+export function wearArmor(id) {
+  if (!ownsArmor(id)) return;
+  state.equipped.armor = id;
+  save();
+}
+// Your hero's look, wearing your armor (sprites.js heroSrc).
+export const heroLook = () => ({ ...state.look, armor: state.equipped.armor });

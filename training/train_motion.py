@@ -37,7 +37,7 @@ DATA_DIR = ROOT / "training" / "data"
 MOTION_DIR = DATA_DIR / "motion"
 OUT_PATH = ROOT / "model" / "motion.json"
 NOTHING = "NOTHING"
-AUGMENT_COPIES = 40  # simulated new takes of every clip per training run (simulate())
+AUGMENT_COPIES = 80  # simulated new takes of every clip per training run (simulate())
 FOLDS = 5  # with one recorder, every clip is held out once across this many runs
 MIN_FRAMES = 6
 
@@ -129,7 +129,7 @@ def simulate(c: Clip, rng: np.random.Generator):
     # tracking wobble changes every frame.
     rot = rotation(rng, (0.45, 0.45, 0.5))
     scale = hand_proportions(rng, 0.2)
-    shake = rng.random() * 0.004
+    shake = rng.random() * 0.008  # up to 8 mm: webcams in dim rooms track shakily
     worlds = np.stack([reshape_hand(w, scale) @ rot.T + rng.normal(0, shake, w.shape) for w in worlds])
 
     # Picture: a bigger or smaller movement, then the whole hand moved and zoomed.
@@ -232,7 +232,7 @@ def export(trained, labels: list[str], path: Path, check: list[Clip]) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=60)
+    parser.add_argument("--epochs", type=int, default=90)
     parser.add_argument("--quick", action="store_true", help="skip the accuracy test, just train and save (about 6x faster)")
     args = parser.parse_args()
 

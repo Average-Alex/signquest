@@ -5,12 +5,12 @@ import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } 
 import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
-  DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLVE_LEVEL, isEvolved, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
+  ARMOR, DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, HERO_SPELLS, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLUTIONS_3, EVOLVE_LEVEL, EVOLVE_LEVEL_3, buddyMoves, stageOf, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
 import { musicForScreen, musicSettingChanged, playMusic } from "./music.js";
 import * as progress from "./progress.js";
-import { creatureImg, heroImg, itemImg, LANDMARKS, landmarkSrc, LOOK_OPTIONS, randomLook } from "./sprites.js";
+import { creatureImg, DECOR, decorSrc, heroImg, itemImg, LANDMARKS, landmarkSrc, LOOK_OPTIONS, randomLook } from "./sprites.js";
 import { playScene } from "./story.js";
 import { worldMapSrc } from "./worldmap.js";
 
@@ -50,9 +50,9 @@ export function flashCamera(kind) {
 
 // Your hero, with your buddy creatures beside them.
 export function renderAvatars() {
-  const { look, equipped } = progress.get();
-  const pets = progress.team().map((pet) => creatureImg(pet.id, "pet")).join("");
-  for (const el of document.querySelectorAll("[data-avatar]")) el.innerHTML = heroImg(look, equipped.hat) + pets;
+  const { equipped } = progress.get();
+  const pets = progress.team().map((pet) => creatureImg(pet.id, "pet", false, stageOf(pet.level))).join("");
+  for (const el of document.querySelectorAll("[data-avatar]")) el.innerHTML = heroImg(progress.heroLook(), equipped.hat) + pets;
 }
 
 showHooks.title = renderAvatars;
@@ -65,6 +65,21 @@ export function setHandImage(img, letter) {
   img.onerror = () => (img.hidden = true);
   img.alt = `Handshape for ${letter}: ${TIPS[letter] || ""}`;
   img.src = `assets/hands/${letter}.svg`;
+}
+
+// The hand picture beside what to sign: `level` "full", "faded", or "none"
+// (progress.guideFor: it fades away as you learn the letter).
+export function setGuide(img, letter, level) {
+  if (!letter || level === "none") {
+    img.hidden = true;
+    img.removeAttribute("src");
+    return;
+  }
+  img.classList.toggle("faded", level === "faded");
+  if (img.dataset.letter !== letter) {
+    img.dataset.letter = letter;
+    setHandImage(img, letter);
+  } else img.hidden = false;
 }
 
 const starsText = (n, max = 3) => "⭐".repeat(n) + "☆".repeat(max - n);
@@ -112,6 +127,19 @@ showHooks.map = () => {
     world.appendChild(button);
   });
 
+  // ⚔️ The Battle Arena, in the middle of the map (between zones): battle other players.
+  const arenaPin = document.createElement("button");
+  arenaPin.className = "zone-pin arena-pin";
+  const { rows } = DECOR.colosseum;
+  arenaPin.style.cssText = `left:${dim === 0 ? 60 : 57}%; top:${dim === 0 ? 46 : 50}%; --w:${rows[0].length}; --h:${rows.length}`;
+  arenaPin.innerHTML = `
+    <img class="sprite landmark" src="${decorSrc("colosseum")}" alt="">
+    <span class="banner">⚔️ Arena</span>
+    <span class="zone-stars">Battle players!</span>`;
+  arenaPin.setAttribute("aria-label", "Battle Arena: battle other players");
+  arenaPin.onclick = () => show("arena");
+  world.appendChild(arenaPin);
+
   // A portal to the other dimension. Locked until you've beaten the
   // overworld's last boss, but you can see it - something to aim for.
   const other = dim === 0 ? 1 : 0;
@@ -140,7 +168,7 @@ showHooks.map = () => {
   const hero = document.createElement("span");
   hero.className = "world-hero";
   hero.style.cssText = `left:${here.map.x}%; top:${here.map.y}%; --w:${LANDMARKS[here.id].w}`;
-  hero.innerHTML = heroImg(p.look, p.equipped.hat);
+  hero.innerHTML = heroImg(progress.heroLook(), p.equipped.hat);
   world.appendChild(hero);
 };
 let mapDimension = null; // which dimension's map is showing
@@ -230,8 +258,8 @@ function playEvolution(list, onDone) {
   playMusic("evolve");
   const box = $("evolve");
   const art = $("evolve-art");
-  const old = creatureImg(first.id, "evolve-old");
-  const neu = creatureImg(first.id, "evolve-new", false, true);
+  const old = creatureImg(first.id, "evolve-old", false, first.fromStage || 1);
+  const neu = creatureImg(first.id, "evolve-new", false, first.toStage || 2);
   box.hidden = false;
   box.classList.remove("done");
   $("evolve-ok").hidden = true;
@@ -246,7 +274,7 @@ function playEvolution(list, onDone) {
       art.classList.remove("glowing");
       art.innerHTML = neu;
       box.classList.add("done");
-      $("evolve-text").textContent = `Congratulations! ${first.from} evolved into ${first.to}! Its moves hit harder now.`;
+      $("evolve-text").textContent = `Congratulations! ${first.from} evolved into ${first.to}! It hits harder now${first.move ? `, and learned ${first.move.name}!` : "."}`;
       announce(`Congratulations! ${first.from} evolved into ${first.to}!`);
       $("evolve-ok").hidden = false;
       $("evolve-ok").focus();
@@ -275,7 +303,12 @@ function showResults(z, s, result) {
   }
   show("results");
   const { won } = result;
-  $("results-title").textContent = !won ? "Knocked out! 💫" : result.boss ? "Boss defeated! 🏆" : result.opts?.team ? `You beat ${result.opts.owner}! 🎉` : "You won! 🎉";
+  $("results-title").textContent = !won ? "Knocked out!" : result.boss ? "Boss defeated!" : result.opts?.team ? `You beat ${result.opts.owner}!` : "Victory!";
+  renderPortraits(result.portraits || []);
+  $("results-armor").hidden = !result.armor;
+  if (result.armor) {
+    $("results-armor").innerHTML = `${heroImg({ ...progress.get().look, armor: result.armor.id })}<span>You won the <b>${result.armor.icon} ${result.armor.name}</b>! ${result.armor.perk}, and it teaches <b>${result.armor.spell.name}</b>.<br><small>Wear it in 🛡️ Your hero.</small></span>`;
+  }
   $("results-stars").hidden = !won;
   $("results-stars").textContent = starsText(result.stars);
   $("results-stars").setAttribute("aria-label", `${result.stars} out of 3 stars`);
@@ -314,6 +347,30 @@ function showResults(z, s, result) {
   $("results-again").hidden = Boolean(result.opts?.team);
   $("results-again").onclick = () => playStage(z, s, result.foe.id, result.level, result.opts);
   $("results-next").onclick = () => enterBiome(z);
+}
+
+// The results screen's portraits: you and your buddies, each with a level
+// badge and an XP bar that fills from where it was to where it is now (all
+// the way round, with "Level up!", if they leveled).
+function renderPortraits(list) {
+  const row = $("results-team");
+  row.innerHTML = list
+    .map((pt, n) => {
+      const art = pt.hero ? heroImg(progress.heroLook(), progress.get().equipped.hat) : creatureImg(pt.id, "", false, pt.stage);
+      const up = pt.after.level > pt.before.level;
+      const el = pt.hero ? "hero" : CREATURES.find((c) => c.id === pt.id)?.element;
+      return `<figure class="rp-card rp-${el}" style="--delay:${n * 0.15}s">
+        <figcaption class="rp-name">${pt.name}</figcaption>
+        <div class="rp-frame">${art}${up ? `<span class="rp-up">Level up!</span>` : ""}</div>
+        <div class="rp-bottom"><span class="rp-level">★ ${pt.after.level}</span>
+          <span class="rp-xp" aria-label="${pt.after.pct}% to the next level"><span style="width:${up ? 0 : pt.before.pct}%" data-to="${pt.after.pct}"></span></span></div>
+      </figure>`;
+    })
+    .join("");
+  // Fill the bars after a moment, so you see them grow.
+  setTimeout(() => {
+    for (const bar of row.querySelectorAll(".rp-xp span")) bar.style.width = `${bar.dataset.to}%`;
+  }, 350);
 }
 
 // ---------- Shop ----------
@@ -392,7 +449,8 @@ showHooks.book = () => {
       creature.kind === "shop" ? "Sold in the Shop" :
       `${creature.kind === "boss" ? "Boss of" : "Lives in"} the ${zoneName(creature.zone)}`;
     const kind = (mv) => ({ attack: `${mv.power}x`, shield: "shield", heal: "heal", stun: "stun" })[mv.type];
-    const moveText = (creature.moves || []).map((mv) => `<li>${mv.icon} ${mv.name} <span>${mv.cost}⚡ · ${kind(mv)}</span></li>`).join("");
+    const moves = mine ? buddyMoves(creature.id, mine.level) : creature.moves || [];
+    const moveText = moves.map((mv) => `<li>${mv.icon} ${mv.name} <span>${mv.cost}⚡ · ${kind(mv)}</span></li>`).join("");
     const onTeam = progress.onTeam(creature.id);
     const card = document.createElement("div");
     card.className = `book-card${mine ? "" : " unknown"}${onTeam ? " buddy" : ""}`;
@@ -406,10 +464,18 @@ showHooks.book = () => {
     if (mine) {
       const maxed = mine.level >= BUDDY_MAX_LEVEL;
       const pct = maxed ? 100 : Math.round((mine.xp / buddyXpToLevel(mine.level)) * 100);
-      const evolved = isEvolved(mine.level);
-      const evolveNote = EVOLUTIONS[creature.id] && !evolved ? `<div class="small-text">✨ Evolves at level ${EVOLVE_LEVEL}!</div>` : "";
+      const stage = stageOf(mine.level);
+      const next = stage === 1 ? EVOLVE_LEVEL : stage === 2 ? EVOLVE_LEVEL_3 : null;
+      const evolveNote = EVOLUTIONS[creature.id] && next ? `<div class="small-text">✨ Evolves at level ${next}!</div>` : "";
+      // Its evolution line: stages it hasn't reached yet are dark shapes.
+      const names = [creature.name, EVOLUTIONS[creature.id], EVOLUTIONS_3[creature.id]];
+      const line = EVOLUTIONS[creature.id]
+        ? `<div class="evo-line">${[1, 2, 3]
+            .map((n) => `<figure class="evo-step${n > stage ? " locked" : ""}${n === stage ? " now" : ""}">${creatureImg(creature.id, "", false, n)}<figcaption>${n > stage ? "???" : names[n - 1]}</figcaption></figure>`)
+            .join('<span class="evo-arrow">▶</span>')}</div>`
+        : "";
       card.innerHTML = `
-        <div class="book-art">${creatureImg(creature.id, "", false, evolved)}</div>
+        <div class="book-art">${creatureImg(creature.id, "", false, stage)}</div>${line}
         <div class="book-name">${creatureName(creature.id, mine.level)}</div>
         <div class="book-el">${elBadge}</div>
         <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""}</div>${evolveNote}
@@ -513,6 +579,8 @@ function renderHeroOptions() {
   const { look, heroClass } = progress.get();
   const box = $("hero-options");
   box.innerHTML = "";
+  renderArmorPicker(box, look);
+  renderSpellList(box);
   renderClassPicker(box, look, heroClass);
   for (const [part, { label, choices }] of Object.entries(LOOK_OPTIONS)) {
     const group = document.createElement("div");
@@ -542,6 +610,64 @@ function renderHeroOptions() {
     group.appendChild(row);
     box.appendChild(group);
   }
+}
+
+// Armor: win a set from each zone's boss, then wear it. Each card shows your
+// hero wearing it, its bonus, and the spell it teaches.
+function renderArmorPicker(box, look) {
+  const group = document.createElement("div");
+  group.className = "maker-group";
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "Armor");
+  group.innerHTML = `<p class="label">Armor <small>(beat a zone's boss to win its armor)</small></p>`;
+  const row = document.createElement("div");
+  row.className = "class-row armor-row";
+  const wearing = progress.heroArmor().id;
+  for (const armor of ARMOR) {
+    const owned = progress.ownsArmor(armor.id);
+    const zone = ZONES.find((zn) => zn.id === armor.zone);
+    const button = document.createElement("button");
+    button.className = `class-card armor-card${owned ? "" : " locked"}`;
+    button.disabled = !owned;
+    button.setAttribute("aria-pressed", String(wearing === armor.id));
+    const spell = armor.spell ? `<small class="armor-spell">${armor.spell.icon} ${armor.spell.name}</small>` : "";
+    button.setAttribute("aria-label", owned ? `${armor.name}: ${armor.perk}${armor.spell ? `, teaches ${armor.spell.name}` : ""}` : `${armor.name}, locked: beat the ${zone.name} boss`);
+    button.innerHTML = owned
+      ? heroImg({ ...look, armor: armor.id }) + `<b>${armor.icon} ${armor.name}</b><small class="class-perk">${armor.perk}</small>${spell}`
+      : heroImg({ ...look, armor: armor.id }) + `<b>🔒 ${armor.name}</b><small class="class-trait">Beat the ${zone.name} boss</small>`;
+    button.onclick = () => {
+      progress.wearArmor(armor.id);
+      renderAvatars();
+      renderHeroOptions();
+      announce(`You're wearing the ${armor.name}.`);
+      box.querySelector(`.armor-card[aria-pressed=true]`)?.focus();
+    };
+    row.appendChild(button);
+  }
+  group.appendChild(row);
+  box.appendChild(group);
+}
+
+// Your spells: the ones you know, and the levels where you learn the rest.
+function renderSpellList(box) {
+  const level = progress.level();
+  const armor = progress.heroArmor();
+  const group = document.createElement("div");
+  group.className = "maker-group";
+  group.innerHTML = `<p class="label">Spells <small>(you learn more as you level up)</small></p>`;
+  const list = document.createElement("div");
+  list.className = "spell-list";
+  const spells = [...HERO_SPELLS, ...(armor.spell ? [{ ...armor.spell, fromArmor: armor.name }] : [])];
+  list.innerHTML = spells
+    .map((sp) => {
+      const known = sp.fromArmor || sp.level <= level;
+      const el = ELEMENTS[sp.element];
+      return `<span class="spell-chip${known ? "" : " locked"}${sp.element ? ` el-${sp.element}` : ""}">${known ? sp.icon : "🔒"} ${sp.name}
+        <small>${known ? (sp.fromArmor ? `from ${sp.fromArmor}` : el ? el.name : "Free") : `Level ${sp.level}`}</small></span>`;
+    })
+    .join("");
+  group.appendChild(list);
+  box.appendChild(group);
 }
 
 // Class cards: each shows your hero dressed for it, its traits, and its perk.

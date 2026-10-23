@@ -10,6 +10,7 @@ import { initMotionTest } from "./motion-test.js";
 import { initRecordPage } from "./record.js";
 import { countsByLetter } from "./samples.js";
 import { show } from "./screens.js";
+import "./arena.js";
 import { playScene } from "./story.js";
 
 const $ = (id) => document.getElementById(id);

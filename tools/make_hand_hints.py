@@ -4,8 +4,11 @@
 
 Every letter is drawn from its most typical recorded sample in training/data/
 (the one closest to that letter's average shape), as a cartoon hand with
-arrows pointing at what matters ("thumb across palm"). Re-run it after
-recording more, and the pictures follow.
+arrows pointing at what matters ("thumb across palm"). The fingers that
+matter for the letter are highlighted (lighter, with an orange outline) and
+the rest fade back, so it's easy to see what to copy. Slim fingers with
+nails, so you can tell which way each one points. Re-run it after recording
+more, and the pictures follow.
 
 Drawn mirrored, like the game's camera, so it looks like the player's own
 hand on screen. Only needs numpy.
@@ -26,9 +29,12 @@ from hand_features import FINGERS, to_features  # noqa: E402
 DATA_DIR = ROOT / "training" / "data"
 OUT_DIR = ROOT / "assets" / "hands"
 W, H = 440, 300  # picture size
-HAND_BOX = (145, 32, 150, 220)  # x, y, w, h: the middle, labels go either side
-MAX_PALM_PX = 125  # biggest a palm (wrist to middle knuckle) is drawn
+HAND_BOX = (135, 22, 170, 245)  # x, y, w, h: the middle, labels go either side
+MAX_PALM_PX = 140  # biggest a palm (wrist to middle knuckle) is drawn
+FINGER_WIDTH = 0.2  # finger thickness, as a share of the palm's length
 SKIN, SKIN_DARK, LINE, CREASE = "#eab489", "#c98a5f", "#5a3420", "#a8693f"
+KEY_SKIN, KEY_LINE, DIM = "#f6cba2", "#d9531a", 0.35  # highlighted fingers; DIM fades the others toward the paper
+NAIL, NAIL_EDGE = "#fbe3d4", "#c98a7a"
 PAPER, INK, ACCENT = "#fff8ec", "#2b1a10", "#ff7a1a"
 FONT = 'font-family="system-ui, sans-serif"'
 CHAR_W = 9.5  # rough width of one bold 16px character
@@ -98,11 +104,12 @@ def mix(a: str, b: str, t: float) -> str:
     return "#" + "".join(f"{int(v):02x}" for v in ca + (cb - ca) * min(max(t, 0.0), 1.0))
 
 
-def hand_svg(xy: np.ndarray, depth: np.ndarray, width: float) -> str:
-    """A cartoon hand: tapered fingers with knuckle creases over a palm and
-    wrist, the farthest parts drawn first (and a little darker) so nearer
-    fingers overlap them. xy: (21, 2) picture points. depth: (21,), bigger =
-    farther from the camera. width: finger thickness at the knuckle."""
+def hand_svg(xy: np.ndarray, depth: np.ndarray, width: float, key: set[int]) -> str:
+    """A cartoon hand: tapered fingers with knuckle creases and nails over a
+    palm and wrist, the farthest parts drawn first (and a little darker) so
+    nearer fingers overlap them. xy: (21, 2) picture points. depth: (21,),
+    bigger = farther from the camera. width: finger thickness at the knuckle.
+    key: the tip landmarks (4, 8, ...) of the fingers to highlight."""
     near, far = depth.min(), depth.max()
     shade = lambda d: mix(SKIN, SKIN_DARK, (d - near) / max(far - near, 1e-6))  # noqa: E731
     pts = lambda idx: " ".join(f"{xy[i][0]:.1f},{xy[i][1]:.1f}" for i in idx)  # noqa: E731
@@ -130,8 +137,12 @@ def hand_svg(xy: np.ndarray, depth: np.ndarray, width: float) -> str:
 
     palm = (0, 1, 2, 5, 9, 13, 17)
     d = depth[list(palm)].mean()
-    parts.append((d, f'<polygon points="{pts(palm)}" fill="{shade(d)}" stroke="{edge}" stroke-width="{width + 5:.1f}"/>'
-                     f'<polygon points="{pts(palm)}" fill="{shade(d)}" stroke="{shade(d)}" stroke-width="{width:.1f}"/>'))
+    palm_svg = (f'<polygon points="{pts(palm)}" fill="{shade(d)}" stroke="{edge}" stroke-width="{width + 3.5:.1f}"/>'
+                f'<polygon points="{pts(palm)}" fill="{shade(d)}" stroke="{shade(d)}" stroke-width="{width:.1f}"/>')
+    # A palm crease, from between the pointer and middle knuckles toward the wrist.
+    a, b = (xy[5] + xy[9]) / 2, xy[0] * 0.55 + xy[13] * 0.45
+    palm_svg += f'<path d="M {a[0]:.1f},{a[1]:.1f} Q {xy[13][0]:.1f},{(a[1] + b[1]) / 2:.1f} {b[0]:.1f},{b[1]:.1f}" fill="none" stroke="{CREASE}" stroke-width="1.4" opacity="0.6"/>'
+    parts.append((d, palm_svg))
 
     for chain in FINGERS:
         d = depth[chain].mean()
@@ -140,9 +151,23 @@ def hand_svg(xy: np.ndarray, depth: np.ndarray, width: float) -> str:
         widths = [width * (1 - 0.12 * k) for k in range(len(bones))]
         line = lambda a, b, w, c: (f'<line x1="{xy[a][0]:.1f}" y1="{xy[a][1]:.1f}" x2="{xy[b][0]:.1f}" '  # noqa: E731
                                    f'y2="{xy[b][1]:.1f}" stroke="{c}" stroke-width="{w:.1f}"/>')
+        # The fingers that matter stand out; the rest fade back a little.
+        lit = chain[-1] in key or not key
+        skin = KEY_SKIN if lit and key else mix(shade(d), PAPER, DIM) if not lit else shade(d)
+        rim = KEY_LINE if lit and key else mix(edge, PAPER, DIM) if not lit else edge
         # All the outline first, then all the skin, so there are no seams at the joints.
-        svg = "".join(line(a, b, w + 5, edge) for (a, b), w in zip(bones, widths))
-        svg += "".join(line(a, b, w, shade(d)) for (a, b), w in zip(bones, widths))
+        svg = "".join(line(a, b, w + 3.5, rim) for (a, b), w in zip(bones, widths))
+        svg += "".join(line(a, b, w, skin) for (a, b), w in zip(bones, widths))
+        # A nail on the tip, along the last bone (left off if the tip points at the camera).
+        a, b = bones[-1]
+        along = xy[b] - xy[a]
+        n = np.linalg.norm(along)
+        if n > widths[-1] * 0.8:
+            u = along / n
+            c = xy[b] - u * widths[-1] * 0.32
+            angle = np.degrees(np.arctan2(u[1], u[0]))
+            svg += (f'<ellipse cx="{c[0]:.1f}" cy="{c[1]:.1f}" rx="{widths[-1] * 0.36:.1f}" ry="{widths[-1] * 0.26:.1f}" '
+                    f'transform="rotate({angle:.0f} {c[0]:.1f} {c[1]:.1f})" fill="{NAIL}" stroke="{NAIL_EDGE}" stroke-width="1"/>')
         # Knuckle creases: short lines across the finger at the middle joints.
         for (a, b), w in zip(bones[1:], widths[1:]):
             along = xy[b] - xy[a]
@@ -197,7 +222,12 @@ def letter_svg(letter: str, world: np.ndarray) -> str:
     xy = (pts - (lo + hi) / 2) * s + np.array([bx + bw / 2, by + bh / 2])
     # Finger thickness from the real 3D palm length, so a hand pointing at
     # the camera doesn't get stick fingers.
-    body = [hand_svg(xy, world[:, 2], palm * s * 0.3)]
+    key = {idx for idx, _ in CALLOUTS[letter] if idx in (4, 8, 12, 16, 20)}
+    if letter in MOVES:
+        key = {MOVES[letter][1]}
+    # "Other fingers up" (F) and "three fingers spread" (W) mean more than the one pointed at.
+    key |= {"F": {12, 16, 20}, "W": {8, 12, 16}, "B": {8, 12, 16, 20}, "U": {8, 12}, "V": {8, 12}, "H": {8, 12}, "K": {8, 12}, "R": {8, 12}}.get(letter, set())
+    body = [hand_svg(xy, world[:, 2], palm * s * FINGER_WIDTH, key)]
 
     # Labels sit in the margin on the same side as what they point at,
     # spaced out so they don't overlap.

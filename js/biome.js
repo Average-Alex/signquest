@@ -33,17 +33,17 @@
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, CHEST_COINS, CHESTS_PER_AREA, COINS_PER_AREA, CONSUMABLES, creatureLevel, CREATURES,
-  GUARD_EXTRA_LEVELS, isEvolved, QUEST_COINS, RARITIES, rarityOf, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS, TRAINER_SIGHT,
+  GUARD_EXTRA_LEVELS, stageOf, QUEST_COINS, RARITIES, rarityOf, SIGNPOST_TEXTS, SIGNPOSTS_PER_AREA, SPARKLE_COINS, STAGES, TIPS,
   WILD_PER_AREA, ZONES,
 } from "./config.js";
 import * as progress from "./progress.js";
-import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, show } from "./screens.js";
+import { announce, flashCamera, isShowing, openBook, playStage, setGuide, show } from "./screens.js";
 import { QUESTS, ROOK } from "./quests.js";
 import { openSpotPanel } from "./spot-panel.js";
 import { trainersFor } from "./trainers.js";
-import { creatureSrc, DECOR, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
+import { creatureSrc, DECOR, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas, spriteSize } from "./sprites.js";
 import { playCutscene } from "./cutscene.js";
-import { playMusic } from "./music.js";
+import { playBattleSting, playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
 import { setHtml } from "./pixel-emoji.js";
@@ -87,7 +87,7 @@ const areaOf = (py) => Math.min(BIOME_AREAS - 1, Math.max(0, BIOME_AREAS - 1 - M
 // maps. Zone A's right edge (in area 2) leads to zone B's left edge (in
 // area 3), and back. The world map is still there for fast travel.
 // [a, b, area on a's side, area on b's side] (areas default to 2 and 3).
-// Crown Keep, in the middle, has roads from the Meadow and to the River.
+// Crown Keep, in the middle, has roads from the Meadow and to the Coral Lagoon.
 const ROUTES = [
   ["meadow", "forest"], ["forest", "caves"], ["caves", "river"], ["river", "castle"], ["castle", "meadow"],
   ["meadow", "keep", 4, 1], ["keep", "river", 1, 1],
@@ -114,61 +114,94 @@ const SECRET_COINS = [20, 45];
 //   open: "caverns" or "islands" - the map starts as solid rock / sky / void
 //     (`solid` colors, with a `cliff` face under the ground's edge), and only
 //     the path and the open areas off it are ground.
-//   clearings: open glades off the path (the Forest), with nothing growing in them.
-//   formal: hedges lining a straight avenue (Crown Keep). ruins: broken walls
-//     along the path (the Castle).
+//   clearings: open glades off the path (the Glowshroom Forest), with nothing growing in them.
+//   formal: a straight avenue lined with `lining` (hedges by default). ruins: broken walls along the path (Haunted Hollow).
+//   swap: scene pieces this world has its own version of (palms for oaks...).
 //   water: "pond", "river" (streams across the map), "fountains" (ponds on
 //     both sides of the avenue), "ice" (frozen lakes you can walk on).
 //   decals: little things painted on the ground (DECALS), this often per tile.
+//   mixes: the trees and rocks in each area, from the entrance up (instead of
+//     `obstacles` everywhere). grounds: each area's ground colors (null: `ground`).
 const THEMES = {
   meadow: {
     shape: "wind", ground: ["#81ba59", "#74ae4d"], specks: ["#869f5f", "#5f7f45"], speckRate: 0.02,
     path: ["#d2bc83", "#c0a970"], obstacles: ["oak", "oak", "bush", "oakgold"], wall: "bush", density: 0.72, water: "pond",
     decals: ["tuft", "tuft", "flowerPink", "flowerYellow", "flowerWhite"], decalRate: 0.22,
+    mixes: [["oak", "bush", "flowerbush"], ["oakgold", "oak", "stump"], ["birch", "bush", "rosebush"], ["cherry", "oak", "flowerbush"], ["oak", "rock", "bush", "stump"], ["birch", "oakgold", "bush"]],
+    grounds: [null, ["#9cba5a", "#90ae4e"], null, ["#7cbc60", "#70b054"], null, ["#94b85a", "#88ac4e"]],
   },
+  // Glowshroom Forest: giant glowing mushrooms on dark teal moss, glowing spores.
   forest: {
-    shape: "zigzag", ground: ["#4a8d4a", "#428442"], specks: ["#33573a", "#507d52"], speckRate: 0.035,
-    path: ["#b08a5a", "#9a7448"], obstacles: ["pine", "pine", "pine", "oak", "bigshroom"], wall: "pine", density: 0.5, water: null,
-    clearings: true, decals: ["tuft", "mushroom", "leaf", "leaf"], decalRate: 0.16,
+    shape: "zigzag", ground: ["#2f5a5a", "#2a5252"], specks: ["#3fb0d0", "#244848"], speckRate: 0.03,
+    path: ["#5a4a7a", "#4e406c"], obstacles: ["glowshroom", "glowshroompink", "darkpine"], wall: "glowshroom", density: 0.52, water: null,
+    clearings: true, decals: ["glowdot", "glowdot", "mushroom", "tuft"], decalRate: 0.18,
+    swap: { oak: "glowshroompink", pine: "glowshroom", bush: "fern", berrybushpicked: "fern", log: "stump" },
+    mixes: [["glowshroom", "glowshroompink", "darkpine", "fern"], ["glowshroom", "glowshroom", "fern", "bigshroom"], ["glowshroompink", "darkpine", "stump"],
+      ["glowshroom", "bigshroom", "mossrock", "fern"], ["glowshroompink", "glowshroom", "darkpine"], ["glowshroom", "glowshroompink"]],
+    grounds: [null, ["#2a5458", "#264c50"], null, ["#344e62", "#2e4658"], ["#2c5a50", "#28524a"], null],
   },
+  // Magma Canyon: black rock paths over a sea of lava, obsidian and lava rocks.
   caves: {
-    shape: "wind", open: "caverns", ground: ["#5e5470", "#544a66"], specks: ["#8a809a", "#3e3650"], speckRate: 0.05,
-    path: ["#8a7a6a", "#7a6a5a"], obstacles: ["stalagmite", "rock", "crystal", "stalagmite"], wall: "rock", density: 0.66, water: null,
-    solid: ["#221b2e", "#271f34"], cliff: ["#4a3f5c", "#3c3250"], rim: "#140f1c", sparkle: "#7fe3ff",
-    decals: ["pebble", "pebble", "crystalbit"], decalRate: 0.12,
+    shape: "wind", open: "caverns", ground: ["#5a3a32", "#4e322c"], specks: ["#7a4a3a", "#3a241e"], speckRate: 0.05,
+    path: ["#8a6a5a", "#7a5a4a"], obstacles: ["obsidian", "lavarock", "lavarock"], wall: "lavarock", density: 0.66, water: null,
+    solid: ["#e8602a", "#f07a2a"], cliff: ["#3a241e", "#2a1812"], rim: "#1a0e0a", sparkle: "#ffd23f",
+    decals: ["lavacrack", "lavacrack", "pebble"], decalRate: 0.14,
+    swap: { oak: "obsidian", pine: "lavarock", bush: "lavarock", berrybushpicked: "lavarock", tent: "tent", log: "lavarock" },
+    mixes: [["obsidian", "lavarock"], ["lavarock", "obsidian", "deadtree"], ["obsidian", "obsidian", "lavarock"], ["deadtree", "lavarock"], ["obsidian", "lavarock", "ambercrystal"], ["obsidian", "lavarock"]],
+    grounds: [null, ["#5e3e36", "#52362e"], ["#4a3430", "#40302a"], ["#62403a", "#563832"], null, null],
   },
+  // Coral Lagoon: sandy islands in a turquoise sea, palm trees and coral.
   river: {
-    shape: "wind", ground: ["#6bac4f", "#60a146"], specks: ["#77a062"], speckRate: 0.015,
-    path: ["#ddca92", "#ccb87d"], obstacles: ["oak", "reeds", "bush", "rock"], wall: "oak", density: 0.73, water: "river",
-    decals: ["tuft", "pebble", "flowerWhite"], decalRate: 0.14,
+    shape: "wind", open: "islands", beach: true, ground: ["#f0dca0", "#e8d090"], specks: ["#f8ecc0", "#d8c080"], speckRate: 0.03,
+    path: ["#b08a5a", "#9a7448"], obstacles: ["palm", "palm", "coral", "rock"], wall: "palm", density: 0.7, water: null,
+    solid: ["#3aa6d8", "#46b0e0"], cliff: ["#7fd0e8", "#6ac4e0"], rim: "#ffffff", sparkle: "#e8fbff",
+    decals: ["shell", "starfish", "ripple", "ripple"], decalRate: 0.12,
+    swap: { oak: "palm", pine: "palm", bush: "coral", berrybushpicked: "coralblue", log: "rock" },
+    mixes: [["palm", "coral", "rock"], ["palm", "coralblue", "palm"], ["coral", "coralblue", "rock"], ["palm", "palm", "coral"], ["palm", "rock", "coralblue"], ["palm", "coral"]],
   },
+  // Haunted Hollow: dark mossy ground, crooked trees, pumpkins and graves.
   castle: {
-    shape: "steps", ground: ["#a89a8a", "#9a8c7c"], specks: ["#8a7e70", "#c4b8a8"], speckRate: 0.05,
-    path: ["#c9b9a0", "#b8a890"], obstacles: ["wall", "brokenpillar", "deadtree", "rock"], wall: "wall", density: 0.7, water: null,
-    ruins: true, decals: ["crack", "crack", "pebble", "bone"], decalRate: 0.14,
+    shape: "steps", ground: ["#4a4458", "#423c50"], specks: ["#5a5468", "#3a3448"], speckRate: 0.05,
+    path: ["#6a5a4a", "#5a4a3a"], obstacles: ["spookytree", "pumpkin", "grave", "jackolantern"], wall: "wall", density: 0.68, water: null,
+    ruins: true, decals: ["ghostwisp", "crack", "bone", "crack"], decalRate: 0.14,
+    swap: { oak: "spookytree", pine: "spookytree", bush: "pumpkin", berrybushpicked: "jackolantern", log: "grave" },
+    mixes: [["spookytree", "pumpkin", "grave"], ["jackolantern", "spookytree", "rock"], ["grave", "grave", "spookytree"], ["pumpkin", "jackolantern", "spookytree"], ["brokenpillar", "spookytree", "grave"], ["spookytree", "jackolantern"]],
+    grounds: [null, ["#4e4054", "#463a4c"], null, ["#424a50", "#3c4448"], null, ["#4a3e58", "#423650"]],
   },
-  // Crown Keep: pale royal stone, a red carpet for a path, hedges, and fountains.
+  // Crown Keep: royal lawns, a red carpet up a straight avenue lined with
+  // hedges, fountains, pillars, and rose bushes.
   keep: {
     shape: "straight", ground: ["#9cc27a", "#92b870"], specks: ["#b4d494"], speckRate: 0.02,
     path: ["#c8414b", "#b3343e"], obstacles: ["oak", "pillar", "bush"], wall: "wall", density: 0.7, water: "fountains",
     formal: true, decals: ["flowerPink", "flowerYellow", "flowerWhite", "tuft"], decalRate: 0.12,
+    mixes: [["oak", "pillar", "bush"], ["cherry", "rosebush"], ["oak", "flowerbush", "pillar"], ["birch", "bush", "rosebush"], ["cherry", "pillar", "flowerbush"], ["oak", "rosebush"]],
   },
+  // Aurora Glacier: snow, frozen lakes, snowy pines and ice crystals.
   spires: {
-    shape: "zigzag", ground: ["#c2d4e2", "#b3c8db"], specks: ["#c6d2dc"], speckRate: 0.025,
+    shape: "zigzag", ground: ["#c2d4e2", "#b3c8db"], specks: ["#c6d2dc", "#7fe3a0"], speckRate: 0.025,
     path: ["#9ab8d6", "#88a8c8"], obstacles: ["snowpine", "icecrystal", "snowpine"], wall: "icecrystal", density: 0.69, water: "ice",
     decals: ["snow", "snow", "pebble"], decalRate: 0.12,
+    swap: { oak: "snowpine", pine: "snowpine", bush: "snowrock", berrybushpicked: "icecrystal", log: "snowrock" },
+    mixes: [["snowpine", "icecrystal"], ["icecrystal", "snowrock"], ["snowpine", "snowrock", "bluecrystal"], ["darkpine", "snowrock"], ["bluecrystal", "icecrystal"], ["snowpine", "icecrystal"]],
+    grounds: [null, ["#c8dcec", "#bcd2e4"], null, ["#bccede", "#b0c4d6"], null, null],
   },
+  // Thunder Peaks: rocky mountain islands in a stormy sky, lightning crystals.
   clouds: {
-    shape: "wind", open: "islands", ground: ["#e5e8f2", "#d9ddeb"], specks: ["#bfc4d2"], speckRate: 0.02,
-    path: ["#ffe9a8", "#f2d88a"], obstacles: ["cloud", "cloud", "oakgold"], wall: "cloud", density: 0.72, water: null,
-    solid: ["#8fc4ec", "#99caef"], cliff: ["#c8d4ea", "#b4c2de"], rim: "#7aa8d0", sparkle: "#ffffff",
-    decals: ["sparkle", "flowerYellow", "flowerWhite"], decalRate: 0.1,
+    shape: "wind", open: "islands", ground: ["#7a8478", "#707a6e"], specks: ["#8a948a", "#5a6458"], speckRate: 0.04,
+    path: ["#a89878", "#988868"], obstacles: ["stormrock", "ambercrystal", "darkpine"], wall: "stormrock", density: 0.7, water: null,
+    solid: ["#2e3a56", "#34405e"], cliff: ["#4a5064", "#3a4054"], rim: "#1a2034", sparkle: "#ffe066",
+    decals: ["bolt", "pebble", "tuft"], decalRate: 0.1,
+    swap: { oak: "darkpine", pine: "darkpine", bush: "stormrock", berrybushpicked: "ambercrystal", log: "stormrock" },
+    mixes: [["stormrock", "ambercrystal"], ["darkpine", "stormrock"], ["ambercrystal", "stormrock", "darkpine"], ["stormrock", "stormrock", "ambercrystal"], ["darkpine", "ambercrystal"], ["stormrock"]],
   },
+  // Cosmic Rift: purple islands over a starry abyss, planets and star crystals.
   void: {
-    shape: "zigzag", open: "islands", ground: ["#2a1f3d", "#241a35"], specks: ["#4e3d74", "#8a6abf"], speckRate: 0.02,
-    path: ["#5a3f8a", "#4e3478"], obstacles: ["voidrock", "crystal", "voidtree"], wall: "voidrock", density: 0.69, water: null,
+    shape: "zigzag", open: "islands", ground: ["#3a2a5a", "#32244e"], specks: ["#4e3d74", "#8a6abf"], speckRate: 0.03,
+    path: ["#6a4fa0", "#5a4290"], obstacles: ["planet", "crystal", "voidtree"], wall: "voidrock", density: 0.69, water: null,
     solid: ["#0b0814", "#0e0a19"], cliff: ["#3a2c5a", "#2c2046"], rim: "#05030a", sparkle: "#c8b0ff",
-    decals: ["star", "crack"], decalRate: 0.1,
+    decals: ["star", "star", "crack"], decalRate: 0.12,
+    swap: { oak: "voidtree", pine: "voidtree", bush: "voidrock", berrybushpicked: "planetblue", log: "voidrock" },
+    mixes: [["planet", "crystal", "voidtree"], ["voidtree", "planetblue"], ["crystal", "ambercrystal", "planet"], ["voidrock", "planetblue", "bluecrystal"], ["voidtree", "crystal"], ["planet", "planetblue"]],
   },
 };
 
@@ -237,12 +270,12 @@ const SCENES = {
 const ZONE_SCENES = {
   meadow: ["village", "farmstead", "hamlet", "garden", "stones"],
   forest: ["hamlet", "camp", "grove", "village", "stones"],
-  caves: ["mine", "market", "crystals", "hamlet", "ruins"],
-  river: ["village", "farmstead", "market", "hamlet", "grove"],
-  castle: ["outpost", "graveyard", "market", "ruins", "village"],
-  keep: ["market", "outpost", "village", "garden", "hamlet"],
+  caves: ["mine", "market", "outpost", "hamlet", "ruins"],
+  river: ["village", "market", "camp", "hamlet", "grove"],
+  castle: ["graveyard", "village", "ruins", "outpost", "graveyard"],
+  keep: ["market", "outpost", "village", "garden", "camp"],
   spires: ["hamlet", "camp", "village", "crystals", "outpost"],
-  clouds: ["garden", "village", "market", "crystals", "stones"],
+  clouds: ["outpost", "village", "camp", "crystals", "stones"],
   void: ["outpost", "graveyard", "hamlet", "ruins", "crystals"],
 };
 // The side trail in each area: TRAIL_LEN tiles long, 4 wide, ending in a nook
@@ -265,6 +298,13 @@ const DECALS = {
   snow: { rows: [".w.", "w.w", ".w."], colors: { w: "#ffffff" } },
   sparkle: { rows: [".y.", "yWy", ".y."], colors: { y: "#ffe9a8", W: "#ffffff" } },
   star: { rows: [".s.", "sSs", ".s."], colors: { s: "#6e52a8", S: "#e0c8ff" } },
+  glowdot: { rows: [".c.", "cCc", ".c."], colors: { c: "#3fb0d0", C: "#a8f4ff" } },
+  lavacrack: { rows: ["o..", ".oO", "..o"], colors: { o: "#ff6a2a", O: "#ffd23f" } },
+  shell: { rows: [".w.", "wpw"], colors: { w: "#fff0f6", p: "#f4a6c8" } },
+  starfish: { rows: [".o.", "ooo", "o.o"], colors: { o: "#ff8a5a" } },
+  ripple: { rows: ["lll.", ".lll"] },
+  bolt: { rows: [".y", "y.", ".y"], colors: { y: "#ffe066" } },
+  ghostwisp: { rows: [".g", "gg"], colors: { g: "#c8f0d8" } },
 };
 
 const WATER = ["#357eb0", "#448ebc"];
@@ -321,8 +361,9 @@ function build(z) {
   for (let ty = 0; ty < TH; ty++) {
     const cx = pathX(ty);
     carve([ty, ty], [cx - 3, cx + 2]);
-    // A strip of ground along the path in caverns (on islands it's a bridge).
-    if (theme.open === "caverns") for (let tx = cx - 5; tx <= cx + 4; tx++) open(tx, ty);
+    // A strip of ground along the path in caverns (and a beach, where islands
+    // have `beach`); otherwise on islands the path is a bridge.
+    if (theme.open === "caverns" || theme.beach) for (let tx = cx - 5; tx <= cx + 4; tx++) open(tx, ty);
   }
   // Castle halls: where the path turns, a hall runs across to the next stretch.
   if (theme.shape === "steps")
@@ -331,7 +372,7 @@ function build(z) {
       carve([row - 3, row + 2], [x0 - 3, x1 + 2]);
     }
 
-  // Open ground off the path (caverns, islands, the Forest's glades): a few
+  // Open ground off the path (caverns, islands, the forest's glades): a few
   // patches in each area, just touching the path, on alternating sides.
   if (theme.open || theme.clearings) {
     for (let a = 0; a < BIOME_AREAS; a++) {
@@ -387,7 +428,8 @@ function build(z) {
         if (kind[at(tx, ty)] === GROUND) clear[at(tx, ty)] = 1;
       }
     // Pieces are laid out for the right side; on the left they're mirrored.
-    const place = (base, x, y) => {
+    const place = (piece, x, y) => {
+      const base = theme.swap?.[piece] || piece; // this world's own trees and plants
       const id = DECOR[`${base}_${zone.id}`] ? `${base}_${zone.id}` : base; // this zone's colors
       const w = Math.ceil(DECOR[id].rows[0].length / T);
       const tx = right ? left0 + x : left0 + SCENE_W - x - w;
@@ -505,13 +547,14 @@ function build(z) {
       let type;
       const fromPath = bx * 2 - pathX(by * 2 + 1); // from the middle of the path, in tiles
       const pick = (list) => list[Math.floor(hash(bx, by, seed + 1) * list.length)];
+      const mix = theme.mixes?.[areaOf(by * 2 * T)] || theme.obstacles; // this area's trees and rocks
       const glade = tiles.some(([tx, ty]) => clear[at(tx, ty)] || nookTile[at(tx, ty)]);
       if (gateBlockRows.has(by)) type = theme.wall;
-      else if (tiles.some(([tx, ty]) => fence[at(tx, ty)]) && !tiles.some(([tx, ty]) => nookTile[at(tx, ty)])) type = pick(theme.obstacles);
+      else if (tiles.some(([tx, ty]) => fence[at(tx, ty)]) && !tiles.some(([tx, ty]) => nookTile[at(tx, ty)])) type = pick(mix);
       else if (theme.formal && !glade && (fromPath === -8 || fromPath === 6)) {
-        // Hedges along the avenue, with a gap now and then to walk through.
+        // Hedges (or palms) along the avenue, with a gap now and then to walk through.
         if (by % 5 === 0) continue;
-        type = "hedge";
+        type = theme.lining || "hedge";
       } else {
         const border = bx === 0 || by === 0 || bx === BW - 1 || by === BH - 1;
         const nearStart = by >= BH - 3 && Math.abs(bx * 2 - pathX(TH - 2)) < 8;
@@ -520,9 +563,14 @@ function build(z) {
         const ruin = theme.ruins && Math.abs(fromPath) >= 5 && Math.abs(fromPath) <= 7 && hash(bx, by, seed + 3) < 0.45;
         const lawn = theme.formal && Math.abs(fromPath) < 16;
         if (!border && !ruin && (nearStart || !clump || glade || lawn)) continue;
-        type = ruin ? (hash(bx, by, seed + 4) < 0.5 ? "wall" : "brokenpillar") : pick(theme.obstacles);
+        type = ruin ? (hash(bx, by, seed + 4) < 0.5 ? "wall" : "brokenpillar") : pick(mix);
       }
-      decor.push({ type, x: bx * 16 + 8, y: by * 16 + 16 });
+      // Off the grid by a few pixels, so the trees and rocks look scattered, not planted
+      // in rows (the gate walls and hedges stay lined up).
+      const tidy = gateBlockRows.has(by) || type === theme.lining || type === "hedge";
+      const jx = tidy ? 0 : Math.round((hash(bx, by, seed + 7) - 0.5) * 7);
+      const jy = tidy ? 0 : Math.round((hash(by, bx, seed + 8) - 0.5) * 5);
+      decor.push({ type, x: bx * 16 + 8 + jx, y: by * 16 + 16 + jy });
       for (const [tx, ty] of tiles) blocked[at(tx, ty)] = 1;
     }
   }
@@ -729,7 +777,7 @@ function paintGround(theme, kind, seed) {
         c = theme.path[noise(x, y, 4, seed + 7) > 0.55 ? 1 : 0];
         if (hash(x, y, seed + 8) < 0.03) c = theme.path[1];
       } else {
-        c = theme.ground[noise(x, y, 6, seed + 9) > 0.6 ? 1 : 0];
+        c = (theme.grounds?.[areaOf(y)] || theme.ground)[noise(x, y, 6, seed + 9) > 0.6 ? 1 : 0];
         if (hash(x, y, seed + 10) < theme.speckRate) c = theme.specks[Math.floor(hash(x, y, seed + 11) * theme.specks.length)];
       }
       const [r, g, b] = toRgb(c);
@@ -787,17 +835,33 @@ function paintDecals(theme, kind, px, seed) {
 }
 
 // ---------- Battle backdrops ----------
-// The battle field for a zone: a top-down clearing in the zone's colors, with
-// dirt patches where the fighters stand, scenery around the edges (big trees
-// in front), and a pond at the top in watery zones.
+// Each zone has its own battleground (ARENAS): what the floor is (grass,
+// rock, stone tiles, snow, a cloud or void platform over the sky), what's
+// along the back (a cave wall, castle battlements, a stream), the scenery
+// around the edges and in front, and a touch of atmosphere (light through
+// the trees, darkness in the caves, falling snow, stars). Fighters stand on
+// worn patches: your team in a column on the left, the foe on the right.
 
 const FIELD_W = 320;
 const FIELD_H = 180;
 const backdrops = new Map();
 
+const ARENAS = {
+  meadow: { floor: "grass", pads: true, pond: true, back: ["oak", "oakgold", "bush", "flowerbush"], sides: ["oak", "flowerbush", "bush"], front: ["oak", "flowerbush"], house: "cottage", decals: 0.06 },
+  forest: { floor: "grass", pads: true, back: ["glowshroom", "glowshroompink", "darkpine", "glowshroom"], backRows: 3, sides: ["glowshroom", "glowshroompink", "fern"], front: ["glowshroom", "glowshroompink"], overlay: "glow", decals: 0.06 },
+  caves: { floor: "rock", wall: "lava", back: ["obsidian", "lavarock", "obsidian"], sides: ["obsidian", "lavarock"], front: ["obsidian", "lavarock"], overlay: "embers" },
+  river: { floor: "grass", pads: true, sea: true, back: ["palm", "coral", "palm", "coralblue"], sides: ["palm", "coral"], front: ["palm", "palm"], decals: 0.05 },
+  castle: { floor: "grass", pads: true, back: ["spookytree", "grave", "jackolantern", "pumpkin"], sides: ["spookytree", "grave", "pumpkin"], front: ["spookytree", "jackolantern"], house: "cottage", overlay: "fog", decals: 0.04 },
+  keep: { floor: "tiles", tiles: ["#dcd6e6", "#ccc4da", "#a49cb4"], carpet: true, back: ["pillar", "hedge", "pillar", "rosebush"], sides: ["pillar", "hedge"], front: ["pillar", "rosebush"] },
+  spires: { floor: "snow", pond: "ice", back: ["snowpine", "icecrystal", "bluecrystal"], sides: ["snowpine", "snowrock", "icecrystal"], front: ["snowpine", "icecrystal"], overlay: "aurora" },
+  clouds: { floor: "sky", back: ["stormrock", "ambercrystal", "darkpine"], sides: ["stormrock"], front: ["stormrock", "darkpine"], overlay: "storm" },
+  void: { floor: "void", back: ["planet", "crystal", "voidtree"], sides: ["planetblue", "crystal"], front: ["voidtree", "planet"], overlay: "stars" },
+};
+
 export function battleBackdropSrc(zoneId) {
   if (backdrops.has(zoneId)) return backdrops.get(zoneId);
   const theme = THEMES[zoneId];
+  const arena = ARENAS[zoneId] || ARENAS.meadow;
   const seed = [...zoneId].reduce((n, ch) => n + ch.charCodeAt(0), 0);
 
   // The ground, one game pixel at a time.
@@ -808,30 +872,95 @@ export function battleBackdropSrc(zoneId) {
   const image = gctx.createImageData(FIELD_W, FIELD_H);
   const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const blob = (x, y, cx, cy, rx, ry, wobble) => Math.hypot((x - cx) / rx, (y - cy) / ry) + (noise(x, y, 7, seed + wobble) - 0.5) * 0.45;
-  // Where fighters stand (see .buddy-slot / .hero-slot / .monster-side in style.css):
-  // your team in a column on the left, the monster on the right.
+  // Where fighters stand (see .buddy-slot / .hero-slot / .monster-side in style.css).
   const pads = [[58, 73, 24, 9], [77, 124, 30, 11], [58, 155, 24, 9], [240, 121, 54, 22], [306, 70, 20, 10], [170, 168, 30, 9]];
-  const pond = theme.water ? { cx: 172, cy: 12, rx: 52, ry: 30 } : null;
+  const pond = arena.pond ? { cx: 172, cy: 12, rx: 52, ry: 30 } : null;
+  const WALL_H = 40; // a cave or castle wall across the top
+  // The floating platform (clouds, void): one big island under everyone.
+  const platform = (x, y) => blob(x, y, 162, 116, 150, 64, 4);
+  const sky = arena.floor === "sky" ? ["#2e3a56", "#34405e"] : ["#0b0814", "#120c22"]; // a stormy sky, or the void
+
   for (let y = 0; y < FIELD_H; y++) {
     for (let x = 0; x < FIELD_W; x++) {
       let c = theme.ground[noise(x, y, 16, seed) > 0.56 ? 1 : 0]; // big darker patches, like mown grass
       if (hash(x, y, seed + 1) < theme.speckRate) c = theme.specks[Math.floor(hash(x, y, seed + 2) * theme.specks.length)];
-      for (const [i, [cx, cy, rx, ry]] of pads.entries()) {
-        const d = blob(x, y, cx, cy, rx, ry, i);
-        if (d < 1) c = theme.path[d < 0.8 && noise(x, y, 4, seed + 3) > 0.5 ? 1 : 0];
+      if (arena.floor === "tiles") {
+        // Big flagstones with dark grout.
+        const tx = Math.floor((x + (Math.floor(y / 20) % 2) * 12) / 24), ty = Math.floor(y / 20);
+        c = hash(tx, ty, seed) < 0.3 ? arena.tiles[1] : arena.tiles[0];
+        if (y % 20 === 0 || (x + (Math.floor(y / 20) % 2) * 12) % 24 === 0) c = arena.tiles[2];
       }
+      if (arena.floor === "snow" && hash(x, y, seed + 3) < 0.01) c = "#ffffff";
+      if (arena.pads) {
+        for (const [i, [cx, cy, rx, ry]] of pads.entries()) {
+          const d = blob(x, y, cx, cy, rx, ry, i);
+          if (d < 1) c = theme.path[d < 0.8 && noise(x, y, 4, seed + 3) > 0.5 ? 1 : 0];
+        }
+      }
+      if (arena.carpet && y > 104 && y < 138 && x > 40 && x < 290) c = y < 107 || y > 135 ? "#e8b84a" : (x + y) % 9 === 0 ? "#b3343e" : "#c8414b";
       if (pond) {
         const d = blob(x, y, pond.cx, pond.cy, pond.rx, pond.ry, 9);
-        if (d < 1.08) c = SHORE;
-        if (d < 1) c = WATER[noise(x, y, 6, seed + 4) > 0.6 ? 1 : 0];
-        if (d < 1 && hash(x, y, seed + 5) < 0.012) c = "#96c6e0";
+        if (d < 1.08) c = arena.pond === "ice" ? "#9cc0dc" : SHORE;
+        if (d < 1) c = arena.pond === "ice" ? (noise(x, y, 5, seed) > 0.7 ? "#a8cce4" : "#d8ecf8") : WATER[noise(x, y, 6, seed + 4) > 0.6 ? 1 : 0];
+        if (d < 1 && hash(x, y, seed + 5) < 0.012) c = arena.pond === "ice" ? "#ffffff" : "#96c6e0";
+      }
+      if (arena.sea) {
+        // The sea along the back, with foam where the waves reach the sand.
+        const edge = 30 + Math.sin(x * 0.07 + seed) * 4;
+        if (y < edge + 2) c = "#ffffff";
+        if (y < edge) c = noise(x, y, 8, seed + 4) > 0.6 ? "#46b0e0" : "#3aa6d8";
+        if (y < edge && hash(x, y, seed + 6) < 0.012) c = "#e8fbff";
+      }
+      if (arena.stream) {
+        // A stream across the back, behind everyone.
+        const mid = 22 + Math.sin(x * 0.05 + seed) * 5;
+        if (Math.abs(y - mid) < 13) c = SHORE;
+        if (Math.abs(y - mid) < 11) c = WATER[noise(x, y, 6, seed + 4) > 0.6 ? 1 : 0];
+        if (Math.abs(y - mid) < 11 && hash(x, y, seed + 6) < 0.01) c = "#96c6e0";
+      }
+      if (arena.floor === "sky" || arena.floor === "void") {
+        const d = platform(x, y);
+        if (d >= 1) {
+          // Off the edge: sky (or the void), with the platform's cliff just under it.
+          const above = platform(x, y - 10);
+          c = above < 1 ? (arena.floor === "sky" ? "#4a5064" : "#3a2c5a") : sky[noise(x, y, 18, seed) > 0.6 ? 1 : 0];
+          if (above >= 1 && hash(x, y, seed + 7) < (arena.floor === "void" ? 0.006 : 0.002)) c = arena.floor === "void" ? "#c8b0ff" : "#ffe066";
+        }
+      }
+      if (arena.wall && y < WALL_H) {
+        if (arena.wall === "lava") {
+          // A lava fall across the back, glowing at its edge.
+          c = y > WALL_H - 6 ? "#3a241e" : noise(x, y, 6, seed) > 0.55 ? "#ffb020" : (x + y * 2) % 7 === 0 ? "#ffd23f" : "#f06a2a";
+          if (y === WALL_H - 1) c = "#1a0e0a";
+        } else if (arena.wall === "cave") {
+          // A rock wall, lit a little at its foot.
+          c = y > WALL_H - 8 ? "#4a3f5c" : noise(x, y, 8, seed) > 0.6 ? "#2a2236" : "#221b2e";
+          if (y === WALL_H - 1 || (y > WALL_H - 8 && hash(x, y, seed) < 0.05)) c = "#140f1c";
+        } else {
+          // Castle battlements: bricks, with gaps along the top.
+          const brick = (y + 1) % 6 === 0 || (x + (Math.floor(y / 6) % 2) * 6) % 12 === 0;
+          c = brick ? "#7a7288" : y < 8 && x % 20 > 11 ? null : "#a8a0b0";
+          if (y === WALL_H - 1) c = "#2b1d2e";
+          if (c === null) c = theme.ground[0];
+        }
       }
       const [r, g, b] = rgb(c);
-      const i = (y * FIELD_W + x) * 4;
-      image.data.set([r, g, b, 255], i);
+      image.data.set([r, g, b, 255], (y * FIELD_W + x) * 4);
     }
   }
   gctx.putImageData(image, 0, 0);
+  // Little flowers and such on grass.
+  if (arena.decals && theme.decals) {
+    for (let i = 0; i < FIELD_W * FIELD_H * arena.decals / 64; i++) {
+      const decal = DECALS[theme.decals[Math.floor(hash(i, 1, seed) * theme.decals.length)]];
+      const x0 = Math.floor(hash(i, 2, seed) * (FIELD_W - 4)), y0 = 44 + Math.floor(hash(i, 3, seed) * (FIELD_H - 50));
+      decal.rows.forEach((row, dy) => [...row].forEach((ch, dx) => {
+        if (ch === "." || ch === "d" || ch === "l") return;
+        gctx.fillStyle = decal.colors[ch];
+        gctx.fillRect(x0 + dx, y0 + dy, 1, 1);
+      }));
+    }
+  }
 
   // Scale up and add scenery at full sprite detail.
   const canvas = document.createElement("canvas");
@@ -843,31 +972,132 @@ export function battleBackdropSrc(zoneId) {
   ctx.setTransform(SPRITE_SCALE, 0, 0, SPRITE_SCALE, 0, 0);
 
   const items = [];
-  const pick = (i, salt) => theme.obstacles[Math.floor(hash(i, salt, seed) * theme.obstacles.length)];
+  const pick = (list, i, salt) => list[Math.floor(hash(i, salt, seed) * list.length)];
   const inPond = (x, y) => pond && Math.hypot((x - pond.cx) / (pond.rx + 10), (y - pond.cy) / (pond.ry + 10)) < 1;
-  // Back rows along the top.
+  const onPlatform = (x, y) => !(arena.floor === "sky" || arena.floor === "void") || platform(x, y) < 0.92;
+  const floating = arena.floor === "sky" || arena.floor === "void";
+  const backY = arena.wall ? WALL_H + 2 : arena.stream || arena.sea ? 44 : floating ? 66 : 18; // floating: along the platform's top edge
+  // Back rows along the top (on the wall's foot, or past the stream).
   for (let x = -6; x < FIELD_W + 8; x += 15) {
-    for (const [row, y0] of [[0, 18], [1, 34]]) {
-      const x1 = x + (row ? 7 : 0) + hash(x, row, seed) * 6, y = y0 + hash(x, row + 2, seed) * 8;
-      if (row === 1 && hash(x, 9, seed) < 0.45) continue;
-      if (!inPond(x1, y - 6)) items.push({ type: pick(x, row), x: x1, y, scale: 1 });
+    for (let row = 0; row < (arena.backRows || 2); row++) {
+      const x1 = x + (row % 2 ? 7 : 0) + hash(x, row, seed) * 6, y = backY + row * 14 + hash(x, row + 2, seed) * 8;
+      if (row > 0 && hash(x, 9 + row, seed) < 0.45) continue;
+      if (!inPond(x1, y - 6) && onPlatform(x1, y)) items.push({ type: pick(arena.back, x, row), x: x1, y, scale: 1 });
     }
   }
+  if (arena.house) items.push({ type: arena.house, x: 34, y: 46, scale: 1 });
   // Clumps down the sides.
-  for (let y = 50; y < FIELD_H - 20; y += 14) {
-    items.push({ type: pick(y, 5), x: 4 + hash(y, 6, seed) * 10, y, scale: 1 });
-    items.push({ type: pick(y, 7), x: FIELD_W - 4 - hash(y, 8, seed) * 10, y, scale: 1 });
+  for (let y = 54; y < FIELD_H - 20; y += 14) {
+    for (const [x, salt] of [[4 + hash(y, 6, seed) * 10, 5], [FIELD_W - 4 - hash(y, 8, seed) * 10, 7]]) if (onPlatform(x, y)) items.push({ type: pick(arena.sides, y, salt), x, y, scale: 1 });
   }
   // Big scenery in front, along the bottom, partly cut off.
   for (let x = 10; x < FIELD_W; x += 34) {
     if (x < 110 || Math.abs(x - 240) < 30) continue; // keep the fighters in view
-    items.push({ type: pick(x, 11), x: x + hash(x, 12, seed) * 10, y: FIELD_H + 10, scale: 2 });
+    items.push({ type: pick(arena.front, x, 11), x: x + hash(x, 12, seed) * 10, y: FIELD_H + 10, scale: 2 });
   }
   items.sort((a, b) => a.y - b.y);
   for (const it of items) {
-    const img = spriteCanvas(decorSrc(it.type));
+    const id = DECOR[`${it.type}_${zoneId}`] ? `${it.type}_${zoneId}` : it.type; // this zone's buildings
+    const img = spriteCanvas(decorSrc(id));
     const w = (img.width / SPRITE_SCALE) * it.scale, h = (img.height / SPRITE_SCALE) * it.scale;
     ctx.drawImage(img, Math.round(it.x - w / 2), Math.round(it.y - h), w, h);
+  }
+
+  // Atmosphere over everything.
+  if (arena.overlay === "rays") {
+    // Light coming down through the trees.
+    for (const x of [70, 150, 230]) {
+      const grad = ctx.createLinearGradient(x, 0, x + 40, FIELD_H);
+      grad.addColorStop(0, "rgba(255, 244, 192, 0.28)");
+      grad.addColorStop(1, "rgba(255, 244, 192, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + 22, 0);
+      ctx.lineTo(x + 70, FIELD_H);
+      ctx.lineTo(x + 30, FIELD_H);
+      ctx.fill();
+    }
+  } else if (arena.overlay === "dark") {
+    // Dark at the edges of the cave, with crystals glowing.
+    const grad = ctx.createRadialGradient(FIELD_W / 2, FIELD_H * 0.6, 40, FIELD_W / 2, FIELD_H * 0.6, 200);
+    grad.addColorStop(0, "rgba(10, 6, 20, 0)");
+    grad.addColorStop(1, "rgba(10, 6, 20, 0.55)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    for (const it of items.filter((i) => /crystal/.test(i.type))) {
+      const glowGrad = ctx.createRadialGradient(it.x, it.y - 6, 1, it.x, it.y - 6, 16);
+      glowGrad.addColorStop(0, "rgba(127, 227, 255, 0.35)");
+      glowGrad.addColorStop(1, "rgba(127, 227, 255, 0)");
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(it.x - 16, it.y - 22, 32, 32);
+    }
+  } else if (arena.overlay === "glow") {
+    // Glowing spores drifting in the dark under the mushrooms.
+    ctx.fillStyle = "rgba(10, 30, 40, 0.25)";
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    for (let i = 0; i < 60; i++) {
+      const x = hash(i, 31, seed) * FIELD_W, y = hash(i, 32, seed) * FIELD_H;
+      const glowGrad = ctx.createRadialGradient(x, y, 0, x, y, 4);
+      glowGrad.addColorStop(0, "rgba(168, 244, 255, 0.9)");
+      glowGrad.addColorStop(1, "rgba(168, 244, 255, 0)");
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(x - 4, y - 4, 8, 8);
+    }
+  } else if (arena.overlay === "embers") {
+    // Heat and drifting embers.
+    const grad = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+    grad.addColorStop(0, "rgba(255, 120, 40, 0.25)");
+    grad.addColorStop(1, "rgba(60, 10, 0, 0.2)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    for (let i = 0; i < 50; i++) {
+      ctx.fillStyle = i % 3 ? "#ff8a2a" : "#ffd23f";
+      ctx.fillRect(Math.floor(hash(i, 41, seed) * FIELD_W), Math.floor(hash(i, 42, seed) * FIELD_H), 1, 1);
+    }
+  } else if (arena.overlay === "fog") {
+    // Night, with low fog curling around.
+    ctx.fillStyle = "rgba(20, 10, 40, 0.3)";
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    for (let i = 0; i < 14; i++) {
+      const x = hash(i, 51, seed) * FIELD_W, y = FIELD_H * 0.4 + hash(i, 52, seed) * FIELD_H * 0.6;
+      const fog = ctx.createRadialGradient(x, y, 2, x, y, 40);
+      fog.addColorStop(0, "rgba(200, 240, 216, 0.22)");
+      fog.addColorStop(1, "rgba(200, 240, 216, 0)");
+      ctx.fillStyle = fog;
+      ctx.fillRect(x - 40, y - 40, 80, 80);
+    }
+  } else if (arena.overlay === "aurora") {
+    // The northern lights across the top, and snowflakes.
+    for (const [y0, color] of [[6, "127, 227, 160"], [16, "197, 140, 240"]]) {
+      const band = ctx.createLinearGradient(0, y0 - 8, 0, y0 + 10);
+      band.addColorStop(0, `rgba(${color}, 0)`);
+      band.addColorStop(0.5, `rgba(${color}, 0.45)`);
+      band.addColorStop(1, `rgba(${color}, 0)`);
+      ctx.fillStyle = band;
+      ctx.beginPath();
+      ctx.moveTo(0, y0);
+      for (let x = 0; x <= FIELD_W; x += 20) ctx.lineTo(x, y0 + Math.sin(x * 0.03 + y0) * 6);
+      ctx.lineTo(FIELD_W, y0 + 14);
+      ctx.lineTo(0, y0 + 14);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    for (let i = 0; i < 60; i++) ctx.fillRect(Math.floor(hash(i, 21, seed) * FIELD_W), Math.floor(hash(i, 22, seed) * FIELD_H), 1, 1);
+  } else if (arena.overlay === "storm") {
+    // A lightning bolt in the stormy sky.
+    ctx.strokeStyle = "#fff4c0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(250, 0);
+    for (const [x, y] of [[238, 12], [246, 14], [232, 30]]) ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255, 230, 102, 0.6)";
+    for (let i = 0; i < 30; i++) ctx.fillRect(Math.floor(hash(i, 61, seed) * FIELD_W), Math.floor(hash(i, 62, seed) * FIELD_H), 1, 1);
+  } else if (arena.overlay === "snow" || arena.overlay === "stars") {
+    // Snowflakes in the air (or twinkles in the void).
+    ctx.fillStyle = arena.overlay === "snow" ? "rgba(255, 255, 255, 0.85)" : "rgba(200, 176, 255, 0.7)";
+    for (let i = 0; i < 70; i++) ctx.fillRect(Math.floor(hash(i, 21, seed) * FIELD_W), Math.floor(hash(i, 22, seed) * FIELD_H), 1, 1);
   }
 
   backdrops.set(zoneId, canvas.toDataURL());
@@ -998,6 +1228,12 @@ function moveCreatures(biome, dt, now) {
     if (c.dir === null) continue;
     const nx = c.x + Math.cos(c.dir) * CREATURE_SPEED * dt;
     const ny = c.y + Math.sin(c.dir) * CREATURE_SPEED * dt;
+    // They never walk into you: battles only start when you walk into them.
+    const h = biome.hero;
+    if (Math.hypot(nx - h.x, ny - h.y) < 30 && Math.hypot(nx - h.x, ny - h.y) < Math.hypot(c.x - h.x, c.y - h.y)) {
+      c.turnAt = 0;
+      continue;
+    }
     const inArea = ny > (areaTop(c.area) + 3) * T && ny < (areaTop(c.area) + SH - (c.area === 0 ? 5 : 1)) * T;
     if (inArea && feetFree(biome, nx, ny)) {
       c.x = nx;
@@ -1078,6 +1314,8 @@ function moveHero(biome, dt) {
   hero.moving = Boolean(dx || dy);
   if (!hero.moving) return;
   const step = (HERO_SPEED * dt) / Math.hypot(dx, dy);
+  hero.dirX = dx;
+  hero.dirY = dy;
   // Try each direction on its own, so you slide along walls.
   if (feetFree(biome, hero.x + dx * step, hero.y)) hero.x += dx * step;
   if (feetFree(biome, hero.x, hero.y + dy * step)) hero.y += dy * step;
@@ -1144,14 +1382,11 @@ function checkTouch(biome, now) {
 
   if (now < biome.safeUntil) return;
 
-  // ⚔️ Trainers: beaten ones chat; anyone else who sees you wants a battle.
-  const trainer = biome.trainers.find((t) => near(t, hero, 12));
+  // ⚔️ Trainers: walk up to one and they ask if you want to battle (you can
+  // say not now). Beaten ones just chat.
+  const trainer = biome.trainers.find((t) => near(t, hero, 14) && now > (t.restUntil || 0));
   if (trainer?.beaten) return say(biome, [[trainerSpeaker(trainer), trainer.chat]]);
-  const area = areaOf(hero.y);
-  const watcher = biome.trainers.find(
-    (t) => !t.beaten && t.area === area && now > (t.restUntil || 0) && Math.hypot(t.x - hero.x, t.y - hero.y) < TRAINER_SIGHT,
-  );
-  if (watcher) return spotYou(biome, watcher, now);
+  if (trainer) return askToBattle(biome, trainer, now);
 
   // 💬 Villagers: walk up to talk.
   const villager = biome.npcs.find((v) => near(v, hero, 12));
@@ -1176,6 +1411,8 @@ function checkTouch(biome, now) {
     const dx = Math.abs(c.x - hero.x);
     const dy = c.y - hero.y; // negative when the creature is higher up
     if (dx > TOUCH_DISTANCE + extra || dy > 10 || dy < -(TOUCH_REACH_UP + extra)) continue;
+    // Only when you're walking toward it: no surprise battles.
+    if (!hero.moving || (hero.dirX || 0) * (c.x - hero.x) + (hero.dirY || 0) * (c.y - hero.y) <= 0) continue;
 
     const def = CREATURES.find((x) => x.id === c.id);
     const rarity = rarityOf(def);
@@ -1191,12 +1428,32 @@ function checkTouch(biome, now) {
 const trainerSpeaker = (t) => ({ name: t.name, art: () => heroImg(t.look, null, "", true) });
 
 // ❗ A trainer spots you: you freeze, they walk over (runSpot), and battle.
-function spotYou(biome, t, now) {
-  biome.spotted = { t, since: now };
+// A trainer asks if you want to battle. Battle: they step up and it starts.
+// Not now: they leave you be for a while.
+const ASK_AGAIN_MS = 15000;
+function askToBattle(biome, t, now) {
   keys.clear();
   biome.hero.path = [];
   biome.hero.moving = false;
-  announce(`${t.name} spotted you!`);
+  biome.asking = t;
+  const box = $("biome-ask");
+  $("biome-ask-text").textContent = `${t.name}: "${t.ask || "Hey! Want to have a sign battle?"}"`;
+  box.hidden = false;
+  $("biome-ask-yes").focus();
+  announce(`${t.name} asks: want to battle?`);
+  const close = () => {
+    box.hidden = true;
+    biome.asking = null;
+  };
+  $("biome-ask-yes").onclick = () => {
+    close();
+    biome.spotted = { t, since: performance.now() - 900 }; // they step up, then it starts
+  };
+  $("biome-ask-no").onclick = () => {
+    close();
+    t.restUntil = performance.now() + ASK_AGAIN_MS;
+    bumpBack(biome, performance.now());
+  };
 }
 
 function runSpot(biome, now, dt) {
@@ -1260,6 +1517,7 @@ function startEncounter(biome, creature) {
   keys.clear();
   current = null; // stops the loop
   $("biome-wrap").classList.add("encounter");
+  playBattleSting(creature.boss);
   setTimeout(() => {
     $("biome-wrap").classList.remove("encounter");
     const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner, team: creature.team, prize: creature.prize, look: creature.look });
@@ -1602,7 +1860,8 @@ function showSignLetter(biome) {
     .map((l, n) => `<span class="sign-slot${n < i ? " done" : n === i ? " now" : ""}">${n < i || !reveal || n === i ? l : "?"}</span>`)
     .join("");
   $("chest-tip").textContent = TIPS[letter];
-  setHandImage($("chest-img"), letter);
+  // The hand picture fades away as you learn the letter (not on riddles: it'd give it away).
+  setGuide($("chest-img"), letter, reveal ? "none" : progress.guideFor(letter));
 }
 
 function signTick(biome, now) {
@@ -1773,7 +2032,7 @@ function draw(biome, now) {
     // Walking: step through the walk cycle. Standing: a slow breathing bob.
     const frame = walkFrame(c.moving, now, 170, c.x);
     const lift = frame % 2;
-    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift, shadow: true, hex: !c.freed });
+    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 1.5 : 0.75, lift, shadow: true, hex: !c.freed }); // 32 px beasts, drawn 3/4 size (bosses 1.5x)
   }
   // Your buddies follow a few steps behind, one after the other, in step with you.
   const hero = biome.hero;
@@ -1781,7 +2040,7 @@ function draw(biome, now) {
     const back = hero.trail.length - 1 - (n + 1) * 8; // about 16 pixels apart
     const spot = hero.trail[Math.max(0, back)] || { x: hero.x - 12 * (n + 1), y: hero.y, flip: hero.flip };
     const frame = walkFrame(hero.moving, now, 110, n * 2 + 1);
-    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame, isEvolved(pet.level))), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
+    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame, stageOf(pet.level))), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: frame % 2 });
   });
   // Runaway critters (chase quests) until they're caught.
   for (const r of biome.runners) {
@@ -1814,7 +2073,7 @@ function draw(biome, now) {
   // A little puff of dust behind you on each step.
   if (frame !== hero.lastFrame && frame % 2) biome.dust.push({ x: hero.x + (hero.flip ? 4 : -4), y: hero.y, born: now });
   hero.lastFrame = frame;
-  things.push({ y: hero.y, img: spriteCanvas(heroSrc(progress.get().look, progress.get().equipped.hat, frame)), x: hero.x, flip: hero.flip, lift: frame % 2, shadow: true });
+  things.push({ y: hero.y, img: spriteCanvas(heroSrc(progress.heroLook(), progress.get().equipped.hat, frame)), x: hero.x, flip: hero.flip, lift: frame % 2, shadow: true });
 
   biome.dust = biome.dust.filter((p) => now - p.born < 350);
   for (const p of biome.dust) {
@@ -1827,7 +2086,7 @@ function draw(biome, now) {
 
   things.sort((a, b) => a.y - b.y);
   for (const t of things) {
-    const iw = t.img.width / SPRITE_SCALE, ih = t.img.height / SPRITE_SCALE; // size in game pixels
+    const { w: iw, h: ih, smooth } = spriteSize(t.img); // size in game pixels
     let w = iw * (t.scale || 1), h = ih * (t.scale || 1);
     if (t.small && iw > 12) (w = iw * 0.75), (h = ih * 0.75);
     if (t.y < camY - 4 || t.y - h > camY + VIEW_H + 4 || t.x + w / 2 < camX || t.x - w / 2 > camX + VIEW_W) continue; // off screen
@@ -1839,6 +2098,7 @@ function draw(biome, now) {
       ctx.ellipse(t.x - camX, t.y - 1 - camY, w / 2.6, t.hex ? 2.5 : 2, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.imageSmoothingEnabled = smooth; // painted creatures are drawn smoothly
     if (t.flip) {
       ctx.save();
       ctx.translate(x + w, y);
@@ -1847,18 +2107,16 @@ function draw(biome, now) {
       ctx.restore();
     } else ctx.drawImage(t.img, x, y, w, h);
   }
+  ctx.imageSmoothingEnabled = false;
 
   // Markers over creatures (⚔️ / 📜 / 👑 / 💤 and level) and locked chests,
   // as HTML so they stay crisp.
   const markers = [
     ...biome.creatures.map((c) => {
       let icon = STAGES[c.stage].icon;
-      if (c.freed) {
-        const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
-        return { x: c.x, y: c.y - h - 2, html: "💚", cls: " freed" };
-      }
+      const h = (c.boss ? 1.5 : 0.75) * spriteSize(spriteCanvas(creatureSrc(c.id))).h;
+      if (c.freed) return { x: c.x, y: c.y - h - 2, html: "💚", cls: " freed" };
       if (c.rare) icon = "🧭";
-      const h = ((c.boss ? 2 : 1) * spriteCanvas(creatureSrc(c.id)).height) / SPRITE_SCALE;
       // Rare and rarer creatures show their rarity, in its color.
       const rarity = rarityOf(CREATURES.find((x) => x.id === c.id));
       const showRarity = !c.boss && !c.rare && rarity.weight <= RARITIES.rare.weight;
@@ -2016,7 +2274,7 @@ function frame(now) {
   biome.creatures = biome.creatures.filter((c) => !c.freed || now < c.freedUntil);
   draw(biome, now);
   if (!biome.chest && !biome.spotted && !talking && current === biome) checkEvents(biome);
-  if (!biome.chest && !biome.spotted && !biome.spotOpen && !isStoryPlaying() && current === biome) checkTouch(biome, now);
+  if (!biome.chest && !biome.spotted && !biome.asking && !biome.spotOpen && !isStoryPlaying() && current === biome) checkTouch(biome, now);
   if (biome === current && !biome.chest) renderHud(biome);
 }
 
@@ -2035,6 +2293,8 @@ export function enterBiome(z, from = null) {
     hero.path = [];
     hero.trail = [];
     biome.spotted = null;
+    biome.asking = null;
+    $("biome-ask").hidden = true;
     biome.safeUntil = performance.now() + SAFE_MS; // a moment to look around before anything jumps you
   }
   biome.safeUntil = Math.max(biome.safeUntil, performance.now() + 800);
@@ -2082,7 +2342,7 @@ const KEY_DIRS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right",
 
 addEventListener("keydown", (e) => {
   const dir = KEY_DIRS[e.key];
-  if (!dir || !current || current.chest || current.spotted || !isShowing("biome") || e.target.closest?.("input, textarea, select")) return;
+  if (!dir || !current || current.chest || current.spotted || current.asking || !isShowing("biome") || e.target.closest?.("input, textarea, select")) return;
   keys.add(dir);
   e.preventDefault();
 });
@@ -2096,7 +2356,7 @@ $("biome-book").onclick = () => {
 };
 
 $("biome-canvas").addEventListener("pointerdown", (e) => {
-  if (!current || current.chest || current.spotted) return;
+  if (!current || current.chest || current.spotted || current.asking) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const tx = tileOf(((e.clientX - rect.left) / rect.width) * VIEW_W + current.camX);
   const ty = tileOf(((e.clientY - rect.top) / rect.height) * VIEW_H + current.camY);

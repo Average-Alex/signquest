@@ -7,3 +7,6 @@ Thumbs.db
 # off a public repo. Share CSVs privately instead.
 training/data/*
 !training/data/.gitkeep
+
+# The https certificate serve.py makes for the Arena (has a private key).
+.cert/

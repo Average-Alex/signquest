@@ -18,8 +18,9 @@
 //
 // Elements: big moves have an element (config.js ELEMENTS). Against the
 // right creature they're super effective; the move buttons say which.
-// Sign challenges: some turns are a riddle, a missing letter, or a
-// quick-draw instead of a plain letter, and hit harder.
+// Sign challenges: some turns are a riddle, a missing letter, a quick-draw,
+// a "what comes next?" chain, a Word Blast (spell a word), or a Flurry (sign
+// as many letters as you can in 10 seconds) instead of a plain letter.
 // Trainers (and Rook) fight in the same formation as you: the trainer in
 // the middle, a creature above and below, all on the field at once, each with
 // its own HP. Click one to target it; group moves (💥 All) hit every one of
@@ -38,14 +39,14 @@ import { getPrediction, HoldTimer } from "./classifier.js";
 import {
   battleLength, BOSS_EXTRA_DAMAGE, buddyMoveBoost, CONSUMABLES, CREATURES,
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
-  CHALLENGE_BONUS, CHALLENGE_CHANCE, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, EVOLVED_POWER,
+  CHALLENGE_BONUS, CHALLENGE_CHANCE, FLURRY_MS, SPELL_BONUS, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, stageOf, stagePower, buddyMoves, heroSpells, armorById,
   GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET,
   COUNTER_CHANCE, COUNTER_MS, COUNTER_REFLECT, monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
 import { battleResult } from "./battle-result.js";
 import * as progress from "./progress.js";
-import { announce, flashCamera, isShowing, renderAvatars, setHandImage, show } from "./screens.js";
+import { announce, flashCamera, isShowing, renderAvatars, setGuide, setHandImage, show } from "./screens.js";
 import { battleBackdropSrc } from "./biome.js";
 import * as fx from "./fx.js";
 import { playMusic } from "./music.js";
@@ -100,7 +101,8 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const foes = opts.team || [{ id: foeId, level }];
   const targets = planTargets(z, stage.type, foes[0].level);
   const team = progress.team();
-  const playerMax = Math.round(playerMaxHp(progress.level()) * (progress.heroClass().hp || 1));
+  const armor = progress.heroArmor(); // armor adds HP, power, and crits (ARMOR in config.js)
+  const playerMax = Math.round(playerMaxHp(progress.level()) * (progress.heroClass().hp || 1) * (armor.hp || 1));
   battle = {
     z, s, zone, stage, team, targets, onFinish, opts,
     party, // a trainer or rival battle: several foes on the field
@@ -155,15 +157,15 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const p = progress.get();
   $("hud-you-name").textContent = p.name || "Hero";
   $("hud-you-level").textContent = `Lv ${progress.level()}`;
-  $("hud-you-portrait").innerHTML = heroImg(p.look, p.equipped.hat);
+  $("hud-you-portrait").innerHTML = heroImg(progress.heroLook(), p.equipped.hat);
   $("arena").dataset.zone = zone.id;
   // Your team: you in the middle, a buddy above and below.
   $("hero-sprite").className = "hero-sprite";
-  $("hero-sprite").innerHTML = heroImg(p.look, p.equipped.hat);
+  $("hero-sprite").innerHTML = heroImg(progress.heroLook(), p.equipped.hat);
   [0, 1].forEach((n) => {
     const pet = team[n];
     $(`buddy-slot-${n}`).hidden = !pet;
-    $(`buddy-slot-${n}`).innerHTML = pet ? creatureImg(pet.id, "buddy", false, isEvolved(pet.level)) : "";
+    $(`buddy-slot-${n}`).innerHTML = pet ? creatureImg(pet.id, "buddy", false, stageOf(pet.level)) : "";
   });
   toggleBag(false);
   updateHp();
@@ -268,7 +270,8 @@ function setTarget(entry, say = true) {
   const rarity = entry.trainer || b.party || rarityOf(def).name === "Common" ? null : rarityOf(def); // common is the norm: no badge
   $("hud-foe-sub").innerHTML =
     `${rarity ? `<span class="rarity-badge" style="--rarity:${rarity.color}">${rarity.name}</span>` : ""}` +
-    `${el ? `<span class="el-badge el-${def.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${entry.level}`;
+    `${el ? `<span class="el-badge el-${def.element}">${el.icon} ${el.name}</span>` : ""}${kind} · Lv ${entry.level}` +
+    (el ? `<span class="weak-to">Weak to ${weakTo(def.element).map((e) => `<span title="${ELEMENTS[e].name}">${ELEMENTS[e].icon}</span>`).join("")}</span>` : "");
   $("hud-foe-portrait").innerHTML = entry.trainer ? heroImg(def.look, null) : creatureImg(entry.id, "", hexed);
   renderTeamBalls(b);
   updateHp(b);
@@ -308,6 +311,13 @@ function pickChallenge(b) {
   for (const [mode, chance] of Object.entries(CHALLENGE_CHANCE)) {
     sum += chance;
     if (roll >= sum || mode === b.lastMode) continue;
+    if (mode === "chain" && target === "A") return "plain";
+    if (mode === "spell") {
+      // Word Blast: a word with this letter in it, from here or earlier.
+      const words = ZONES.slice(0, b.z + 1).flatMap((zn) => zn.words).filter((w) => w.includes(target) && w.length <= 5);
+      if (!words.length) return "plain";
+      b.targets[b.t] = words[Math.floor(Math.random() * words.length)];
+    }
     if (mode === "blank") {
       // A word from this zone (or earlier) with the letter in it.
       const words = ZONES.slice(0, b.z + 1).flatMap((zn) => zn.words).filter((w) => w.includes(target));
@@ -329,11 +339,14 @@ function startLetter(now) {
     battle.lastMode = battle.mode;
     battle.revealed = false;
     battle.quickUntil = battle.mode === "quick" ? now + QUICK_MS : 0;
+    battle.flurryUntil = battle.mode === "flurry" ? now + FLURRY_MS : 0;
+    battle.flurryCount = 0;
   }
   battle.hinted = false;
   battle.hold.reset();
   $("hint").hidden = true;
   $("hint").classList.remove("glow");
+  showGuide();
   $("skip-btn").hidden = true;
   renderTarget();
   renderMoves();
@@ -344,6 +357,9 @@ function startLetter(now) {
     riddle: `Riddle! Which letter is this? ${TIPS[letter]}`,
     blank: battle.blank && `Fill in the missing letter: ${battle.blank.word.split("").map((l, n) => (n === battle.blank.index ? "blank" : l)).join(" ")}`,
     quick: `Quick-draw! Sign ${letter} fast for double damage!`,
+    chain: `What comes next? The letter after ${prevLetter(letter)}.`,
+    spell: battle.i === 0 && `Word Blast! Spell ${target.split("").join(" ")} for a big hit!`,
+    flurry: battle.flurryCount === 0 && `Flurry! Sign as many letters as you can in ${FLURRY_MS / 1000} seconds! First: ${letter}`,
   }[battle.mode];
   announce(said || (target.length > 1 && battle.i === 0 ? `Your turn! Spell the word ${target.split("").join(" ")}` : `Sign ${letter}`));
 }
@@ -353,10 +369,15 @@ function renderTarget() {
   const { mode, blank } = battle;
   $("battle-count").textContent = `Turn ${battle.turn}`;
   $("target").dataset.answer = currentLetter() || ""; // for automated tests
-  $("sign-label").textContent = { riddle: "🧩 Riddle! Which letter?", blank: "✏️ Fill in the missing letter", quick: "⚡ Quick-draw! Sign it fast" }[mode] || "Sign this";
-  $("challenge").hidden = mode !== "riddle" && mode !== "quick";
+  $("sign-label").textContent = {
+    riddle: "🧩 Riddle! Which letter?", blank: "✏️ Fill in the missing letter", quick: "⚡ Quick-draw! Sign it fast",
+    chain: "🔗 What comes next?", spell: "💥 Word Blast! Spell it", flurry: "🌪️ Flurry! Sign as many as you can",
+  }[mode] || "Sign this";
+  $("challenge").hidden = !["riddle", "quick", "chain", "flurry"].includes(mode);
   if (mode === "riddle") $("challenge").textContent = `“${TIPS[target]}”`;
+  if (mode === "chain") $("challenge").textContent = `${prevLetter(target)} → ?`;
   if (mode === "quick") renderQuick(performance.now());
+  if (mode === "flurry") renderFlurry(performance.now());
   $("sign-label").className = `cmd-label${mode !== "plain" ? " challenge-label" : ""}`;
   const done = battle.i > 0;
   if (mode === "blank" && blank) {
@@ -371,10 +392,29 @@ function renderTarget() {
     .split("")
     .map((letter, i) => {
       const state = i < battle.i ? "done" : i === battle.i && !battle.busy ? "now" : "";
-      const hidden = mode === "riddle" && !battle.revealed && i >= battle.i && state !== "done";
+      const hidden = (mode === "riddle" || mode === "chain") && !battle.revealed && i >= battle.i && state !== "done";
       return `<span class="slot ${state}${target.length === 1 ? " single" : ""}">${hidden ? "?" : letter}</span>`;
     })
     .join("");
+}
+
+const prevLetter = (letter) => ALPHABET[ALPHABET.indexOf(letter) - 1];
+
+// The Flurry countdown, and how many you've signed.
+function renderFlurry(now) {
+  const left = Math.max(0, battle.flurryUntil - now);
+  $("challenge").textContent = `⏱️ ${(left / 1000).toFixed(1)}s · ${battle.flurryCount} signed`;
+}
+
+// The Flurry's time is up: everything you signed hits at once.
+function endFlurry(now) {
+  const count = battle.flurryCount;
+  $("battle-hold").style.width = "0%";
+  $("hint").hidden = true;
+  $("skip-btn").hidden = true;
+  popText(count ? `🌪️ ${count} sign${count > 1 ? "s" : ""}!` : "🌪️ Time's up!", count >= 4);
+  if (!count) battle.targetSlow = true;
+  finishTarget(now, count, count >= 4);
 }
 
 // The quick-draw countdown.
@@ -406,6 +446,10 @@ function tick(now) {
   const held = battle.hold.update(letter, prediction, now);
   $("battle-hold").style.width = `${held * 100}%`;
   if (battle.mode === "quick") renderQuick(now);
+  if (battle.mode === "flurry") {
+    renderFlurry(now);
+    if (now > battle.flurryUntil) return endFlurry(now);
+  }
 
   if (held >= 1) return letterDone(now, false);
 
@@ -422,6 +466,17 @@ function hexMotes(now) {
   for (const e of alive()) if (e.hexed) fx.rise(fx.centerOf(e.art, 0.75), "hex", { count: 1, width: 26 });
 }
 
+// The hand picture beside the letter: full while you're learning it, faded
+// once you know it a bit, then gone (progress.guideFor). Hidden on guessing
+// turns (riddle, missing letter, chain) - it would give the answer away.
+function showGuide(level = null) {
+  const guessing = ["riddle", "blank", "chain"].includes(battle.mode) && !battle.revealed;
+  const letter = currentLetter();
+  setGuide($("sign-guide"), letter, level || (guessing ? "none" : progress.guideFor(letter)));
+}
+
+// Stuck on a letter for a while: the full picture comes up (and on a guessing
+// turn, the answer). It counts as a miss, so that letter comes up more.
 function showHint(auto) {
   if (battle.hinted) return;
   const letter = currentLetter();
@@ -431,21 +486,38 @@ function showHint(auto) {
   battle.practice.add(letter);
   progress.addMiss(letter);
   // A hint gives away a riddle's answer.
-  if (battle.mode === "riddle" || battle.mode === "blank") {
+  if (battle.mode === "riddle" || battle.mode === "blank" || battle.mode === "chain") {
     battle.revealed = true;
     if (battle.mode === "blank") $("target").children[battle.blank.index].textContent = letter;
     else renderTarget();
   }
-  $("hint-tip").textContent = battle.mode === "plain" || battle.mode === "quick" ? TIPS[letter] : `It's ${letter}! ${TIPS[letter]}`;
-  setHandImage($("hint-img"), letter);
-  toggleBag(false);
-  $("hint").hidden = false;
-  $("hint").classList.toggle("glow", auto);
-  announce(`Hint for ${letter}: ${TIPS[letter]}`);
+  showGuide("full");
+  $("sign-guide").classList.toggle("glow", auto);
+  announce(`Here's how to sign ${letter}: ${TIPS[letter]}`);
 }
 
 function letterDone(now, skipped) {
   const letter = currentLetter();
+  if (battle.mode === "flurry") {
+    // Each sign counts, and a new letter comes up right away.
+    if (skipped) return endFlurry(now);
+    if (!battle.hinted) progress.addSuccess(letter);
+    gainEnergy(ENERGY_PER_LETTER);
+    battle.times.push(now - battle.letterStart);
+    battle.flurryCount++;
+    flashCamera("good");
+    fx.number(at.foe(), `${battle.flurryCount}`, "good");
+    battle.targets[battle.t] = nextTarget(battle.z, "letters", letter);
+    battle.letterStart = now;
+    battle.pauseUntil = now + PAUSE_AFTER_HIT_MS / 2;
+    battle.hold.reset();
+    battle.hinted = false;
+    $("battle-hold").style.width = "0%";
+    $("hint").hidden = true;
+    renderTarget();
+    showGuide();
+    return;
+  }
   if (skipped) battle.targetSlow = true;
   else {
     if (!battle.hinted) progress.addSuccess(letter);
@@ -466,9 +538,15 @@ function letterDone(now, skipped) {
     return;
   }
 
-  // Finished a letter or a whole word: your move fires. That ends your turn.
-  const perLetter = (now - battle.targetStart) / target.length;
-  const fast = !battle.targetSlow && perLetter < FAST_SIGN_MS;
+  finishTarget(now, target.length);
+}
+
+// Finished a letter, a whole word, or a Flurry: your move fires, with
+// `letters` signs' worth of power. That ends your turn. `flurryFast`: a
+// Flurry with lots of signs counts as fast.
+function finishTarget(now, letters, flurryFast = false) {
+  const perLetter = (now - battle.targetStart) / Math.max(1, letters);
+  const fast = battle.mode === "flurry" ? flurryFast : !battle.targetSlow && perLetter < FAST_SIGN_MS;
   if (fast) gainEnergy(ENERGY_FAST_BONUS);
   battle.combo = fast ? battle.combo + 1 : 0;
   renderCombo();
@@ -476,10 +554,11 @@ function letterDone(now, skipped) {
   battle.bonus = 1;
   if (!battle.targetSlow) {
     if (battle.mode === "quick" && now <= battle.quickUntil) battle.bonus = QUICK_BONUS;
-    if (battle.mode === "riddle" || battle.mode === "blank") battle.bonus = CHALLENGE_BONUS;
+    if (battle.mode === "riddle" || battle.mode === "blank" || battle.mode === "chain") battle.bonus = CHALLENGE_BONUS;
+    if (battle.mode === "spell") battle.bonus = SPELL_BONUS;
   }
   battle.busy = true;
-  fireMove(target.length, fast);
+  fireMove(letters, fast);
   renderTarget();
   renderMoves();
   renderItems();
@@ -578,14 +657,14 @@ function fireMove(letters, fast) {
   renderEnergy();
   // A streak of fast signs makes every attack hit harder, and so does a challenge.
   const boost = (1 + Math.min(battle.combo, COMBO_MAX) * COMBO_BONUS) * battle.bonus;
-  if (battle.bonus > 1) popText(battle.mode === "quick" ? `⚡ QUICK-DRAW! ×${QUICK_BONUS}` : "🧩 Solved! Bonus damage!", true);
+  if (battle.bonus > 1) popText({ quick: `⚡ QUICK-DRAW! ×${QUICK_BONUS}`, spell: "💥 WORD BLAST!", chain: "🔗 Next in line! Bonus damage!" }[battle.mode] || "🧩 Solved! Bonus damage!", true);
   // Group moves hit everyone, a bit softer each.
   const spread = spreads(move) ? GROUP_POWER : 1;
 
   if (!mover) {
     // One of your hero's spells: more letters signed and stronger spells hit harder.
     flashCamera("good");
-    const classPower = progress.heroClass().power || 1; // mages hit harder
+    const classPower = (progress.heroClass().power || 1) * (progress.heroArmor().power || 1); // mages, and some armor, hit harder
     strike({ from: at.hero(), attacker: $("hero-slot"), move, base: letters * SIGN_DAMAGE * move.power * spread * boost * classPower, fast, hero: true });
   } else {
     // A buddy's move.
@@ -596,7 +675,7 @@ function fireMove(letters, fast) {
     flashCamera("good");
     if (isAttack(move)) {
       // Like your signing, scaled by the move's power and the buddy's level.
-      const evolved = isEvolved(mover.level) ? EVOLVED_POWER : 1;
+      const evolved = stagePower(mover.level);
       strike({ from: at.buddy(n), attacker: el, move, base: letters * SIGN_DAMAGE * move.power * buddyMoveBoost(mover.level) * evolved * spread * boost, fast, who });
     } else {
       restartAnimation(el, "boost");
@@ -649,7 +728,7 @@ function fireMove(letters, fast) {
 // An attack on one foe, or on all of them for a group move. Each takes its
 // own type matchup. `hero`: your hero's spell (power-ups apply).
 function strike({ from, attacker, move, base, fast, hero = false, who = null, delay = 0 }) {
-  const classCrit = hero ? progress.heroClass().crit || 0 : 0; // archers crit more
+  const classCrit = hero ? (progress.heroClass().crit || 0) + (progress.heroArmor().crit || 0) : 0; // archers (and some armor) crit more
   const crit = Math.random() < (fast ? CRIT_CHANCE_FAST : CRIT_CHANCE) + classCrit;
   let mult = crit ? CRIT_MULTIPLIER : 1;
   let big = move.power > 1;
@@ -745,8 +824,8 @@ const buddyEl = (n) => $(`buddy-slot-${n}`);
 // you pick stays picked even if you look at another tab.
 function renderMoves() {
   const p = progress.get();
-  const tabs = [{ who: "You", art: heroImg(p.look, p.equipped.hat, "tab-hero"), mover: null }].concat(
-    battle.team.map((pet) => ({ who: creatureName(pet.id, pet.level), art: creatureImg(pet.id, "tab-art", false, isEvolved(pet.level)), mover: pet })),
+  const tabs = [{ who: "You", art: heroImg(progress.heroLook(), p.equipped.hat, "tab-hero"), mover: null }].concat(
+    battle.team.map((pet) => ({ who: creatureName(pet.id, pet.level), art: creatureImg(pet.id, "tab-art", false, stageOf(pet.level)), mover: pet })),
   );
   if (battle.tab >= tabs.length) battle.tab = 0;
   $("move-tabs").innerHTML = "";
@@ -760,6 +839,7 @@ function renderMoves() {
     button.innerHTML = `<span class="tab-face">${tab.art}</span><span class="tab-name">${tab.who}</span>`;
     button.onclick = () => {
       battle.tab = n;
+      battle.page = 0;
       renderMoves();
     };
     $("move-tabs").appendChild(button);
@@ -769,13 +849,20 @@ function renderMoves() {
   for (const el of document.querySelectorAll(".arena .fighter")) el.classList.toggle("acting", el === actor && !battle.busy);
 
   const tab = tabs[battle.tab];
-  const moves = tab.mover ? creature(tab.mover.id).moves : HERO_MOVES;
+  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.level(), progress.get().equipped.armor);
   const bar = $("battle-moves");
   bar.innerHTML = "";
-  moves.forEach((move, n) => {
+  // The spellbook shows BOOK_PAGE cards at a time; arrows turn the page.
+  const pages = Math.max(1, Math.ceil(moves.length / BOOK_PAGE));
+  battle.page = Math.min(battle.page || 0, pages - 1);
+  $("book-prev").hidden = $("book-next").hidden = pages < 2;
+  $("book-prev").disabled = battle.page === 0;
+  $("book-next").disabled = battle.page >= pages - 1;
+  $("book-page").textContent = pages > 1 ? `${battle.page + 1} / ${pages}` : "";
+  moves.slice(battle.page * BOOK_PAGE, (battle.page + 1) * BOOK_PAGE).forEach((move, n) => {
     const picked = battle.move === move && battle.mover === tab.mover;
     const button = document.createElement("button");
-    button.className = `move-btn${picked ? " picked" : ""} type-${move.type || "attack"}`;
+    button.className = `move-btn spell-card${picked ? " picked" : ""} type-${move.type || "attack"} el-${move.element || "none"}`;
     button.disabled = battle.busy || battle.done || move.cost > battle.energy;
     button.setAttribute("aria-pressed", String(picked));
     const eff = isAttack(move) ? effectiveness(move.element, battle.target.def.element) : 1;
@@ -783,15 +870,23 @@ function renderMoves() {
       (move.all && battle.party ? `<span class="move-eff all">💥 All</span>` : "");
     const el = ELEMENTS[move.element];
     button.innerHTML = `
-      <span class="move-icon">${move.icon}</span>
-      <span class="move-text"><span class="move-name">${move.name}${tag}</span><span class="move-desc">${el ? `${el.icon} ` : ""}${moveDescription(move)}</span></span>
       <span class="move-cost">${move.cost ? `${move.cost}⚡` : "Free"}</span>
+      <span class="move-icon">${move.icon}</span>
+      <span class="move-name">${move.name}</span>
+      <span class="move-desc">${el ? `${el.icon} ` : ""}${moveDescription(move)}</span>${tag ? `<span class="move-tags">${tag}</span>` : ""}
       <span class="move-key" aria-hidden="true">${n + 1}</span>`;
     button.setAttribute("aria-label", `${tab.who}: ${move.name}. ${el ? `${el.name}. ` : ""}${moveDescription(move)}.${eff > 1 ? " Super effective!" : eff < 1 ? " Not very effective." : ""} Costs ${move.cost} energy.`);
     button.onclick = () => pickMove(move, tab.mover);
     bar.appendChild(button);
   });
 }
+
+const BOOK_PAGE = 4;
+$("book-prev").onclick = () => battle && ((battle.page = Math.max(0, (battle.page || 0) - 1)), renderMoves());
+$("book-next").onclick = () => battle && ((battle.page = (battle.page || 0) + 1), renderMoves());
+
+// The elements that hit `element` extra hard ("Weak to" on the foe's panel).
+const weakTo = (element) => Object.keys(ELEMENTS).filter((e) => effectiveness(e, element) > 1);
 
 function moveDescription(move) {
   if (isAttack(move)) {
@@ -821,7 +916,7 @@ function renderEnergy(b = battle) {
 // up/down arrows pick who to target. (Letters are for signing in test mode.)
 addEventListener("keydown", (e) => {
   if (!battle || !isShowing("battle")) return;
-  if (/^[1-3]$/.test(e.key)) $("battle-moves").children[Number(e.key) - 1]?.click();
+  if (/^[1-4]$/.test(e.key)) $("battle-moves").children[Number(e.key) - 1]?.click();
   if (e.key === "ArrowUp" || e.key === "ArrowDown") {
     e.preventDefault();
     cycleTarget(e.key === "ArrowDown" ? 1 : -1);
@@ -829,6 +924,7 @@ addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
     const tabs = $("move-tabs").children.length;
     battle.tab = (battle.tab + (e.key === "ArrowRight" ? 1 : tabs - 1)) % tabs;
+    battle.page = 0;
     renderMoves();
   }
 });
@@ -1229,5 +1325,4 @@ function finish(won) {
   setTimeout(() => onFinish(result), won ? 2200 : 1400);
 }
 
-$("hint-btn").onclick = () => battle && !battle.done && !battle.busy && showHint(false);
 $("skip-btn").onclick = () => battle && !battle.done && !battle.busy && letterDone(performance.now(), true);

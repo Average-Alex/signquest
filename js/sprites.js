@@ -7,7 +7,10 @@
 // painted once onto a canvas and shown as <img> tags scaled up with
 // `image-rendering: pixelated`, so they stay crisp at any size.
 
-import { buildCritter, CRITTERS } from "./critters.js";
+import { buildCritter, CRITTERS, evolveSpec } from "./critters.js";
+import { BEASTS, buildBeast, STAGE_FEATS } from "./beasts.js";
+import { PAINTED as PAINTED_ART } from "./painted.js";
+import { armorById, CREATURES } from "./config.js";
 
 const OUTLINE = "#2b1d2e";
 
@@ -1112,6 +1115,46 @@ DECOR.reeds = {
   ]), 16),
 };
 
+// More trees, rocks, and plants, so each area of a zone can mix its own
+// (THEMES `mixes` in biome.js).
+DECOR.birch = { rows: DECOR.oak.rows, colors: { G: "#8cc85a", g: "#5a9a3e", H: "#b8e07a", T: "#ece8e0" } };
+DECOR.cherry = { rows: DECOR.oak.rows, colors: { G: "#f4a6c8", g: "#c8709a", H: "#ffd0e4", T: "#7a4a3a" } };
+DECOR.darkpine = { rows: PINE.rows, colors: { G: "#2e6a3a", g: "#1e4a2a", T: "#6a4a2a" } };
+DECOR.autumnpine = { rows: PINE.rows, colors: { G: "#c8783a", g: "#9a5226", T: "#6a4a2a" } };
+DECOR.mossrock = { rows: DECOR.rock.rows, colors: { R: "#7a8a6a", r: "#5a6a4a", w: "#9ab87a" } };
+DECOR.snowrock = { rows: DECOR.rock.rows, colors: { R: "#e8f0f8", r: "#a8bccc", w: "#ffffff" } };
+DECOR.bluecrystal = { rows: DECOR.crystal.rows, colors: { C: "#7fe3ff", c: "#3fa8d0", w: "#e8fbff" } };
+DECOR.ambercrystal = { rows: DECOR.crystal.rows, colors: { C: "#ffc83a", c: "#d08a1a", w: "#fff4c0" } };
+DECOR.stump = {
+  colors: { W: "#d8b07a", w: "#a8804a", T: "#8a5a32", t: "#6e4426" },
+  rows: padTop(mirror([
+    "...KKKKK",
+    "..KWWWWW",
+    "..KWwwwW",
+    "..KKWWWW",
+    "..KTKKKK",
+    "..KTtTTT",
+    "..KTtTTT",
+    ".KTTtTTT",
+    "KTtTTtTT",
+    "KKKKKKKK",
+  ]), 16),
+};
+DECOR.fern = {
+  colors: { G: "#5aa848", g: "#3c7a34" },
+  rows: padTop(mirror([
+    "G.......",
+    ".G....G.",
+    "..G..Gg.",
+    "G..GGg..",
+    ".GG.Gg.G",
+    "...GGgG.",
+    "....GgG.",
+    ".....GgK",
+    ".....KKK",
+  ]), 16),
+};
+
 // Pieces of the little scenes in each area (villages, camps, farms... see
 // SCENES in biome.js).
 DECOR.tent = {
@@ -1240,6 +1283,7 @@ DECOR.statue = {
     ".KKKKKKK",
   ]),
 };
+DECOR.goldstatue = { rows: DECOR.statue.rows, colors: { S: "#ffd23f", s: "#c99418", P: "#a8a0b0", p: "#7a7288" } }; // the Arena's champion
 DECOR.stall = {
   colors: { R: "#c8414b", W: "#f4ecdc", T: "#8a5a32", B: "#b08a5a", b: "#8a6a42", A: "#e8602a", O: "#7ac84a" },
   rows: padTop(mirror([
@@ -1272,6 +1316,8 @@ DECOR.berrybush = {
   ]), 16),
 };
 DECOR.berrybushpicked = { rows: DECOR.berrybush.rows, colors: { ...DECOR.berrybush.colors, B: "#5cbf4a" } };
+DECOR.flowerbush = { rows: DECOR.berrybush.rows, colors: { ...DECOR.berrybush.colors, B: "#ffd84a" } };
+DECOR.rosebush = { rows: DECOR.berrybush.rows, colors: { ...DECOR.berrybush.colors, G: "#4aa848", B: "#f06a8a" } };
 DECOR.log = {
   colors: { L: "#8a5a32", l: "#6e4426", W: "#d8b07a", w: "#a8804a" },
   rows: padTop(mirror([
@@ -1298,13 +1344,21 @@ const BUILDING_BASE = {
 };
 const BUILDING_COLORS = {
   meadow: {},
-  forest: { R: "#4a7a3a", r: "#2e5a2a", Q: "#6a9a4a", W: "#a87a4a", w: "#7a5232" },
-  caves: { R: "#6a6478", r: "#4a4458", Q: "#8a8498", W: "#9a8a78", w: "#6e6050", G: "#ffc83a", g: "#fff4c0" },
-  river: { R: "#4a6ab8", r: "#344c8a", Q: "#6a8ad8", W: "#d8c8a8", A: "#3a8ad0" },
-  castle: { R: "#4a4458", r: "#2e2a3a", Q: "#6a6478", W: "#a8a0b0", w: "#7a7288", G: "#ffc83a", g: "#fff4c0" },
+  // Glowshroom Forest: mushroom-cap roofs and glowing windows.
+  forest: { R: "#c870d8", r: "#8a4aa8", Q: "#ffd0f4", W: "#e8dcc8", w: "#b8a888", G: "#7fe3ff", g: "#e8fbff" },
+  // Magma Canyon: dark stone and lava-lit windows.
+  caves: { R: "#3a2a2e", r: "#241a1e", Q: "#5a3a32", W: "#8a6a5a", w: "#5a4038", G: "#ffb020", g: "#fff4c0", C: "#5a3a32", c: "#3a241e" },
+  // Coral Lagoon: beach huts in pastel colors.
+  river: { R: "#e8d090", r: "#c0a060", Q: "#f8ecc0", W: "#7fc8e8", w: "#4a9ac0", A: "#ff7a6a" },
+  // Haunted Hollow: crooked dark houses with ghostly green windows.
+  castle: { R: "#3a2a4e", r: "#241838", Q: "#5a4a6e", W: "#6a5a6a", w: "#4a3e4a", G: "#7fffa0", g: "#e0ffe8", D: "#3a2a20", d: "#241812" },
+  // Crown Keep: royal purple roofs and pale stone.
   keep: { R: "#6a4bd6", r: "#4a2fa8", Q: "#8a6af0", W: "#e0dcea", w: "#a8a0bc", A: "#6a4bd6" },
+  // Aurora Glacier: snowy roofs on log cabins.
   spires: { R: "#7a9ab8", r: "#5a7a98", Q: "#9abad8", W: "#a87a4a", w: "#7a5232" },
-  clouds: { R: "#e8b84a", r: "#b88a2a", Q: "#ffd870", W: "#f8f8ff", w: "#c8d0e8", A: "#e8b84a" },
+  // Thunder Peaks: slate roofs, stone walls, lamp-lit windows.
+  clouds: { R: "#4a5064", r: "#2e3242", Q: "#6a7084", W: "#a8a0b0", w: "#7a7288", G: "#ffe066", g: "#fff4c0", A: "#e8b84a" },
+  // Cosmic Rift: night-purple walls and starry windows.
   void: { R: "#3a2860", r: "#241848", Q: "#5a3f8a", W: "#4a3a6e", w: "#2e2448", B: "#241848", G: "#c58cf0", g: "#f2e0ff", D: "#2e2448", d: "#1a1030", f: "#c58cf0" },
 };
 const SNOWY = new Set(["spires"]);
@@ -1480,6 +1534,34 @@ DECOR.windmill = (() => {
   return { rows: out.map((r) => r.join("")), colors: { ...BUILDING_BASE, W: "#e8dcc8", w: "#c4b494", a: "#f8f4ec", B: "#7a5232" } };
 })();
 
+// The Battle Arena on the world map: a colosseum with two tiers of arches
+// and flags on top.
+DECOR.colosseum = (() => {
+  const w = 56, h = 36;
+  const g = Array.from({ length: h }, () => Array(w).fill("."));
+  const tier = (top, bot, x0, x1) => {
+    for (let y = top; y <= bot; y++) for (let x = x0; x <= x1; x++) g[y][x] = y === top + 1 ? "w" : "W";
+    // Arches: three wide, rounded at the top.
+    for (let x = x0 + 3; x + 2 <= x1 - 2; x += 6)
+      for (let y = top + 3; y < bot; y++) for (let k = 0; k < 3; k++) if (y > top + 3 || k === 1) g[y][x + k] = "D";
+  };
+  tier(18, h - 2, 1, w - 2);
+  tier(9, 18, 6, w - 7);
+  for (const fx of [9, 27, 46]) {
+    for (let y = 1; y < 9; y++) g[y][fx] = "B";
+    for (let y = 1; y < 4; y++) for (let k = 1; k <= 4 - y + 1; k++) g[y][fx + k] = fx === 27 ? "a" : "A";
+  }
+  const out = g.map((r) => r.slice());
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (g[y][x] === "." || g[y][x] === "B" || g[y][x] === "A" || g[y][x] === "a") continue;
+      const empty = (xx, yy) => xx < 0 || yy < 0 || xx >= w || yy >= h || g[yy][xx] === ".";
+      if (empty(x - 1, y) || empty(x + 1, y) || empty(x, y - 1) || empty(x, y + 1)) out[y][x] = "K";
+    }
+  for (let x = 1; x < w - 1; x++) out[h - 1][x] = "K";
+  return { rows: out.map((r) => r.join("")), colors: { W: "#e0d4b8", w: "#b8a888", D: "#4a3a3a", A: "#c8414b", a: "#3a6ab0", B: "#7a5232" } };
+})();
+
 export const LANDMARKS = {
   // Cottage
   meadow: {
@@ -1504,6 +1586,7 @@ export const LANDMARKS = {
       ]),
     }],
   },
+  // (Glowshroom Forest: replaced with glowing mushrooms below.)
   forest: {
     w: 34, h: 18,
     parts: [
@@ -1657,13 +1740,167 @@ LANDMARKS.keep = {
     ]),
   }],
 };
-LANDMARKS.spires = recolor(LANDMARKS.caves, { W: "#ffffff", w: "#cfe3f2", R: "#b8d8f0", r: "#7fa8d0", D: "#3a2a6e" });
-LANDMARKS.clouds = recolor(LANDMARKS.castle, { R: "#4f8aff", r: "#2f5ad0", S: "#ffffff", s: "#d0d8f0", Y: "#ffe066", D: "#c9b277" });
+// The new worlds' landmarks: an icy peak under the aurora, a stormy peak, a
+// volcano (from the mountain), a haunted Academy (from the castle), and a
+// cosmic portal. (Crown Keep keeps its castle.)
+LANDMARKS.spires = recolor(LANDMARKS.caves, { W: "#ffffff", w: "#7fe3a0", R: "#b8d8f0", r: "#7fa8d0", D: "#3a2a6e" });
+LANDMARKS.clouds = recolor(LANDMARKS.caves, { W: "#ffe066", w: "#fff4c0", R: "#6a7084", r: "#4a5064", D: "#24283a" });
+LANDMARKS.caves = recolor(LANDMARKS.caves, { W: "#ff8a2a", w: "#ffd23f", R: "#5a3a32", r: "#3a241e", D: "#ff6a2a" });
+LANDMARKS.castle = recolor(LANDMARKS.castle, { R: "#4a3a5e", r: "#2e2240", S: "#7a7288", s: "#5a5468", Y: "#7fffa0", D: "#3a2a20" });
+LANDMARKS.void = recolor(LANDMARKS.void, { P: "#ff7ad8", p: "#c84ab0", V: "#1a1240", v: "#3a6ab0", w: "#ffd23f", S: "#6a5a8a", s: "#4a3a6a" });
 
 // New scenery for the realm, plus things to find while exploring.
 DECOR.cloud = { rows: DECOR.bush.rows, colors: { G: "#ffffff", g: "#c8d0f0" } };
 DECOR.voidrock = { rows: DECOR.rock.rows, colors: { R: "#4a3a6e", r: "#2e2448", w: "#c58cf0" } };
 DECOR.icecrystal = { rows: DECOR.crystal.rows, colors: { C: "#bfe8ff", c: "#7fb8e0", w: "#ffffff" } };
+// ---------- The new worlds' scenery ----------
+// Glowshroom Forest (zone id forest), Magma Canyon (caves), Coral Lagoon
+// (river), Haunted Hollow (castle), Aurora Glacier
+// (spires), Thunder Peaks (clouds), Cosmic Rift (void).
+DECOR.glowshroom = {
+  colors: { A: "#3fb0d0", a: "#2a7a98", L: "#a8f4ff", S: "#e8dcc8", s: "#b8a888" },
+  rows: mirror([
+    "....KKKK",
+    "..KKAAAA",
+    ".KAAALLA",
+    "KAALLAAA",
+    "KAALLAAA",
+    "KAAAAAAL",
+    "KaAAAAAA",
+    "KaaaaaaA",
+    ".KKKKKKK",
+    "....KSSS",
+    "....KsSS",
+    "....KsSS",
+    "....KsSS",
+    "....KsSS",
+    "....KsSS",
+    "....KsSS",
+    "...KssSS",
+    "..KKKKKK",
+  ]),
+};
+DECOR.glowshroompink = { rows: DECOR.glowshroom.rows, colors: { ...DECOR.glowshroom.colors, A: "#c870d8", a: "#8a4aa8", L: "#ffd0f4" } };
+DECOR.palm = {
+  colors: { G: "#4aa848", g: "#2e7a34", T: "#b08a5a", t: "#8a6a42", C: "#7a5232" },
+  rows: mirror([
+    "..KKK...",
+    ".KGGGK.K",
+    "KGGgGGKG",
+    "KGK.KGGG",
+    "K..KGgGC",
+    "..KGK.KT",
+    "..K...KT",
+    "......Kt",
+    "......KT",
+    "......Kt",
+    "......KT",
+    "......Kt",
+    "......KT",
+    "......Kt",
+    "......KT",
+    ".....KKK",
+  ]),
+};
+DECOR.coral = {
+  colors: { A: "#ff7a6a", a: "#d8504a" },
+  rows: padTop(mirror([
+    ".K...K..",
+    "KAK.KAK.",
+    "KAK.KAKK",
+    ".KAKAAKA",
+    "..KAAKAA",
+    "...KAAAA",
+    "...KAaAA",
+    "..KKKKKK",
+  ]), 16),
+};
+DECOR.coralblue = { rows: DECOR.coral.rows, colors: { A: "#7fc8f0", a: "#3a8ac0" } };
+DECOR.pumpkin = {
+  colors: { O: "#f08a24", o: "#c0601a", G: "#5aa848" },
+  rows: padTop(mirror([
+    "......KG",
+    ".....KGK",
+    "..KKKKKK",
+    ".KOOOoOO",
+    "KOOOoOOO",
+    "KOOOoOOO",
+    "KOOoOOOO",
+    "KoOOoOOO",
+    ".KoooooO",
+    "..KKKKKK",
+  ]), 16),
+};
+DECOR.jackolantern = {
+  colors: { ...DECOR.pumpkin.colors, Y: "#ffd23f" },
+  rows: padTop(mirror([
+    "......KG",
+    ".....KGK",
+    "..KKKKKK",
+    ".KOOOoOO",
+    "KOOOYYOO",
+    "KOOOoOOO",
+    "KOOYOYYY",
+    "KoOOoOOO",
+    ".KoooooO",
+    "..KKKKKK",
+  ]), 16),
+};
+DECOR.spookytree = { rows: DECOR.deadtree.rows, colors: { T: "#5a4a6e", t: "#3a2a4e" } };
+DECOR.cactus = {
+  colors: { G: "#5aa848", g: "#3c7a34", F: "#f06a8a" },
+  rows: padTop(mirror([
+    ".....KKF",
+    ".....KGG",
+    ".....KGg",
+    ".KK..KGg",
+    "KGGK.KGg",
+    "KGgK.KGg",
+    "KGgKKKGg",
+    ".KGGGGGg",
+    "..KKKKGg",
+    ".....KGg",
+    ".....KGg",
+    ".....KGg",
+    "....KKGg",
+    "....KKKK",
+  ]), 16),
+};
+DECOR.sandrock = { rows: DECOR.rock.rows, colors: { R: "#e0c088", r: "#b89060", w: "#f4e0b0" } };
+DECOR.lavarock = { rows: DECOR.rock.rows, colors: { R: "#5a3a32", r: "#3a241e", w: "#ff8a2a" } };
+DECOR.obsidian = { rows: DECOR.crystal.rows, colors: { C: "#3a2a3e", c: "#241a28", w: "#ff8a2a" } };
+DECOR.stormrock = { rows: DECOR.rock.rows, colors: { R: "#6a7084", r: "#4a5064", w: "#ffe066" } };
+DECOR.planet = {
+  colors: { P: "#c58cf0", p: "#8a5ad6", Y: "#ffd23f", y: "#c99418" },
+  rows: padTop(mirror([
+    "....KKKK",
+    "..KKPPPP",
+    ".KPPpPPP",
+    ".KPPPPPp",
+    "KYYYYYYY",
+    "KyyyyyyY",
+    ".KPPPPpP",
+    ".KpPPPPP",
+    "..KKpppp",
+    "....KKKK",
+  ]), 16),
+};
+DECOR.planetblue = { rows: DECOR.planet.rows, colors: { P: "#7fc8f0", p: "#3a8ac0", Y: "#ff7ad8", y: "#c84ab0" } };
+LANDMARKS.forest = {
+  w: 34, h: 20,
+  parts: [
+    { ...DECOR.glowshroompink, x: 0, y: 2 },
+    { ...DECOR.glowshroompink, x: 18, y: 2 },
+    { ...DECOR.glowshroom, x: 9, y: 0 },
+  ],
+};
+LANDMARKS.river = {
+  w: 32, h: 18,
+  parts: [
+    { ...DECOR.palm, x: 0, y: 2 },
+    { ...DECOR.palm, x: 15, y: 0 },
+  ],
+};
 const CHEST_COLORS = { W: "#b07a3e", w: "#8a5a2a", Y: "#ffc93c" };
 DECOR.chest = {
   colors: CHEST_COLORS,
@@ -1740,7 +1977,7 @@ const canvases = new Map(); // data URL -> canvas, for drawing sprites onto othe
 // classic pixel-art upscaler from old game emulators. It rounds off the
 // stair-steps on curves and diagonals but keeps hard pixel edges, so things
 // still look retro, just with finer detail. Each pass doubles the size.
-const SMOOTHING_PASSES = 0; // 0: chunky pixels, like old games; 1: rounder edges
+const SMOOTHING_PASSES = 1; // 0: chunky pixels, like old games; 1: rounder edges
 export const SPRITE_SCALE = 2 ** SMOOTHING_PASSES;
 
 function scale2x(src) {
@@ -1785,6 +2022,53 @@ function draw(key, width, height, paintAll) {
 // The canvas behind any sprite URL from this file (for the biome, which
 // draws sprites itself instead of using <img> tags).
 export const spriteCanvas = (src) => canvases.get(src);
+
+// ---------- Painted creatures ----------
+// Creatures with painted art (assets/creatures/<id>-<stage>.png, cut from
+// our Canva sheets by tools/cut_creature_sheets.py) use it instead of their
+// pixel art. The pictures are big; the biome draws them smoothly at the size
+// a pixel creature would be.
+// Off for now: only a few creatures have painted art, and a mix of painted
+// and pixel creatures looks uneven. Turn on once every line has its pictures.
+const USE_PAINTED = false;
+const PAINTED = USE_PAINTED ? PAINTED_ART : new Set();
+const PAINTED_HEIGHT = 32; // a stage-1 painted creature's height in game pixels, like a pixel beast
+const STAGE_GROWTH = [1, 1.2, 1.42]; // as .sprite.evolved.stage-N in style.css
+const HEX_FILTER = "hue-rotate(250deg) saturate(0.75) brightness(0.8) contrast(1.1)"; // Hexbound: corrupted colors
+const paintedPath = (id, stage) => `assets/creatures/${id}-${stage}.png`;
+const paintedSizes = new WeakMap(); // canvas -> its size in game pixels
+for (const id of PAINTED) {
+  for (const stage of [1, 2, 3]) {
+    const src = paintedPath(id, stage);
+    const blank = document.createElement("canvas"); // until the picture loads
+    blank.width = blank.height = 1;
+    canvases.set(src, blank);
+    canvases.set(`${src}#hexed`, blank);
+    const image = new Image();
+    image.onload = () => {
+      const h = PAINTED_HEIGHT * STAGE_GROWTH[stage - 1];
+      const size = { w: (h * image.naturalWidth) / image.naturalHeight, h };
+      for (const hexed of [false, true]) {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (hexed) ctx.filter = HEX_FILTER;
+        ctx.drawImage(image, 0, 0);
+        paintedSizes.set(canvas, size);
+        canvases.set(hexed ? `${src}#hexed` : src, canvas);
+      }
+    };
+    image.src = src;
+  }
+}
+
+// A sprite canvas's size in game pixels, and whether to draw it smoothly
+// (painted art) or with crisp pixels.
+export function spriteSize(canvas) {
+  const painted = paintedSizes.get(canvas);
+  return painted ? { ...painted, smooth: true } : { w: canvas.width / SPRITE_SCALE, h: canvas.height / SPRITE_SCALE, smooth: false };
+}
 
 // Which art each creature uses. Some are recolors of another creature.
 // Crown Keep's creatures.
@@ -1871,7 +2155,8 @@ const CREATURE_ART = {
 
 // Every creature except Malgrath is a critter, built from shared parts so
 // they all look like one family (critters.js).
-for (const [id, spec] of Object.entries(CRITTERS)) CREATURE_ART[id] = buildCritter(spec);
+// Creatures are side-view beasts (beasts.js) in their critter colors (critters.js).
+for (const [id, spec] of Object.entries(CRITTERS)) CREATURE_ART[id] = BEASTS[id] ? buildBeast({ ...BEASTS[id], colors: spec.colors }) : buildCritter(spec);
 
 // Malgrath the Hollow King, the final boss.
 CREATURE_ART.malgrath = {
@@ -2155,20 +2440,43 @@ function glow(ctx, w, h) {
   ctx.putImageData(image, 0, 0);
 }
 
+// An evolved buddy's art (stage 2 or 3; see evolveSpec in critters.js).
+// Creatures that aren't critters just get richer colors.
+const evolvedArts = new Map();
+function evolvedArt(id, stage) {
+  const key = `${id}:${stage}`;
+  if (!evolvedArts.has(key)) {
+    const element = CREATURES.find((c) => c.id === id)?.element;
+    const extra = (STAGE_FEATS[element] || []).slice(0, stage - 1).flat();
+    const art = BEASTS[id] && CRITTERS[id]
+      ? buildBeast({ ...BEASTS[id], colors: evolveSpec(CRITTERS[id], element, stage).colors }, stage, extra)
+      : CRITTERS[id] ? buildCritter(evolveSpec(CRITTERS[id], element, stage)) : { rows: CREATURE_ART[id].rows, colors: evolvedColors(CREATURE_ART[id]) };
+    evolvedArts.set(key, art);
+  }
+  return evolvedArts.get(key);
+}
+// `stage` can be given as true (an old "evolved" flag): stage 2.
+const stageNumber = (stage) => (stage === true ? 2 : stage || 1);
+
 // `hexed`: draw the corrupted Hexbound version. `frame`: a walking frame.
-// `evolved`: the evolved version (see EVOLUTIONS in config.js).
-export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
-  const art = CREATURE_ART[id];
-  const w = art.rows[0].length, h = art.rows.length;
-  if (evolved && !hexed) {
-    // One pixel of room on every side for the glow.
-    return draw(`creature:${id}:evolved:${frame}`, w + 2, h + 2, (ctx) => {
-      paint(ctx, art.rows, evolvedColors(art), 1, 1);
-      shadeSprite(ctx, w + 2, h + 2);
-      liftFoot(ctx, w + 2, h + 2, frame);
-      glow(ctx, w + 2, h + 2);
+// `stage`: the evolution stage, 1-3 (see stageOf in config.js). Stage 3
+// has a golden glow around it.
+export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
+  stage = stageNumber(stage);
+  if (PAINTED.has(id)) return hexed ? `${paintedPath(id, 1)}#hexed` : paintedPath(id, stage);
+  if (stage > 1 && !hexed) {
+    const art = evolvedArt(id, stage);
+    const w = art.rows[0].length, h = art.rows.length;
+    const pad = stage === 3 ? 1 : 0; // room for the glow
+    return draw(`creature:${id}:stage${stage}:${frame}`, w + pad * 2, h + pad * 2, (ctx) => {
+      paint(ctx, art.rows, art.colors, pad, pad);
+      shadeSprite(ctx, w + pad * 2, h + pad * 2);
+      liftFoot(ctx, w + pad * 2, h + pad * 2, frame);
+      if (stage === 3) glow(ctx, w + 2, h + 2);
     });
   }
+  const art = CREATURE_ART[id];
+  const w = art.rows[0].length, h = art.rows.length;
   if (!hexed) {
     return draw(`creature:${id}:${frame}`, w, h, (ctx) => {
       paint(ctx, art.rows, art.colors);
@@ -2187,9 +2495,12 @@ export function creatureSrc(id, hexed = false, frame = 0, evolved = false) {
 }
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.
-export function creatureImg(id, cls = "", hexed = false, evolved = false) {
-  const small = CREATURE_ART[id].rows.length <= 12;
-  return img(creatureSrc(id, hexed, 0, evolved), `creature ${small ? "small" : ""}${evolved ? " evolved" : ""}${hexed ? " hexed" : ""} ${cls}`, id);
+// Evolved ones (`stage` 2 or 3) are shown bigger too.
+export function creatureImg(id, cls = "", hexed = false, stage = 1) {
+  stage = stageNumber(stage);
+  const painted = PAINTED.has(id);
+  const small = !painted && CREATURE_ART[id].rows.length <= 12;
+  return img(creatureSrc(id, hexed, 0, stage), `creature ${small ? "small" : ""}${painted ? " painted" : ""}${stage > 1 ? ` evolved stage-${stage}` : ""}${hexed ? " hexed" : ""} ${cls}`, id);
 }
 
 // Scenery is toned down (less saturated, a little darker) so the world looks
@@ -2217,13 +2528,17 @@ export function decorSrc(id) {
 const img = (src, cls, alt = "") => `<img class="sprite ${cls}" src="${src}" alt="${alt}" draggable="false">`;
 
 // `frame`: a walking frame (see liftFoot). `wand`: villagers don't carry one.
+// `look.armor`: the armor set your hero wears (ARMOR in config.js), which
+// replaces the outfit with its own style and colors.
 export function heroSrc(look, hatId = null, frame = 0, wand = true) {
+  const armor = armorById(look?.armor);
   look = normalizeLook(look);
-  return draw(`hero:${JSON.stringify(look)}:${hatId}:${frame}:${wand}`, 20, 30, (ctx) => {
+  return draw(`hero:${JSON.stringify(look)}:${armor.id}:${hatId}:${frame}:${wand}`, 20, 30, (ctx) => {
     const colors = { ...HERO_BASE };
     for (const part of ["hair", "skin", "eyes", "outfit"]) Object.assign(colors, LOOK_OPTIONS[part].choices[look[part]]);
+    if (armor.style) Object.assign(colors, armor.colors);
     paint(ctx, HEAD, colors, 2, 6);
-    paint(ctx, OUTFIT_ROWS[look.outfitStyle], colors, 2, 6 + HEAD.length);
+    paint(ctx, OUTFIT_ROWS[armor.style || look.outfitStyle], colors, 2, 6 + HEAD.length);
     paint(ctx, HAIR_ROWS[look.hairStyle], colors, 2, 6);
     paint(ctx, GLASSES_ROWS[look.glasses], colors, 2, 6);
     const weapon = WEAPONS[look.weapon];

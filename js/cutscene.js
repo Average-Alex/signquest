@@ -29,7 +29,7 @@ const AFTER_VOICE_MS = 900; // after the narrator finishes
 
 // ---------- Building blocks for shots ----------
 
-const you = () => heroImg(progress.get().look, progress.get().equipped.hat);
+const you = () => heroImg(progress.heroLook(), progress.get().equipped.hat);
 const buddy = () => creatureImg(progress.team()[0]?.id || "pip");
 const bossOf = (zoneId) => CREATURES.find((c) => c.zone === zoneId && c.kind === "boss" && c.catchable !== false)?.id || "malgrath";
 const landmark = (zoneId) => `<img class="sprite" src="${landmarkSrc(zoneId)}" alt="">`;
@@ -113,24 +113,24 @@ const ZONE_TEXT = {
     "The first shard is waiting somewhere in this meadow.",
   ],
   forest: [
-    "The Forest, where Professor Hoot taught young Signkeepers under the tallest pines.",
-    "A shard crashed through the branches. Now Professor Hoot is Hexbound, and the woods have gone dark and quiet.",
-    "His old lessons are still hidden in these trees.",
+    "The Glowshroom Forest, where giant mushrooms glow blue in the dark and Professor Hoot taught young Signkeepers.",
+    "A shard crashed into the biggest glowshroom. Now Professor Hoot is Hexbound, and the glow has turned purple.",
+    "His old lessons are still hidden among the mushrooms.",
   ],
   caves: [
-    "The Caves. Every sound echoes, and crystals glow in the dark.",
-    "Count Flap carried a shard deep underground. Its light keeps him awake, grumpy, and hexed.",
-    "Stay close to your buddies. It's dark down here.",
+    "Magma Canyon. Rivers of lava, black glass rocks, and a smoking volcano at the top.",
+    "A shard fell into the volcano and woke Magmaw, the lava salamander, hexed and furious.",
+    "Watch your step. And stay close to your buddies.",
   ],
   river: [
-    "The River once sparkled with Signlight, all the way from the great waterfall to the sea.",
-    "Inkzilla dragged a shard under the falls and turned the whole river gray with hexed ink.",
-    "Fishers, sailors, and a bridgekeeper with riddles all need a Signkeeper's help.",
+    "Coral Lagoon. Sandy beaches, palm trees, and a reef full of color.",
+    "Inkzilla dragged a shard down to the deep reef and turned the whole lagoon gray with hexed ink.",
+    "Surfers, sailors, and a bridgekeeper with riddles all need a Signkeeper's help.",
   ],
   castle: [
-    "The Signkeeper Academy. Your old school, in ruins.",
-    "Blaze, the Academy's gentle dragon, now guards a shard for Malgrath. The school is his fortress.",
-    "Somewhere in the ruins, your old classmates are hiding.",
+    "Haunted Hollow, where the Signkeeper Academy stands. Your old school, full of ghosts now.",
+    "Gourdgeist, the Academy's friendly pumpkin spirit, now guards a shard for Malgrath.",
+    "Somewhere in the hollow, your old classmates are hiding.",
   ],
   keep: [
     "Crown Keep, Queen Amara's castle, in the very heart of the island.",
@@ -138,17 +138,17 @@ const ZONE_TEXT = {
     "The Queen is still inside, waiting to be set free.",
   ],
   spires: [
-    "The Crystal Spires. Three shards streaked through the portal and froze among the stars.",
-    "The Glacier Wyrm curled around one of them. Its icy breath froze the whole realm.",
+    "The Aurora Glacier. Three shards streaked through the portal and froze under the northern lights.",
+    "The Aurora Wyrm curled around one of them. Its icy breath froze the whole glacier.",
     "Stay warm, Signkeeper. And keep signing.",
   ],
   clouds: [
-    "The Cloud Kingdom, floating above a sea of stars.",
+    "Thunder Peaks, mountain islands floating in a sea of stars.",
     "The Storm Owl guards a shard inside a thunderstorm that never ends.",
     "Every flash of lightning is Malgrath, watching you.",
   ],
   void: [
-    "The Void Rift, where the light ends.",
+    "The Cosmic Rift, where planets drift and the light ends.",
     "Malgrath waits at the very top with the last shard... and Rook's little sister, Robin.",
     "This is it. Everything you've learned leads here.",
   ],

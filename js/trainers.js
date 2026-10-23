@@ -14,13 +14,13 @@ import { hash } from "./worldmap.js";
 // [title, name] per zone. The title says what kind of trainer they are.
 const PEOPLE = {
   meadow: [["Picnicker", "Rosie"], ["Bug Catcher", "Tim"], ["Kite Flyer", "Mae"], ["Farmhand", "Jo"]],
-  forest: [["Camper", "Leo"], ["Ranger", "Ash"], ["Mushroom Fan", "Ivy"], ["Scout", "Rey"]],
-  caves: [["Hiker", "Gus"], ["Miner", "Dot"], ["Gem Hunter", "Opal"], ["Spelunker", "Kip"]],
-  river: [["Fisher", "Kai"], ["Swimmer", "Nia"], ["Sailor", "Finn"], ["Rafter", "Lu"]],
-  castle: [["Squire", "Ben"], ["Bard", "Lyra"], ["Page", "Theo"], ["Knight", "Ada"]],
-  spires: [["Skater", "Ivo"], ["Crystal Sage", "Wren"], ["Climber", "Pax"], ["Ice Mage", "Bea"]],
-  clouds: [["Sky Sailor", "Zed"], ["Weather Witch", "Nell"], ["Glider", "Bo"], ["Storm Chaser", "Ula"]],
-  void: [["Star Gazer", "Orion"], ["Rift Walker", "Vex"], ["Moon Monk", "Sol"], ["Comet Rider", "Juno"]],
+  forest: [["Camper", "Leo"], ["Mushroom Fan", "Ivy"], ["Moth Catcher", "Ash"], ["Glow Scout", "Rey"]],
+  caves: [["Hiker", "Gus"], ["Miner", "Dot"], ["Firefighter", "Opal"], ["Volcano Scout", "Kip"]],
+  river: [["Surfer", "Kai"], ["Swimmer", "Nia"], ["Sailor", "Finn"], ["Diver", "Lu"]],
+  castle: [["Ghost Hunter", "Ben"], ["Bard", "Lyra"], ["Student", "Theo"], ["Night Owl", "Ada"]],
+  spires: [["Skater", "Ivo"], ["Aurora Watcher", "Wren"], ["Climber", "Pax"], ["Ice Mage", "Bea"]],
+  clouds: [["Storm Chaser", "Zed"], ["Weather Witch", "Nell"], ["Glider", "Bo"], ["Mountaineer", "Ula"]],
+  void: [["Star Gazer", "Orion"], ["Rift Walker", "Vex"], ["Astronaut", "Sol"], ["Comet Rider", "Juno"]],
   keep: [["Jester", "Lolo"], ["Knight", "Gwen"], ["Royal Archer", "Tamsin"], ["Duke", "Reginald"]],
 };
 
@@ -42,7 +42,7 @@ const CHAT = [
   "Tip: check which moves say ▲ Super. They hit way harder!",
   "Tip: Fire beats Nature, Water beats Fire, Nature beats Water.",
   "Tip: quick-draw turns do DOUBLE damage if you sign fast!",
-  "Tip: buddies evolve when they reach level 5. Keep them on your team!",
+  "Tip: buddies evolve at level 5, and again at level 10. Keep them on your team!",
   "Malgrath's hex is everywhere. Good luck up ahead!",
   "I'm going to train until I can beat you. Just wait!",
 ];

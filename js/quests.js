@@ -6,9 +6,14 @@
 // sends hexed creatures to ambush you, Rook (a rival Signkeeper collecting
 // shards for Malgrath) challenges you, and Pip starts to remember who it is.
 //
-// Rook's arc: he fights you in the Forest and the River. Then Malgrath
-// reveals he's holding Rook's little sister Robin hexed. At the Academy, Rook
-// gives up fighting you and joins your side, all the way to the Void Rift.
+// Rook's arc: he fights you in the Glowshroom Forest and the Coral Lagoon.
+// Then Malgrath reveals he's holding Rook's little sister Robin hexed. At the
+// Academy in Haunted Hollow, Rook gives up fighting you and joins your side,
+// all the way to the Cosmic Rift.
+//
+// Zone ids are save keys from before the worlds were redone: forest is the
+// Glowshroom Forest, caves Magma Canyon, river Coral Lagoon, castle Haunted
+// Hollow, spires Aurora Glacier, clouds Thunder Peaks, and void the Cosmic Rift.
 //
 // Each area (except the boss's, at the top) has a villager with a quest.
 // Each zone mixes them up (never the same kind twice in a row), and ends
@@ -125,14 +130,14 @@ export const QUESTS = {
     },
     folk: [
       folk("Camper Nico", "short", "black", "s5", "tunic", "green", {}, ["The owls stopped hooting when the hex came.", "Keep your hand where the camera can see it, and the magic works better!"]),
-      folk("Mushroom Maya", "curly", "brown", "s3", "robe", "orange", {}, ["Some mushrooms glow at night. The hexed ones glow PURPLE.", "Practice a little every day. That's how my brother learned to sign!"]),
+      folk("Mushroom Maya", "curly", "brown", "s3", "robe", "orange", {}, ["Every mushroom here glows. The hexed ones glow PURPLE.", "Practice a little every day. That's how my brother learned to sign!"]),
       folk("Woodsman Abe", "short", "ginger", "s2", "tunic", "red", { hat: "hat-cap" }, ["Watch your step, the roots are tricky here.", "Deaf people have their own culture, with art, stories, and jokes!"]),
       folk("Robin's Friend Pia", "bun", "black", "s4", "tunic", "teal", {}, ["Have you seen Robin? She had a black robe like her big brother.", "I hope Robin is okay..."]),
     ],
     steps: [
       {
-        type: "chase", npc: "rowan", critter: "mossling", title: "Catch the mossling who took Rowan's lantern",
-        start: [["rowan", "The second shard hit the Owlery, where Professor Hoot teaches signing. He's hexed now, and his students are lost in these woods."], ["rowan", "And a cheeky mossling just ran off with my trail lantern! Catch him, and sign to calm him down?"]],
+        type: "chase", npc: "rowan", critter: "mossnout", title: "Catch the mossnout who took Rowan's lantern",
+        start: [["rowan", "The second shard hit the Owlery, up in the biggest glowshroom, where Professor Hoot teaches signing. He's hexed now, and his students are lost among the mushrooms."], ["rowan", "And a cheeky mossnout just ran off with my glow lantern! Catch him, and sign to calm him down?"]],
         done: [["rowan", "My lantern! And the little guy says sorry. The students ran toward the Owlery. Follow the trail."]],
       },
       {
@@ -142,7 +147,7 @@ export const QUESTS = {
       },
       {
         type: "collect", npc: "lena", count: 3, title: "Gather the pages of Professor Hoot's spellbook",
-        start: [["lena", "Professor Hoot's spellbook burst open when the hex hit. The Signkeeper Oath is in there!"], ["lena", "Three pages blew around this part of the woods. Each one has a sign on it. Can you collect them?"]],
+        start: [["lena", "Professor Hoot's spellbook burst open when the hex hit. The Signkeeper Oath is in there!"], ["lena", "Three pages blew around this part of the glowing woods. Each one has a sign on it. Can you collect them?"]],
         done: [["lena", "All three pages! Here, the Oath is on the first one. Now go save the Professor!"]],
       },
       {
@@ -158,12 +163,12 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "rook", creature: "duskwing",
+        area: 1, type: "rook", creature: "batcat",
         lines: [["rook", "Hey! Hold it right there."], ["rook", "So you're the last apprentice everyone's whispering about. I'm Rook."], ["rook", "That shard in the Owlery is mine. Let's see how good you really are!"]],
         after: [["rook", "Tch. Lucky. This isn't over, apprentice."], ["pip", "Who WAS that? Why would a Signkeeper want the shards?"]],
       },
       {
-        area: 3, type: "malgrath", creature: "barkbeetle",
+        area: 3, type: "malgrath", creature: "shroomlet",
         lines: [["malgrath", "Reading old spellbooks? How sweet."], ["malgrath", "The Owlery belongs to me now. Spores, smother them!"]],
         after: [["pip", "His hex gets stronger the closer we get to a shard. We have to hurry!"]],
       },
@@ -181,16 +186,16 @@ export const QUESTS = {
       dot: npc("Dot", "bun", "pink", "s4", "tunic", "red"),
     },
     folk: [
-      folk("Tunnel Tess", "short", "brown", "s4", "tunic", "orange", { hat: "hat-cap" }, ["My lamp went out when the bats flew by.", "In loud mines, workers use hand signs too!"]),
-      folk("Gem Polisher Gil", "bald", "black", "s6", "robe", "silver", { glasses: "round" }, ["These crystals hum when someone signs nearby.", "M, N, and S look a lot alike. Watch where the thumb goes!"]),
-      folk("Little Ozzy", "spiky", "blonde", "s1", "tunic", "blue", {}, ["I'm not scared of the dark! ...Okay, a little.", "Count Flap lives at the very bottom. Be careful!"]),
-      folk("Granny Gem", "bun", "white", "s3", "robe", "purple", {}, ["My grandson Kit is somewhere down here.", "A smile is part of signing too. Faces matter in ASL!"]),
+      folk("Tunnel Tess", "short", "brown", "s4", "tunic", "orange", { hat: "hat-cap" }, ["My boots melted a little on the lava rocks. Worth it!", "In loud mines, workers use hand signs too!"]),
+      folk("Gem Polisher Gil", "bald", "black", "s6", "robe", "silver", { glasses: "round" }, ["This obsidian hums when someone signs nearby.", "M, N, and S look a lot alike. Watch where the thumb goes!"]),
+      folk("Little Ozzy", "spiky", "blonde", "s1", "tunic", "blue", {}, ["I'm not scared of the dark! ...Okay, a little.", "Magmaw lives in the volcano at the top. Be careful!"]),
+      folk("Granny Gem", "bun", "white", "s3", "robe", "purple", {}, ["My grandson Kit is somewhere in this canyon.", "A smile is part of signing too. Faces matter in ASL!"]),
     ],
     steps: [
       {
-        type: "free", npc: "mo", count: 2, title: "Take back the Echo Mine",
-        start: [["mo", "The third shard fell down the old Echo Mine. Count Flap and his hexed bats took over and chased us miners out!"], ["mo", "Free 2 of them, and I'll open the mine gate."]],
-        done: [["mo", "The tunnels are safer already! Count Flap is down at the very bottom, where the shard landed."]],
+        type: "free", npc: "mo", count: 2, title: "Take back the canyon mine",
+        start: [["mo", "The third shard fell into the volcano at the end of Magma Canyon. Magmaw woke up hexed, and his lava critters chased us miners out!"], ["mo", "Free 2 of them, and I'll open the mine gate."]],
+        done: [["mo", "The canyon's safer already! Magmaw is up in the volcano, where the shard landed."]],
       },
       {
         type: "spot", npc: "pete", prompt: "Old Pete's door code", rounds: 2, title: "Help Pete read the door code",
@@ -199,22 +204,22 @@ export const QUESTS = {
       },
       {
         type: "find", npc: "kit", item: "Kit's lantern", title: "Find Kit's lantern",
-        start: [["kit", "I dropped my lantern when the bats swooped! It's pitch dark down here without it."], ["pip", "My antennae glow a little... but not enough. Let's find that lantern."]],
-        done: [["kit", "Light! Thank you! Look, the tunnel splits here. The shard's glow is coming from the left!"]],
+        start: [["kit", "I dropped my lantern when the ashcrows swooped! The smoke is so thick without it."], ["pip", "My antennae glow a little... but not enough. Let's find that lantern."]],
+        done: [["kit", "Light! Thank you! Look, the path splits at the lava falls. The shard's glow is coming from the left!"]],
       },
       {
         type: "convo", npc: "carla", title: "Answer Crystal Carla's questions",
         qa: [
-          [[["carla", "Malgrath's bats smashed all the deep lamps. I can light them again, but I need a Signkeeper's help."], ["carla", "First: what letter does LAMP start with? Sign it!"]], "L", "What letter does LAMP start with?"],
+          [[["carla", "Malgrath's ashcrows smashed all the canyon lamps. I can light them again, but I need a Signkeeper's help."], ["carla", "First: what letter does LAMP start with? Sign it!"]], "L", "What letter does LAMP start with?"],
           [[["carla", "Yes! Next: which letter looks like a circle? Hint: all your fingertips touch your thumb."]], "O", "Which letter looks like a circle?"],
           [[["carla", "Last one! The lamps matter most at NIGHT. Sign the letter NIGHT starts with."]], "N", "What letter does NIGHT start with?"],
         ],
-        done: [["carla", "The crystals are glowing! Lou can light the way down to Count Flap's lair now."]],
+        done: [["carla", "The lamps are glowing! Lou can light the way up to Magmaw's volcano now."]],
       },
       {
-        type: "guard", npc: "dot", title: "Beat Count Flap's gate guard",
-        start: [["dot", "Count Flap is just past this gate. His hexed guard swoops at anyone who comes near!"]],
-        done: [["dot", "Wow! Count Flap is next. Bring back the light!"]],
+        type: "guard", npc: "dot", title: "Beat Magmaw's gate guard",
+        start: [["dot", "Magmaw is just past this gate. His hexed guard blasts lava at anyone who comes near!"]],
+        done: [["dot", "Wow! Magmaw is next. Cool him down!"]],
       },
     ],
     events: [
@@ -223,12 +228,12 @@ export const QUESTS = {
         lines: [["pip", "Wait... I know this place. I've been somewhere like this before."], ["pip", "When the Beacon shattered, I fell. Deep, deep down into the dark. Then I woke up next to you."], ["pip", "Let's keep going. I want to remember more."]],
       },
       {
-        area: 3, type: "malgrath", creature: "glowbat",
-        lines: [["malgrath", "You chase my shards like a moth chases a flame."], ["malgrath", "And your little friend glows brighter near them, doesn't it? How... interesting."], ["malgrath", "Glowbats! Swarm them!"]],
+        area: 3, type: "malgrath", creature: "ashcrow",
+        lines: [["malgrath", "You chase my shards like a moth chases a flame."], ["malgrath", "And your little friend glows brighter near them, doesn't it? How... interesting."], ["malgrath", "Ashcrows! Swarm them!"]],
         after: [["pip", "Why did he look at me like that, {name}?"], ["pip", "Never mind. Let's just get the shard."]],
       },
     ],
-    phase2: [["malgrath", "Count Flap! Put out every light! DARKNESS, NOW!"], ["pip", "I'll glow as bright as I can! Keep signing!"]],
+    phase2: [["malgrath", "Magmaw! ERUPT! Bury them in lava!"], ["pip", "It's getting so hot! Keep signing!"]],
   },
 
   river: {
@@ -243,45 +248,45 @@ export const QUESTS = {
     folk: [
       folk("Swimmer Bea", "long", "blonde", "s2", "tunic", "teal", {}, ["The water was so clear before the ink.", "R is just two fingers crossed, like you're making a wish!"]),
       folk("Raft Builder Jun", "short", "black", "s4", "tunic", "orange", {}, ["I'm building a raft to follow Inkzilla. Maybe tomorrow.", "Some Deaf people feel music through the floor. Cool, right?"]),
-      folk("Fisher Gran", "bun", "white", "s5", "robe", "blue", { glasses: "round" }, ["The fish all swam upstream to hide.", "Signing T: tuck your thumb between your first two fingers."]),
+      folk("Fisher Gran", "bun", "white", "s5", "robe", "blue", { glasses: "round" }, ["The fish all hid in the coral.", "Signing T: tuck your thumb between your first two fingers."]),
       folk("Pebble", "curly", "ginger", "s3", "tunic", "green", {}, ["I skip stones! My record is six!", "My cousin is Deaf. We sign under water. It's the best!"]),
     ],
     steps: [
       {
         type: "learn", npc: "finn", word: "S", title: "Learn the sign for S with Fisher Finn",
-        start: [["finn", "The fourth shard sank under the waterfall, and Inkzilla turned the whole river gray with hexed ink!"], ["finn", "My boat is called the S.S. Signal. Every river kid learns S first: a fist, with your thumb across the front. Try it!"]],
-        done: [["finn", "Strong S! The water's clearing up already. Inkzilla's under the big waterfall at the top."]],
+        start: [["finn", "The fourth shard sank into the deep reef, and Inkzilla turned the whole lagoon gray with hexed ink!"], ["finn", "My boat is called the S.S. Signal. Every lagoon kid learns S first: a fist, with your thumb across the front. Try it!"]],
+        done: [["finn", "Strong S! The water's clearing up already. Inkzilla's out at the deep reef, past the shipwreck."]],
       },
       {
         type: "deliver", npc: "wren", to: "cora", item: "a fishing net", title: "Bring Wren's net to Captain Cora",
-        start: [["wren", "Captain Cora's boat is the only one that can sail to the waterfall. But Inkzilla shredded her net!"], ["wren", "Can you take her this one?"]],
-        done: [["cora", "A new net! Splendid. Once we're through the next gate, I'll take you upriver."]],
+        start: [["wren", "Captain Cora's boat is the only one that can sail to the deep reef. But Inkzilla shredded her net!"], ["wren", "Can you take her this one?"]],
+        done: [["cora", "A new net! Splendid. Once we're through the next gate, I'll sail you out to the reef."]],
       },
       {
-        type: "chase", npc: "tilly", critter: "bubblet", title: "Catch the bubblet stealing Tilly's planks",
-        start: [["tilly", "A boy in a black robe tried to cross my bridge this morning. And now a bubblet keeps stealing my planks!"], ["tilly", "Catch him, and sign to calm him down. Then my bridge is all yours."]],
-        done: [["tilly", "He was just cold and lonely. Cross away! That grumpy boy went up the river bank."]],
+        type: "chase", npc: "tilly", critter: "finnow", title: "Catch the finnow stealing Tilly's planks",
+        start: [["tilly", "A boy in a black robe tried to cross my bridge this morning. And now a finnow keeps stealing my planks!"], ["tilly", "Catch him, and sign to calm him down. Then my bridge is all yours."]],
+        done: [["tilly", "He was just cold and lonely. Cross away! That grumpy boy went along the beach."]],
       },
       {
         type: "find", npc: "sol", item: "Captain Cora's compass", title: "Find the lost compass",
-        start: [["sol", "Captain Cora dropped her compass in the reeds. Without it, nobody can find the waterfall through the ink!"]],
-        done: [["sol", "The compass! Look, the needle is pointing right at the waterfall gate."]],
+        start: [["sol", "Captain Cora dropped her compass in the reeds. Without it, nobody can find the reef through the ink!"]],
+        done: [["sol", "The compass! Look, the needle is pointing right at the reef gate."]],
       },
       {
         type: "guard", npc: "ray", title: "Beat Inkzilla's gate guard",
-        start: [["ray", "Inkzilla is just past the waterfall gate. Its hexed guard is really tough."], ["pip", "Bring your strongest buddies, {name}!"]],
-        done: [["ray", "Amazing! Inkzilla is next. The whole river is counting on you!"]],
+        start: [["ray", "Inkzilla is just past the reef gate. Its hexed guard is really tough."], ["pip", "Bring your strongest buddies, {name}!"]],
+        done: [["ray", "Amazing! Inkzilla is next. The whole lagoon is counting on you!"]],
       },
     ],
     events: [
       {
-        area: 1, type: "rook", creature: "reedcrab",
+        area: 1, type: "rook", creature: "shellsnap",
         lines: [["rook", "YOU again! Get out of my way, apprentice."], ["rook", "I NEED that shard. You have no idea what's at stake!"]],
         after: [["rook", "...Fine. You win. But I can't stop. I CAN'T."], ["pip", "He didn't sound mean this time, {name}. He sounded scared."]],
       },
       {
-        area: 3, type: "malgrath", creature: "bubblet",
-        lines: [["malgrath", "Rook works for ME, little apprentice. Didn't he tell you?"], ["malgrath", "He'll bring me every shard. Or his little sister Robin stays hexed. Forever."], ["malgrath", "Now... ink beasts, take them!"]],
+        area: 3, type: "malgrath", creature: "jellybop",
+        lines: [["malgrath", "Rook works for ME, little apprentice. Didn't he tell you?"], ["malgrath", "He'll bring me every shard. Or his little sister Robin stays hexed. Forever."], ["malgrath", "Now... jellybops, sting them!"]],
         after: [["pip", "His sister?! THAT'S why Rook is doing this!"], ["pip", "{name}, we have to help them both."]],
       },
     ],
@@ -298,10 +303,10 @@ export const QUESTS = {
       rook: { ...ROOK },
     },
     folk: [
-      folk("Student Ravi", "short", "black", "s4", "robe", "blue", {}, ["Our classroom is a hex nest now. Ugh.", "Remember the Signkeeper rule: sign with kindness!"]),
+      folk("Student Ravi", "short", "black", "s4", "robe", "blue", {}, ["Our classroom is haunted now. Ugh.", "Remember the Signkeeper rule: sign with kindness!"]),
       folk("Student Wen", "bun", "black", "s2", "robe", "purple", { glasses: "round" }, ["I was studying the letter V when it all happened.", "V is a peace sign! Two fingers up and apart."]),
-      folk("Janitor Mop", "bald", "brown", "s6", "tunic", "silver", {}, ["Somebody has to clean up after a dragon.", "Y is the hang loose sign. Thumb and pinky out!"]),
-      folk("Cook Pat", "curly", "white", "s3", "tunic", "red", { hat: "hat-cap" }, ["The dragon ate all the cookies. ALL of them.", "W has three fingers up, like a little crown."]),
+      folk("Janitor Mop", "bald", "brown", "s6", "tunic", "silver", {}, ["Somebody has to sweep up all these cobwebs.", "Y is the hang loose sign. Thumb and pinky out!"]),
+      folk("Cook Pat", "curly", "white", "s3", "tunic", "red", { hat: "hat-cap" }, ["Gourdgeist ate all the pumpkin pie. ALL of it.", "W has three fingers up, like a little crown."]),
     ],
     steps: [
       {
@@ -310,16 +315,16 @@ export const QUESTS = {
           [[["juno", "{name}?! You made it out too! I've been hiding in the ruins since that night."], ["juno", "Is it really you? Prove it! Sign the first letter of our school's motto: WE SIGN TOGETHER."]], "W", "First letter of WE SIGN TOGETHER?"],
           [[["juno", "It IS you! Okay, what's the last letter of the alphabet? You have to draw it in the air!"]], "Z", "The last letter of the alphabet?"],
         ],
-        done: [["juno", "Just like old times! Malgrath turned our school into his fortress, and Blaze guards the fifth shard. Librarian Lyle is hiding in the library."]],
+        done: [["juno", "Just like old times! Malgrath turned our school into a haunted fortress, and Gourdgeist guards the fifth shard. Librarian Lyle is hiding in the library."]],
       },
       {
         type: "find", npc: "lyle", item: "your old spellbook", title: "Find your old spellbook",
-        start: [["lyle", "My favorite student! Your spellbook is still somewhere in these ruins."], ["lyle", "Every sign you ever learned is inside. You'll need all of them for Blaze."]],
+        start: [["lyle", "My favorite student! Your spellbook is still somewhere in these ruins."], ["lyle", "Every sign you ever learned is inside. You'll need all of them for Gourdgeist."]],
         done: [["lyle", "There it is! Keep it close. Headmaster Ada is waiting for you upstairs."]],
       },
       {
         type: "riddle", npc: "ada", word: "YAK", title: "Pass Headmaster Ada's test",
-        start: [["ada", "You've come so far. A true Signkeeper must pass one last test before facing Blaze."], ["ada", "Which hairy ox lives high in the mountains? Sign it!"]],
+        start: [["ada", "You've come so far. A true Signkeeper must pass one last test before facing Gourdgeist."], ["ada", "Which hairy ox lives high in the mountains? Sign it!"]],
         done: [["ada", "Y-A-K. Well done. I always knew you'd be a great Signkeeper. Now go. Someone is waiting for you in the training yard."]],
       },
       {
@@ -328,15 +333,15 @@ export const QUESTS = {
         done: [["nell", "Coach says you pass! The training yard gate is yours. Oh, and that Rook kid is in there."]],
       },
       {
-        type: "guard", npc: "rook", title: "Beat Blaze's gate guard, with Rook",
-        start: [["rook", "Blaze's gate guard is hexed. I'll keep the other creatures off you."], ["rook", "Go, partner. For Robin."]],
-        done: [["rook", "That's my partner! Now go save Blaze. I'll be right behind you."]],
+        type: "guard", npc: "rook", title: "Beat Gourdgeist's gate guard, with Rook",
+        start: [["rook", "Gourdgeist's gate guard is hexed. I'll keep the other creatures off you."], ["rook", "Go, partner. For Robin."]],
+        done: [["rook", "That's my partner! Now go save Gourdgeist. I'll be right behind you."]],
       },
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "torchbug",
-        lines: [["malgrath", "Welcome home, apprentice. Your little school is MY fortress now."], ["malgrath", "Did you really think you could just walk back in? Torchbugs! Burn them out!"]],
+        area: 1, type: "malgrath", creature: "candlewick",
+        lines: [["malgrath", "Welcome home, apprentice. Your little school is MY fortress now."], ["malgrath", "Did you really think you could just walk back in? Candlewicks! Burn them out!"]],
         after: [["pip", "He's turning everything we love against us. We won't let him win!"]],
       },
       {
@@ -344,7 +349,7 @@ export const QUESTS = {
         lines: [["rook", "...Wait. Don't. I'm not here to fight."], ["rook", "I can't beat you. And I'm done pretending Malgrath will keep his promise."], ["rook", "He has my little sister, Robin. He said if I brought him every shard, he'd break her hex. He's lying, isn't he?"], ["pip", "He is. But we can save her, Rook. Together."], ["rook", "...Okay. I'm with you. For Robin."]],
       },
     ],
-    phase2: [["malgrath", "Blaze! BURN IT ALL DOWN!"], ["rook", "Hang in there! Watch for his fire breath!"]],
+    phase2: [["malgrath", "Gourdgeist! HAUNT THEM!"], ["rook", "Hang in there! Watch out for his Jack o' Doom!"]],
   },
 
   spires: {
@@ -359,14 +364,14 @@ export const QUESTS = {
     folk: [
       folk("Skater Lars", "spiky", "white", "s1", "tunic", "blue", {}, ["The ice sings when Signlight touches it.", "Keep your hands warm, signing is easier that way!"]),
       folk("Ice Fisher Ana", "long", "black", "s4", "robe", "teal", { hat: "hat-cap" }, ["I haven't caught a fish since the blizzard.", "E: curl your fingertips down and tuck your thumb under."]),
-      folk("Crystal Kid Bo", "short", "blonde", "s2", "tunic", "purple", {}, ["The crystals make rainbows when the sun comes out.", "Did you know? ASL is different from British Sign Language!"]),
+      folk("Crystal Kid Bo", "short", "blonde", "s2", "tunic", "purple", {}, ["The northern lights make rainbows in the ice.", "Did you know? ASL is different from British Sign Language!"]),
       folk("Elder Svea", "bun", "white", "s5", "robe", "silver", { glasses: "round" }, ["The Wyrm was gentle once. The hex made it cruel.", "Patience, young Signkeeper. Every sign gets easier."]),
     ],
     steps: [
       {
         type: "chase", npc: "nova", critter: "frostfox", title: "Catch the frostfox that froze Nova's telescope",
         start: [["nova", "Travelers from the island? Three shards streaked through our sky that night."], ["nova", "A frostfox froze my telescope solid and skated off! Catch it, and sign to calm it down?"]],
-        done: [["nova", "Thank you, Signkeeper. One shard froze inside the Glacier Wyrm's lair, at the top of the Spires."]],
+        done: [["nova", "Thank you, Signkeeper. One shard froze inside the Aurora Wyrm's lair, at the top of the glacier."]],
       },
       {
         type: "riddle", npc: "sven", word: "STAR", title: "Answer Sven's ice riddle",
@@ -375,7 +380,7 @@ export const QUESTS = {
       },
       {
         type: "collect", npc: "mira", count: 3, title: "Find the pieces of Mira's star map",
-        start: [["mira", "My star map shows the safe path through the Spires. Malgrath's blizzard tore it into three pieces!"]],
+        start: [["mira", "My star map shows the safe path across the glacier. Malgrath's blizzard tore it into three pieces!"]],
         done: [["mira", "My map, all back together! Look, it shows the way to the Wyrm's gate."]],
       },
       {
@@ -387,7 +392,7 @@ export const QUESTS = {
         done: [["frost", "She signed back THANK YOU! She'll open the gate for you."]],
       },
       {
-        type: "guard", npc: "rook", title: "Beat the Glacier Wyrm's gate guard",
+        type: "guard", npc: "rook", title: "Beat the Aurora Wyrm's gate guard",
         start: [["rook", "I scouted ahead. The Wyrm froze its shard inside a glacier, and its gate guard is hexed solid."], ["rook", "You take the guard. I'll watch your back."]],
         done: [["rook", "Nice! The Wyrm's lair is right there. Two shards left after this one."]],
       },
@@ -403,7 +408,7 @@ export const QUESTS = {
         lines: [["pip", "{name}... I remember now. Really remember."], ["pip", "I'm not just a fox-moth. I'm the Beacon's spirit. When it shattered, I was the little light that got away."], ["pip", "When all eight shards come back together... I think I'll be whole again."]],
       },
     ],
-    phase2: [["malgrath", "Glacier Wyrm! Freeze them SOLID!"], ["rook", "It's charging up! Get ready!"]],
+    phase2: [["malgrath", "Aurora Wyrm! Freeze them SOLID!"], ["rook", "It's charging up! Get ready!"]],
   },
 
   clouds: {
@@ -416,7 +421,7 @@ export const QUESTS = {
       thane: npc("Sir Thane", "short", "black", "s6", "tunic", "silver", { hat: "hat-top" }),
     },
     folk: [
-      folk("Glider Kit", "spiky", "ginger", "s3", "tunic", "teal", {}, ["I can glide all the way to the next cloud!", "Sky sailors invented hand signals because the wind is so loud."]),
+      folk("Glider Kit", "spiky", "ginger", "s3", "tunic", "teal", {}, ["I can glide all the way to the next peak!", "Sky sailors invented hand signals because the wind is so loud."]),
       folk("Rain Maker Oona", "long", "purple", "s5", "robe", "blue", {}, ["I make the gentle rain. The Storm Owl makes the angry kind.", "P is like K, but pointing down."]),
       folk("Cloud Baker Bun", "curly", "white", "s2", "tunic", "pink", { hat: "hat-cap" }, ["Cloud bread! It's mostly air, but it's delicious.", "G and H point sideways. G uses one finger, H uses two."]),
       folk("Weather Watcher Wil", "short", "black", "s6", "robe", "silver", { glasses: "round" }, ["The storm gets worse near the nest.", "Q is like G, but pointing down at the ground."]),
@@ -424,12 +429,12 @@ export const QUESTS = {
     steps: [
       {
         type: "spot", npc: "zephyr", prompt: "Zephyr's cloud signals", rounds: 2, title: "Read Zephyr's cloud signals",
-        start: [["zephyr", "The seventh shard fell into the Storm Owl's nest, and now the whole kingdom is one big storm!"], ["zephyr", "We sky sailors talk with hand signals, since you can't hear anything in a storm. Show me you can read them!"]],
+        start: [["zephyr", "The seventh shard fell into the Storm Owl's nest, and now the whole mountain range is one big storm!"], ["zephyr", "We sky sailors talk with hand signals, since you can't hear anything in a storm. Show me you can read them!"]],
         done: [["zephyr", "A natural! I'll part the clouds for you. Princess Luna can help you reach the nest."]],
       },
       {
         type: "riddle", npc: "luna", word: "RAIN", title: "Answer Princess Luna's riddle",
-        start: [["luna", "Welcome to the Cloud Kingdom. Malgrath's storm has trapped my people. Only a true Signkeeper may pass my gate."], ["luna", "What falls from clouds and makes puddles? Sign it!"]],
+        start: [["luna", "Welcome to Thunder Peaks. Malgrath's storm has trapped my people. Only a true Signkeeper may pass my gate."], ["luna", "What falls from clouds and makes puddles? Sign it!"]],
         done: [["luna", "R-A-I-N. Wise and brave! Go with my blessing."]],
       },
       {
@@ -445,13 +450,13 @@ export const QUESTS = {
       {
         type: "guard", npc: "thane", title: "Beat the Storm Owl's gate guard",
         start: [["thane", "The Storm Owl guards the seventh shard. Its gate guard was hexed by Malgrath himself."]],
-        done: [["thane", "Remarkable! The Storm Owl is next. The whole kingdom thanks you."]],
+        done: [["thane", "Remarkable! The Storm Owl is next. The whole mountain thanks you."]],
       },
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "puffwing",
-        lines: [["malgrath", "Seven shards, apprentice. You have done my work for me."], ["malgrath", "But you won't get the last one. Puffwings! Blow them off my clouds!"]],
+        area: 1, type: "malgrath", creature: "zipsparrow",
+        lines: [["malgrath", "Seven shards, apprentice. You have done my work for me."], ["malgrath", "But you won't get the last one. Zipsparrows! Knock them off my peaks!"]],
         after: [["pip", "He's scared. I can feel it. We're getting close!"]],
       },
       {
@@ -472,7 +477,7 @@ export const QUESTS = {
       rook: { ...ROOK },
     },
     folk: [
-      folk("Star Child Io", "long", "white", "s1", "robe", "purple", {}, ["I was born in the Void. It's not scary to me.", "The Beacon's light can reach even here!"]),
+      folk("Star Child Io", "long", "white", "s1", "robe", "purple", {}, ["I was born out here among the stars. It's not scary to me.", "The Beacon's light can reach even here!"]),
       folk("Drifter Rex", "spiky", "black", "s4", "tunic", "black", {}, ["I got lost here years ago. Signing kept me brave.", "Sign the whole alphabet and you can spell ANY word!"]),
       folk("Moon Monk Tao", "bald", "black", "s5", "robe", "teal", { glasses: "round" }, ["Breathe in. Sign slowly. Breathe out.", "The hexes are weakest when you sign with a calm heart."]),
       folk("Comet Rider Zia", "bun", "pink", "s3", "tunic", "orange", {}, ["Wheee! Oh, hi! I'm surfing on comets!", "You've come so far, Signkeeper. You can do this!"]),
@@ -494,8 +499,8 @@ export const QUESTS = {
         done: [["sage", "Q-U-E-S-T. Yes. And yours is almost over. Be brave, child."]],
       },
       {
-        type: "chase", npc: "lumi", critter: "shadewisp", title: "Catch the shadewisp that swallowed Lumi's spark",
-        start: [["lumi", "Kai is lost in the dark up ahead. I had a spark of Signlight to guide him, but a shadewisp gobbled it up!"], ["lumi", "Catch it, and sign so it lets the spark go?"]],
+        type: "chase", npc: "lumi", critter: "voidjelly", title: "Catch the voidjelly that swallowed Lumi's spark",
+        start: [["lumi", "Kai is lost in the dark up ahead. I had a spark of Signlight to guide him, but a voidjelly gobbled it up!"], ["lumi", "Catch it, and sign so it lets the spark go?"]],
         done: [["lumi", "The spark! Kai can see again. The tower gate is right here."]],
       },
       {
@@ -506,8 +511,8 @@ export const QUESTS = {
     ],
     events: [
       {
-        area: 1, type: "malgrath", creature: "shadewisp",
-        lines: [["malgrath", "So you made it to the Rift. Nobody has made it this far in a thousand years."], ["malgrath", "Shadewisps! Show them what the Void really is!"]],
+        area: 1, type: "malgrath", creature: "voidjelly",
+        lines: [["malgrath", "So you made it to the Rift. Nobody has made it this far in a thousand years."], ["malgrath", "Voidjellies! Show them the dark between the stars!"]],
         after: [["pip", "Stay close, everyone. The shards are calling me. The last one is right up there."]],
       },
       {

@@ -151,7 +151,7 @@ const DEFEAT = {
 };
 
 // Exploring: one melody, played in a different key, scale, and tempo for each
-// zone, so the Meadow sounds sunny and the Void Rift sounds eerie.
+// zone, so the Meadow sounds sunny and the Cosmic Rift sounds eerie.
 const EXPLORE_MELODY = [
   "3 - - - 2 - 1 - 2 - - - 3 - 5 -",
   "4 - - - 6 - - - 5 - - - - - - -",
@@ -436,8 +436,44 @@ export function musicSettingChanged() {
   else if (!enabled()) stopSong();
 }
 
+// The "battle!" sting as a battle starts (with the screen flash): a quick
+// rising run on the pulse lead over a whoosh of noise. Deeper for bosses.
+export function playBattleSting(boss = false) {
+  if (!enabled() || !audio()) return;
+  if (ctx.state === "suspended") ctx.resume();
+  const t = ctx.currentTime + 0.01;
+  const base = boss ? 45 : 57; // MIDI note of the first one
+  [0, 4, 7, 12, 16, 19, 24].forEach((step, i) => {
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(waves[0.25]);
+    osc.frequency.value = 440 * 2 ** ((base + step - 69) / 12);
+    const gain = ctx.createGain();
+    const at = t + i * 0.045;
+    gain.gain.setValueAtTime(0, at);
+    gain.gain.linearRampToValueAtTime(0.45, at + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.01, at + 0.09);
+    osc.connect(gain).connect(master);
+    osc.start(at);
+    osc.stop(at + 0.1);
+  });
+  const whoosh = ctx.createBufferSource();
+  whoosh.buffer = noise;
+  const band = ctx.createBiquadFilter();
+  band.type = "bandpass";
+  band.Q.value = 1.2;
+  band.frequency.setValueAtTime(400, t);
+  band.frequency.exponentialRampToValueAtTime(4000, t + 0.35);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.55, t + 0.2);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+  whoosh.connect(band).connect(gain).connect(master);
+  whoosh.start(t);
+  whoosh.stop(t + 0.6);
+}
+
 // Which song goes with which screen (battles, zones, and results pick their own).
-const SCREEN_SONGS = { title: "title", map: "map", shop: "shop", hero: "shop", learn: "learn", calibrate: "learn" };
+const SCREEN_SONGS = { title: "title", map: "map", shop: "shop", hero: "shop", learn: "learn", calibrate: "learn", arena: "shop", pvp: "battle" };
 export function musicForScreen(screen) {
   if (SCREEN_SONGS[screen]) playMusic(SCREEN_SONGS[screen]);
 }

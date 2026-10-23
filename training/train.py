@@ -27,7 +27,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from hand_features import FEATURE_COUNT, to_features, turned
+from hand_features import FEATURE_COUNT, hand_proportions, reshape_hand, rotation, to_features
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "training" / "data"
@@ -37,7 +37,21 @@ LETTERS = list("ABCDEFGHIKLMNOPQRSTUVWXY")  # same order as js/config.js
 LOOK_ALIKES = list("ASETMN")
 
 
-AUGMENT_COPIES = 3  # extra slightly-turned copies of each sample
+# Training in simulation: every recorded hand is replayed AUGMENT_COPIES more
+# times as a different kid might sign it (simulate()), so the model learns the
+# letter, not this exact recording.
+AUGMENT_COPIES = 24
+SIM_TURN = (0.8, 0.6, 0.6)  # camera turn, up to this many radians (tilt, turn, roll)
+SIM_HANDS = 0.2  # other hands: overall size and each finger's length, up to +-20%
+SIM_WOBBLE = 0.006  # shaky tracking: up to 6 mm of wobble on every point
+
+
+def simulate(world: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """A new take of a recorded hand: someone else's hand proportions, a
+    different camera angle, and shaky tracking."""
+    w = reshape_hand(world, hand_proportions(rng, SIM_HANDS))
+    w = w @ rotation(rng, SIM_TURN).T
+    return w + rng.normal(0, rng.uniform(0, SIM_WOBBLE), w.shape)
 
 
 def load_data():
@@ -59,11 +73,11 @@ def load_data():
 
 
 def featurize(worlds: np.ndarray, hands: np.ndarray, augment: bool = False, seed: int = 0):
-    """Features for every sample, plus turned copies when training."""
+    """Features for every sample, plus simulated new takes when training."""
     rng = np.random.default_rng(seed)
     x = [to_features(w, h) for w, h in zip(worlds, hands)]
     if augment:
-        x += [to_features(turned(w, rng), h) for _ in range(AUGMENT_COPIES) for w, h in zip(worlds, hands)]
+        x += [to_features(simulate(w, rng), h) for _ in range(AUGMENT_COPIES) for w, h in zip(worlds, hands)]
     return np.stack(x)
 
 
@@ -148,7 +162,7 @@ def export(model: nn.Sequential, path: Path) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=120)
+    parser.add_argument("--epochs", type=int, default=160)
     args = parser.parse_args()
 
     worlds, hands, y, who = load_data()

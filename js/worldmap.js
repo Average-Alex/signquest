@@ -14,13 +14,13 @@ export const MAP_H = 120;
 // Specks are sparse and close to the ground color, so the land reads calm.
 const GROUND = {
   meadow: { base: "#81ba59", dark: "#6fa94b", specks: ["#869f5f", "#5f7f45"], rate: 0.03 },
-  forest: { base: "#4a8d4a", dark: "#3e7e40", specks: ["#33573a", "#507d52"], rate: 0.08 },
-  caves: { base: "#9890a3", dark: "#888194", specks: ["#6c6578", "#9a93a2"], rate: 0.06 },
-  river: { base: "#6bac4f", dark: "#5d9d44", specks: ["#77a062"], rate: 0.025 },
-  castle: { base: "#8aaf5c", dark: "#7a9d4e", specks: ["#9a9070"], rate: 0.025 },
+  forest: { base: "#2f6a64", dark: "#285a58", specks: ["#3fb0d0", "#c870d8"], rate: 0.06 },
+  caves: { base: "#6a3a30", dark: "#5a302a", specks: ["#ff8a2a", "#3a241e"], rate: 0.08 },
+  river: { base: "#e8d090", dark: "#dcc480", specks: ["#f8ecc0", "#4aa848"], rate: 0.04 },
+  castle: { base: "#4e4660", dark: "#443c56", specks: ["#f08a24", "#3a3448"], rate: 0.05 },
   keep: { base: "#a9c376", dark: "#98b368", specks: ["#a89d6e"], rate: 0.03 },
-  spires: { base: "#c2d4e2", dark: "#afc5d8", specks: ["#c6d2dc"], rate: 0.04 },
-  clouds: { base: "#e5e8f2", dark: "#d5d9ea", specks: ["#bfc4d2"], rate: 0.03 },
+  spires: { base: "#c2d4e2", dark: "#afc5d8", specks: ["#c6d2dc", "#7fe3a0"], rate: 0.04 },
+  clouds: { base: "#7a8478", dark: "#6a7468", specks: ["#ffe066", "#5a6458"], rate: 0.04 },
   void: { base: "#352a52", dark: "#2c2346", specks: ["#4e3d74", "#8a6abf"], rate: 0.04 },
 };
 
@@ -103,7 +103,8 @@ export function worldMapSrc(dimension = 0) {
   };
 
   // The overworld is one big island; the realm is separate floating islands.
-  const blobs = zones.map((zone) => ({ ...zonePoint(zone), rx: dimension ? 30 : 36, ry: dimension ? 22 : 26 }));
+  // Each zone's patch of land is its own size, so the map doesn't look stamped out.
+  const blobs = zones.map((zone, i) => ({ ...zonePoint(zone), rx: (dimension ? 26 : 30) + hash(i, 8, seed) * 14, ry: (dimension ? 18 : 22) + hash(i, 9, seed) * 10 }));
   if (dimension === 0) blobs.push({ x: MAP_W / 2, y: MAP_H * 0.52, rx: 46, ry: 30 });
   for (let i = 0; i < pal.islets; i++) {
     blobs.push({ x: MAP_W * (0.06 + hash(i, 1, seed) * 0.88), y: MAP_H * (0.1 + hash(i, 2, seed) * 0.8), rx: 7 + hash(i, 3, seed) * 4, ry: 5 + hash(i, 4, seed) * 3 });

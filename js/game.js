@@ -849,7 +849,7 @@ function renderMoves() {
   for (const el of document.querySelectorAll(".arena .fighter")) el.classList.toggle("acting", el === actor && !battle.busy);
 
   const tab = tabs[battle.tab];
-  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.level(), progress.get().equipped.armor);
+  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.shardCount(), progress.get().equipped.armor);
   const bar = $("battle-moves");
   bar.innerHTML = "";
   // The spellbook shows BOOK_PAGE cards at a time; arrows turn the page.

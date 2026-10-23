@@ -324,7 +324,11 @@ function showResults(z, s, result) {
   // A boss guards a Beacon Shard.
   const shard = won && result.boss && result.zone.shard !== false;
   $("results-shard").hidden = !shard;
-  if (shard) $("results-shard").textContent = `💎 You recovered a Beacon Shard! (${progress.shardCount()} of ${SHARD_ZONES.length})`;
+  if (shard) {
+    // Each shard teaches your hero a new spell.
+    const learned = HERO_SPELLS.find((sp) => sp.shards === progress.shardCount());
+    $("results-shard").textContent = `💎 You recovered a Beacon Shard! (${progress.shardCount()} of ${SHARD_ZONES.length})${learned ? ` You learned a new spell: ${learned.icon} ${learned.name}!` : ""}`;
+  }
   biomeBattleOver(z, won);
   // Losing should point at what helps, not just say "you lost".
   $("results-tip").hidden = won;
@@ -648,22 +652,22 @@ function renderArmorPicker(box, look) {
   box.appendChild(group);
 }
 
-// Your spells: the ones you know, and the levels where you learn the rest.
+// Your spells: the ones you know, and how many shards it takes to learn the rest.
 function renderSpellList(box) {
-  const level = progress.level();
+  const shards = progress.shardCount();
   const armor = progress.heroArmor();
   const group = document.createElement("div");
   group.className = "maker-group";
-  group.innerHTML = `<p class="label">Spells <small>(you learn more as you level up)</small></p>`;
+  group.innerHTML = `<p class="label">Spells <small>(beat a zone boss to learn the next one)</small></p>`;
   const list = document.createElement("div");
   list.className = "spell-list";
   const spells = [...HERO_SPELLS, ...(armor.spell ? [{ ...armor.spell, fromArmor: armor.name }] : [])];
   list.innerHTML = spells
     .map((sp) => {
-      const known = sp.fromArmor || sp.level <= level;
+      const known = sp.fromArmor || sp.shards <= shards;
       const el = ELEMENTS[sp.element];
       return `<span class="spell-chip${known ? "" : " locked"}${sp.element ? ` el-${sp.element}` : ""}">${known ? sp.icon : "🔒"} ${sp.name}
-        <small>${known ? (sp.fromArmor ? `from ${sp.fromArmor}` : el ? el.name : "Free") : `Level ${sp.level}`}</small></span>`;
+        <small>${known ? (sp.fromArmor ? `from ${sp.fromArmor}` : el ? el.name : "Free") : `${sp.shards} shard${sp.shards === 1 ? "" : "s"}`}</small></span>`;
     })
     .join("");
   group.appendChild(list);

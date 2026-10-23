@@ -356,17 +356,20 @@ export const TEAM_SIZE = 2; // buddies that fight beside you
 // Spark is free, so you can never get stuck.
 // Your hero's spells. You learn more as you level up (`level`), and your
 // armor adds its own (ARMOR `spell`). They're the cards in your spellbook.
+// Your hero's spells. You learn a new one each time you beat a zone boss and
+// win back a Beacon Shard (`shards` = how many shards you need), so going to
+// a harder zone doesn't hand you new spells: beating its boss does.
 export const HERO_SPELLS = [
-  { id: "spark", name: "Spark", icon: "✨", cost: 0, power: 1, level: 1 },
-  { id: "blast", name: "Blast", icon: "💥", cost: 3, power: 2, element: "fire", level: 1 },
-  { id: "nova", name: "Nova", icon: "🌟", cost: 6, power: 3.5, element: "light", all: true, level: 3 },
-  { id: "frost", name: "Frost Lance", icon: "❄️", cost: 4, power: 2.5, element: "ice", level: 5 },
-  { id: "thunder", name: "Thunder Call", icon: "⚡", cost: 5, power: 3, element: "lightning", level: 8 },
-  { id: "leafstorm", name: "Leaf Storm", icon: "🌿", cost: 6, power: 3.2, element: "nature", all: true, level: 11 },
-  { id: "tidal", name: "Tidal Wave", icon: "🌊", cost: 7, power: 4, element: "water", all: true, level: 14 },
-  { id: "meteor", name: "Meteor", icon: "☄️", cost: 9, power: 6, element: "rock", level: 18 },
+  { id: "spark", name: "Spark", icon: "✨", cost: 0, power: 1, shards: 0 },
+  { id: "blast", name: "Blast", icon: "💥", cost: 3, power: 2, element: "fire", shards: 0 },
+  { id: "nova", name: "Nova", icon: "🌟", cost: 6, power: 3.5, element: "light", all: true, shards: 1 },
+  { id: "frost", name: "Frost Lance", icon: "❄️", cost: 4, power: 2.5, element: "ice", shards: 2 },
+  { id: "thunder", name: "Thunder Call", icon: "⚡", cost: 5, power: 3, element: "lightning", shards: 3 },
+  { id: "leafstorm", name: "Leaf Storm", icon: "🌿", cost: 6, power: 3.2, element: "nature", all: true, shards: 4 },
+  { id: "tidal", name: "Tidal Wave", icon: "🌊", cost: 7, power: 4, element: "water", all: true, shards: 5 },
+  { id: "meteor", name: "Meteor", icon: "☄️", cost: 9, power: 6, element: "rock", shards: 6 },
 ];
-export const HERO_MOVES = HERO_SPELLS.filter((sp) => sp.level === 1); // always known
+export const HERO_MOVES = HERO_SPELLS.filter((sp) => sp.shards === 0); // always known
 // Armor: beat a zone's boss to win its armor set, then wear it in the Hero
 // screen. Each one changes how your hero looks (`style` and `colors`), gives
 // a bonus (`hp` and `power` multiply, `crit` adds), and teaches a spell.
@@ -392,9 +395,9 @@ export const ARMOR = [
     colors: { R: "#3a2860", r: "#241848", T: "#c58cf0", G: "#c58cf0", g: "#8a5ad6" }, spell: { id: "voidrift", name: "Cosmic Burst", icon: "🪐", cost: 9, power: 5, element: "dark", all: true } },
 ];
 export const armorById = (id) => ARMOR.find((a) => a.id === id) || ARMOR[0];
-// Your spells at `level`, wearing `armorId`.
-export function heroSpells(level, armorId) {
-  const spells = HERO_SPELLS.filter((sp) => sp.level <= level);
+// Your spells with `shards` Beacon Shards won back, wearing `armorId`.
+export function heroSpells(shards, armorId) {
+  const spells = HERO_SPELLS.filter((sp) => sp.shards <= shards);
   const armor = armorById(armorId);
   return armor.spell ? [...spells, armor.spell] : spells;
 }

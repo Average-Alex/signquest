@@ -339,6 +339,19 @@ export function updateQuest(zoneIndex, area, changes) {
   save();
 }
 
+// The zone's mission (missions.js). State: { started, phase, done: goal ids,
+// carry: items you're holding, followers: who's following you, finished }.
+export function missionState(zoneIndex) {
+  const t = trail(zoneIndex);
+  t.mission ||= { started: false, phase: 0, done: [], carry: [], followers: [], finished: false };
+  return t.mission;
+}
+
+export function updateMission(zoneIndex, changes) {
+  Object.assign(missionState(zoneIndex), changes);
+  save();
+}
+
 export function openChest(zoneIndex, chestId) {
   const t = trail(zoneIndex);
   if (!t.chests.includes(chestId)) t.chests.push(chestId);

@@ -1184,3 +1184,30 @@ input[type=text], select {
 /* A trainer asking for a battle. */
 .biome-ask { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; width: min(420px, 92%); padding: 14px; text-align: center; }
 .biome-ask p { margin: 0 0 10px; font-weight: 700; }
+
+/* ---------- 🎯 Missions (missions.js) ---------- */
+/* The opening: letterbox bars slide in, like a movie. */
+.biome-wrap::before, .biome-wrap::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 0; background: #120c1a; z-index: 3;
+  transition: height 0.5s ease; pointer-events: none;
+}
+.biome-wrap::before { top: 0; }
+.biome-wrap::after { bottom: 0; }
+.biome-wrap.cinematic::before, .biome-wrap.cinematic::after { height: 9%; }
+.biome-label.mission-fx { font-size: clamp(22px, 3.6vw, 38px); animation: none; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.45)); }
+/* Goals: the next one glows and bobs; ones for later are faint. */
+.biome-label.mission-goal { font-size: clamp(18px, 3vw, 30px); }
+.biome-label.mission-goal small { background: #e8a412; color: #2a1a06; }
+.biome-label.mission-goal.next { animation: goal-bob 1s ease-in-out infinite; filter: drop-shadow(0 0 6px #ffd23f) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.4)); }
+.biome-label.mission-goal.later { opacity: 0.45; filter: grayscale(0.7); animation: none; }
+.biome-label.mission-done { animation: none; opacity: 0.9; }
+.biome-label.mission-follower { font-size: clamp(16px, 2.6vw, 26px); animation: none; }
+.biome-label.mission-carry { font-size: clamp(14px, 2.2vw, 22px); animation: none; }
+.biome-label.mission-carry small { background: #2a3f73; }
+.biome-label.mission-carry small.hurry { background: #c8323c; animation: hurry 0.5s ease-in-out infinite alternate; }
+.biome-label.mission-giver .npc-icon { filter: drop-shadow(0 0 5px #ffd23f); }
+@keyframes goal-bob { 50% { transform: translate(-50%, calc(-100% - 5px)); } }
+@keyframes hurry { to { transform: scale(1.15); } }
+.goal.mission { background: linear-gradient(#fff3b8, #ffd23f); }
+.goal.mission.done { background: linear-gradient(#e6ffd8, #9ee07a); }
+.story-emoji { display: grid; place-items: center; width: 100%; height: 100%; font-size: 64px; }

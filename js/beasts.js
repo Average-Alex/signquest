@@ -83,7 +83,7 @@ function outline(g) {
 export function buildBeast(spec, stage = 1, extraFeats = []) {
   const g = canvas();
   const size = [0.74, 0.88, 1][stage - 1];
-  const headSize = [1.24, 1.1, 1][stage - 1];
+  const headSize = [1.4, 1.24, 1.1][stage - 1];
   const feats = new Set([...(spec.feats || []), ...extraFeats]);
   // Everything is laid out for a full-size creature standing on GROUND,
   // then scaled down toward its feet for earlier stages.
@@ -124,11 +124,11 @@ export function buildBeast(spec, stage = 1, extraFeats = []) {
       if ([[1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => g[y + dy]?.[x + dx] === "B" && !headMask[y + dy][x + dx])) g[y][x] = "b";
     }
 
-  // The eye: a tall, dark oval with a shine near the top, so it reads as an
-  // eye and not a smudge (a little shorter once fully evolved).
+  // The eye: big, dark, and round with a one-pixel shine near the top, so it
+  // reads as an eye and not a smudge (a little smaller once fully evolved).
   const [ex, ey] = T(...H(...body.eye));
-  const eye = stage === 3 ? ["PPP", "PEP", ".PP"] : [".PP", "PEP", "PPP", ".PP"];
-  const ey0 = Math.round(ey) - (eye.length > 3 ? 2 : 1);
+  const eye = stage === 3 ? [".PP", "PEP", "PPP", ".PP"] : [".PP.", "PPEP", "PPPP", "PPPP", ".PP."];
+  const ey0 = Math.round(ey) - 2;
   eye.forEach((row, dy) => [...row].forEach((ch, dx) => ch !== "." && setPx(g, ex - 1 + dx, ey0 + dy, ch)));
   // A little smile: a line back from the front of the mouth, curling up at the end.
   if (body.mouth) {
@@ -138,12 +138,20 @@ export function buildBeast(spec, stage = 1, extraFeats = []) {
     setPx(g, mx + len, my - 1, "K");
   }
   // Rosy cheeks, back behind the smile.
-  if (!feats.has("noBlush")) setPx(g, ex + 2, ey0 + eye.length + 1, "c"), setPx(g, ex + 3, ey0 + eye.length + 1, "c");
+  if (!feats.has("noBlush")) setPx(g, ex - 1 + eye[0].length, ey0 + eye.length, "c"), setPx(g, ex + eye[0].length, ey0 + eye.length, "c");
   if (feats.has("glasses")) {
     for (let dx = -2; dx <= 2; dx++) setPx(g, ex + dx, ey - 2, "K"), setPx(g, ex + dx, ey + 2, "K");
     setPx(g, ex - 2, ey, "K"), setPx(g, ex + 2, ey, "K"), setPx(g, ex - 2, ey - 1, "K"), setPx(g, ex + 2, ey + 1, "K");
   }
-  return { rows: outline(g).map((r) => r.join("")), colors: { ...DEFAULT_COLORS, ...spec.colors } };
+  const colors = { ...DEFAULT_COLORS, ...spec.colors };
+  // A dark eye vanishes on a dark body, so those get glowing eyes instead.
+  if (luma(colors.B) < 0.3) Object.assign(colors, { P: "#fff2b8", E: "#21152a" });
+  return { rows: outline(g).map((r) => r.join("")), colors };
+}
+
+function luma(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
 // The pupil is a shade off the outline color: the lighting (sprites.js) blends

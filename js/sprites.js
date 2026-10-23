@@ -2268,8 +2268,10 @@ const OUTLINES = new Set([OUTLINE, HEX_OUTLINE, "#1a0f2e"].map((c) => rgbOf(c).j
 const LIGHT = [255, 244, 214];
 const SHADOW = [38, 22, 70];
 
-function shadeSprite(ctx, w, h) {
+// `flatCel`: creatures get flat cel shading instead, three tones per color.
+function shadeSprite(ctx, w, h, flatCel = false) {
   const image = ctx.getImageData(0, 0, w, h);
+  const band = new Int8Array(w * h).fill(9); // flatCel: each pixel's tone, 9 = not shaded
   const d = image.data;
   const src = new Uint8ClampedArray(d);
   const at = (x, y) => (y * w + x) * 4;
@@ -2338,11 +2340,35 @@ function shadeSprite(ctx, w, h) {
       }
       if (sparkle(i)) continue;
       const t = tone(x, y);
-      if (t > 0.3) mix(i, LIGHT, 0.34);
+      if (flatCel) band[y * w + x] = t > 0.16 ? 1 : t < -0.18 ? -1 : 0;
+      else if (t > 0.3) mix(i, LIGHT, 0.34);
       else if (t > 0.1) mix(i, LIGHT, 0.16);
       else if (t < -0.35) mix(i, SHADOW, 0.46);
       else if (t < -0.12) mix(i, SHADOW, 0.26);
     }
+  }
+  if (flatCel) {
+    // Cel shading: just three tones (highlight, base, shadow), and no lone
+    // specks - a pixel that matches none of its neighbors takes theirs.
+    const NONE = 9;
+    const bandAt = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? NONE : band[y * w + x]);
+    const cleaned = band.slice();
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const b = band[y * w + x];
+        if (b === NONE) continue;
+        const near = [bandAt(x + 1, y), bandAt(x - 1, y), bandAt(x, y + 1), bandAt(x, y - 1)].filter((n) => n !== NONE);
+        if (near.length < 2 || near.includes(b)) continue;
+        const votes = new Map();
+        for (const n of near) votes.set(n, (votes.get(n) || 0) + 1);
+        cleaned[y * w + x] = [...votes].sort((a, z) => z[1] - a[1])[0][0];
+      }
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const b = cleaned[y * w + x], i = at(x, y);
+        if (b === 1) mix(i, LIGHT, 0.3);
+        else if (b === -1) mix(i, SHADOW, 0.36);
+      }
   }
   ctx.putImageData(image, 0, 0);
 }
@@ -2474,7 +2500,7 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
     const pad = stage === 3 ? 1 : 0; // room for the glow
     return draw(`creature:${id}:stage${stage}:${frame}`, w + pad * 2, h + pad * 2, (ctx) => {
       paint(ctx, art.rows, art.colors, pad, pad);
-      shadeSprite(ctx, w + pad * 2, h + pad * 2);
+      shadeSprite(ctx, w + pad * 2, h + pad * 2, true);
       liftFoot(ctx, w + pad * 2, h + pad * 2, frame);
       if (stage === 3) glow(ctx, w + 2, h + 2);
     });
@@ -2484,7 +2510,7 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
   if (!hexed) {
     return draw(`creature:${id}:${frame}`, w, h, (ctx) => {
       paint(ctx, art.rows, art.colors);
-      shadeSprite(ctx, w, h);
+      shadeSprite(ctx, w, h, true);
       liftFoot(ctx, w, h, frame);
     });
   }
@@ -2492,7 +2518,7 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
   return draw(`creature:${id}:hexed:${frame}`, w + 2, h + 2, (ctx) => {
     paint(ctx, art.rows, hexedColors(art), 1, 1);
     hexCracks(ctx, w + 2, h + 2, id);
-    shadeSprite(ctx, w + 2, h + 2);
+    shadeSprite(ctx, w + 2, h + 2, true);
     liftFoot(ctx, w + 2, h + 2, frame);
     hexAura(ctx, w + 2, h + 2);
   });

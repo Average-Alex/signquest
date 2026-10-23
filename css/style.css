@@ -1245,6 +1245,14 @@ h2 { font-size: clamp(14px, 2.6vw, 22px); }
 .fighter.foe-slot.bottom { left: 82%; bottom: 14%; transform: translateX(-50%); }
 .clash-field .fighter.monster-side { left: 76%; bottom: 31%; }
 .clash-name { font-size: max(10px, 1.4cqw); font-weight: 700; color: #fff; text-shadow: 0 0.2cqw 0 var(--ink); white-space: nowrap; }
+/* Everyone's own HP bar under their name; tap a foe to aim at it (🎯). */
+.clash-hp { display: block; width: 8cqw; height: max(5px, 0.9cqw); margin-top: 0.3cqw; background: #3a2a3e; border: max(1px, 0.25cqw) solid var(--ink); }
+.clash-hp i { display: block; height: 100%; background: #5fd04a; transition: width 0.4s steps(6); }
+.clash-field .foe-slot, .clash-field .clash-foe-hero { cursor: pointer; }
+.clash-field .fighter.targeted img { filter: drop-shadow(0 0 0.6cqw #ffd23f); }
+.clash-field .fighter.out { opacity: 0.45; filter: grayscale(1); cursor: default; }
+.clash-field .fighter.out img { animation: none !important; rotate: 90deg; translate: 0 25%; }
+#clash-tabs .move-tab.out { opacity: 0.5; filter: grayscale(1); }
 /* Attacks: the attacker dashes at the other side, the target shakes. */
 .fighter.pounce-left { animation: pounce-left 0.55s ease-in-out; }
 @keyframes pounce-left { 0%, 100% { translate: 0 0; } 45% { translate: -16cqw 0; scale: 1.1; } }

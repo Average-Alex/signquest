@@ -27,10 +27,13 @@ Ratings go up and down like chess (Elo), whatever the mode.
            in the zones. Each player brings their hero's spells and their
            buddies (sent in "loadout" when they say hello). Players take
            turns: on your turn you pick a move from your hero or a buddy,
-           then sign the letter to use it. Signing earns energy for bigger
-           moves; moves with an element can be super effective (or weak)
-           against the other side's lead buddy. Shield blocks the next hit,
-           Heal heals, and Stun makes the other side skip a turn.
+           then sign the letter to use it. Every hero and buddy has its own
+           HP: aim at one foe, or use a group move to hit them all (softer
+           each). A knocked-out buddy can't use its moves, and a side loses
+           when its heroes are down. Signing earns energy for bigger moves;
+           moves with an element can be super effective (or weak) against
+           the buddy they hit. Shield blocks the next move, Heal heals
+           whoever is hurt most, and Stun makes the other side skip a turn.
   riddle - Riddle Rush: you get a clue about the handshape instead of the
            letter. Work out which letter it is and sign it; a wrong guess
            costs you a little HP.
@@ -74,7 +77,9 @@ CLASH_WORD_S = 25  # ...or a word
 CLASH_AFTER_S = 2.5  # to watch the move land before the next turn
 CLASH_COUNTDOWN_S = 2
 FAST_LETTER_S = 4  # per letter, to earn a bonus energy
-HEAL_PART = 0.3  # a heal restores this much of your side's HP
+HEAL_PART = 0.3  # a heal restores this much of a fighter's HP
+CLASH_GROUP = 0.6  # a group move hits everyone, this much as hard each (GROUP_POWER in config.js)
+CLASH_BUDDY_HP = 40  # a buddy's HP, plus 2 a level (a hero has SIDE_HP)
 ENERGY_START = 2
 ENERGY_MAX = 10
 SHIELD_MAX = 2
@@ -158,7 +163,7 @@ def clean_move(mv):
         return None
     return {"id": str(mv.get("id") or mv.get("name") or "")[:24], "name": str(mv.get("name") or "Move")[:24],
             "icon": str(mv.get("icon") or "")[:8], "type": kind, "cost": cost, "power": power,
-            "element": str(mv.get("element") or "")[:12]}
+            "element": str(mv.get("element") or "")[:12], "all": bool(mv.get("all"))}
 
 
 def clean_loadout(raw):
@@ -219,6 +224,8 @@ def start_match(side_a, side_b, mode="duel"):
     }
     matches[mid] = m
     if m["mode"] == "clash":
+        m["fighters"] = clash_fighters(m)
+        sync_hp(m)
         next_turn(m, now())
     else:
         next_round(m, now())
@@ -280,12 +287,43 @@ def tick_match(m):
     next_round(m, t + BETWEEN_S)  # a pause to see who hit whom, then the countdown
 
 
+def clash_fighters(m):
+    """Everyone on the field, each with their own HP: a lone player's hero and
+    buddies, or a party's heroes. Knock out the heroes to win."""
+    fighters = []
+    for s, side in enumerate(m["sides"]):
+        for pid in side:
+            fighters.append({"key": f"{pid}:hero", "side": s, "pid": pid, "who": "hero", "name": m["names"][pid],
+                             "element": "", "hp": SIDE_HP, "max": SIDE_HP})
+            if len(side) == 1:
+                for n, b in enumerate(m["loadouts"][pid]["buddies"]):
+                    hp = min(100, CLASH_BUDDY_HP + 2 * b["level"])
+                    fighters.append({"key": f"{pid}:{n}", "side": s, "pid": pid, "who": str(n), "name": b["name"],
+                                     "element": b["element"], "hp": hp, "max": hp})
+    return fighters
+
+
+def fighter(m, key):
+    return next((f for f in m["fighters"] if f["key"] == key), None)
+
+
+def sync_hp(m):
+    """A side's HP bar is its heroes' HP: when they're all down, the side loses."""
+    for s in (0, 1):
+        heroes = [f for f in m["fighters"] if f["side"] == s and f["who"] == "hero"]
+        m["hp"][s] = sum(f["hp"] for f in heroes)
+        m["max"][s] = sum(f["max"] for f in heroes)
+
+
 def next_turn(m, t):
-    """Creature Clash: the next player's turn (a stunned side skips one)."""
+    """Creature Clash: the next player's turn (a stunned side skips one, and a
+    knocked-out hero's player sits out)."""
     for _ in range(len(m["order"]) * 2):
         m["turn"] += 1
         pid = m["order"][m["turn"] % len(m["order"])]
         s = 0 if pid in m["sides"][0] else 1
+        if fighter(m, f"{pid}:hero")["hp"] <= 0:
+            continue
         if m["skip"][s]:
             m["skip"][s] = False
             m["log"].append({"round": m["round"], "turn": m["turn"], "pid": pid, "side": s, "skipped": True, "dmg": 0, "first": False})
@@ -316,11 +354,13 @@ def find_move(m, pid, who, move_id):
     return next((mv for mv in moves if mv["id"] == move_id), None), user
 
 
-def clash_use(m, pid, who, move_id, t):
-    """Creature Clash: pid signed it on their turn, so their move happens now."""
+def clash_use(m, pid, who, move_id, aim, t):
+    """Creature Clash: pid signed it on their turn, so their move happens now,
+    at the foe they aimed at (`aim`, a fighter's key), or at all of them."""
     s = 0 if pid in m["sides"][0] else 1
     move, user = find_move(m, pid, who, move_id)
-    if not move or move["cost"] > m["energy"][pid]:
+    knocked_out = (fighter(m, f"{pid}:{who}") or {"hp": 1})["hp"] <= 0
+    if not move or move["cost"] > m["energy"][pid] or knocked_out:
         move, user = m["loadouts"][pid]["spells"][0], None  # can't: the free spell instead
         who = "hero"
     secs = t - m["starts"]
@@ -334,24 +374,37 @@ def clash_use(m, pid, who, move_id, t):
     if move["type"] == "shield":
         m["shield"][s] = min(SHIELD_MAX, m["shield"][s] + 1)
     elif move["type"] == "heal":
-        gain = min(m["max"][s] - m["hp"][s], round(m["max"][s] * HEAL_PART))
-        m["hp"][s] += gain
+        # Heals whoever on your side is hurt the most.
+        mine = [f for f in m["fighters"] if f["side"] == s and f["hp"] > 0]
+        hurt = min(mine, key=lambda f: f["hp"] / f["max"])
+        gain = min(hurt["max"] - hurt["hp"], round(hurt["max"] * HEAL_PART))
+        hurt["hp"] += gain
         entry["heal"] = gain
+        entry["healed"] = hurt["key"]
     elif move["type"] == "stun":
         m["skip"][1 - s] = True
     else:
-        foe_lead = (m["loadouts"][m["sides"][1 - s][0]]["buddies"] or [{}])[0].get("element")
-        eff = effectiveness(move["element"], foe_lead) if move["element"] else 1.0
+        foes = [f for f in m["fighters"] if f["side"] == 1 - s and f["hp"] > 0]
+        # Your aim, if it's still standing; else their first buddy, like in the zones.
+        aimed = next((f for f in foes if f["key"] == aim), None) or next((f for f in foes if f["who"] != "hero"), foes[0])
+        targets = foes if move.get("all") else [aimed]
+        spread = CLASH_GROUP if len(targets) > 1 else 1.0
         boost = 1 + (user["level"] - 1) * 0.05 if user else 1.0
-        dmg = round(CLASH_HIT * move["power"] * eff * boost * (1 + CLASH_SPEED * quick))
-        if m["shield"][1 - s] > 0:
+        blocked = m["shield"][1 - s] > 0  # a shield blocks the whole move
+        if blocked:
             m["shield"][1 - s] -= 1
             entry["blocked"] = True
-            dmg = 0
-        m["hp"][1 - s] = max(0, m["hp"][1 - s] - dmg)
-        entry["dmg"] = dmg
-        entry["eff"] = eff
+        entry["hits"] = []
+        for f in targets:
+            eff = effectiveness(move["element"], f["element"]) if move["element"] else 1.0
+            dmg = 0 if blocked else round(CLASH_HIT * move["power"] * spread * eff * boost * (1 + CLASH_SPEED * quick))
+            f["hp"] = max(0, f["hp"] - dmg)
+            entry["hits"].append({"key": f["key"], "dmg": dmg, "eff": eff, "out": f["hp"] <= 0})
+        entry["dmg"] = sum(h["dmg"] for h in entry["hits"])
+        entry["eff"] = entry["hits"][0]["eff"] if len(targets) == 1 else 1.0
+        entry["all"] = len(targets) > 1
         entry["crit"] = fast and quick > 0.75
+    sync_hp(m)
     m["log"].append(entry)
     m["log"] = m["log"][-12:]
     m["results"][pid] = t
@@ -410,6 +463,7 @@ def match_view(m, pid):
         view["yourTurn"] = m["active"] == pid and m["resolved"] is None
         view["resolved"] = m["resolved"] is not None
         view["loadouts"] = [[m["loadouts"][p] for p in side] for side in m["sides"]]
+        view["fighters"] = m["fighters"]
         view["log"] = [dict(e, name=m["names"][e["pid"]]) for e in m["log"]]
     if m["mode"] == "riddle":
         # The letter stays secret: you get the clue, and last round's answer.
@@ -593,7 +647,7 @@ def api(path, body):
             if m["active"] != pid or m["resolved"] is not None:
                 return {"ok": True}
             move = body.get("move") if isinstance(body.get("move"), dict) else {}
-            clash_use(m, pid, move.get("who", "hero"), move.get("id"), now())
+            clash_use(m, pid, move.get("who", "hero"), move.get("id"), move.get("target"), now())
             return {"ok": True}
         m["results"][pid] = now()
         return {"ok": True}

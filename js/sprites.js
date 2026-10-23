@@ -2497,31 +2497,50 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
   if (stage > 1 && !hexed) {
     const art = evolvedArt(id, stage);
     const w = art.rows[0].length, h = art.rows.length;
-    const pad = stage === 3 ? 1 : 0; // room for the glow
-    return draw(`creature:${id}:stage${stage}:${frame}`, w + pad * 2, h + pad * 2, (ctx) => {
+    const pad = stage === 3 ? 2 : 1; // room for the thick outline, and the glow
+    const W = w + pad * 2, H = h + pad * 2;
+    return draw(`creature:${id}:stage${stage}:${frame}`, W, H, (ctx) => {
       paint(ctx, art.rows, art.colors, pad, pad);
-      shadeSprite(ctx, w + pad * 2, h + pad * 2, true);
-      liftFoot(ctx, w + pad * 2, h + pad * 2, frame);
-      if (stage === 3) glow(ctx, w + 2, h + 2);
+      shadeSprite(ctx, W, H, true);
+      thickOutline(ctx, W, H, EVOLVED_OUTLINE);
+      liftFoot(ctx, W, H, frame);
+      if (stage === 3) glow(ctx, W, H);
     });
   }
   const art = CREATURE_ART[id];
   const w = art.rows[0].length, h = art.rows.length;
   if (!hexed) {
-    return draw(`creature:${id}:${frame}`, w, h, (ctx) => {
-      paint(ctx, art.rows, art.colors);
-      shadeSprite(ctx, w, h, true);
-      liftFoot(ctx, w, h, frame);
+    // One pixel of room on every side for the thick outline.
+    return draw(`creature:${id}:${frame}`, w + 2, h + 2, (ctx) => {
+      paint(ctx, art.rows, art.colors, 1, 1);
+      shadeSprite(ctx, w + 2, h + 2, true);
+      thickOutline(ctx, w + 2, h + 2, OUTLINE);
+      liftFoot(ctx, w + 2, h + 2, frame);
     });
   }
-  // One pixel of room on every side for the hex aura.
-  return draw(`creature:${id}:hexed:${frame}`, w + 2, h + 2, (ctx) => {
-    paint(ctx, art.rows, hexedColors(art), 1, 1);
-    hexCracks(ctx, w + 2, h + 2, id);
-    shadeSprite(ctx, w + 2, h + 2, true);
-    liftFoot(ctx, w + 2, h + 2, frame);
-    hexAura(ctx, w + 2, h + 2);
+  // Two pixels of room on every side: the thick outline, then the hex aura.
+  return draw(`creature:${id}:hexed:${frame}`, w + 4, h + 4, (ctx) => {
+    paint(ctx, art.rows, hexedColors(art), 2, 2);
+    hexCracks(ctx, w + 4, h + 4, id);
+    shadeSprite(ctx, w + 4, h + 4, true);
+    thickOutline(ctx, w + 4, h + 4, HEX_OUTLINE);
+    liftFoot(ctx, w + 4, h + 4, frame);
+    hexAura(ctx, w + 4, h + 4);
   });
+}
+
+// Creatures get a bold two-pixel outline: one more ring of outline color
+// around the one drawn into their art.
+function thickOutline(ctx, w, h, color) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const solid = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
+  const ring = [];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) ring.push((y * w + x) * 4);
+  for (const i of ring) d.set([...rgbOf(color), 255], i);
+  ctx.putImageData(image, 0, 0);
 }
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.

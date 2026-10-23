@@ -2,8 +2,9 @@
 // Arena. It's painted once onto a small canvas (320 x 180 game pixels, the
 // same size as the zone backdrops) and shown scaled up with crisp pixels.
 //
-// From the top: sky, the curved stone stands packed with a cheering crowd,
-// arches along the arena wall, banners in the two sides' colors, and the sand
+// From the top: sky, the curved stone stands (empty: a crowd there looked
+// like the back row of creatures was standing on people), arches along the
+// arena wall, banners in the two sides' colors, and the sand
 // floor with a ring painted in the middle.
 
 import { hash } from "./worldmap.js";
@@ -41,19 +42,6 @@ export function colosseumSrc() {
       px(x, y, edge ? "#8a7a64" : STONE[row % 3]);
     }
   }
-  // The crowd: little heads and shirts on each step, in lots of colors.
-  const SHIRTS = ["#e8413b", "#3a95d4", "#ffd23f", "#6cc24a", "#c58cf0", "#f08a24", "#ffffff", "#2f6bd0"];
-  const SKIN = ["#ffe0c4", "#f6c9a0", "#e0a878", "#c98d5d", "#8f5a36", "#5e3a22"];
-  for (let row = 0; row < 10; row++) {
-    for (let x = 2; x < W - 2; x += 4) {
-      if (hash(x, row, 3) < 0.18) continue; // a few empty seats
-      const y = 26 + curve(x) + row * 6 + 1;
-      px(x, y + 2, SHIRTS[Math.floor(hash(x, row, 4) * SHIRTS.length)], 3, 3);
-      px(x + 0.5, y, SKIN[Math.floor(hash(x, row, 5) * SKIN.length)], 2, 2);
-      if (hash(x, row, 6) < 0.15) px(x + 1, y - 2, SHIRTS[Math.floor(hash(x, row, 8) * SHIRTS.length)], 1, 2); // a waving arm
-    }
-  }
-
   // The arena wall: a band of stone with dark arches, and a gold trim.
   const wallTop = 92;
   for (let x = 0; x < W; x++) {

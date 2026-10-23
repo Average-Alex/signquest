@@ -1291,11 +1291,11 @@ function moveFolk(biome, dt, now) {
 // Which walk-cycle frame to show: cycles while moving, feet down when still.
 // `msPerFrame` sets the pace; `offset` keeps everyone from stepping in sync.
 const walkFrame = (moving, now, msPerFrame, offset = 0) => (moving ? Math.floor(now / msPerFrame + offset) % 4 : 0);
-// How a walker moves on each frame of the cycle: it bounces up 2 pixels on
-// every step and leans a little into the step (frames 1 and 3), like old
-// handheld RPGs. Standing still: no bounce, no lean.
+// How a walker moves: it bounces up 2 pixels on every step, and leans
+// forward the way it's heading while it walks (1 = leaning right, -1 = left).
+// Standing still: no bounce, no lean.
 const stepLift = (frame) => (frame % 2 ? 2 : 0);
-const stepTilt = (frame) => (frame === 1 ? -1 : frame === 3 ? 1 : 0);
+const lean = (moving, headingRight) => (moving ? (headingRight ? 1 : -1) : 0);
 
 // ---------- The hero ----------
 
@@ -2037,7 +2037,7 @@ function draw(biome, now) {
     // Walking: step through the walk cycle. Standing: a slow breathing bob.
     const frame = walkFrame(c.moving, now, 170, c.x);
     const lift = stepLift(frame);
-    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 1.5 : 0.75, lift, tilt: stepTilt(frame), shadow: true, hex: !c.freed }); // 32 px beasts, drawn 3/4 size (bosses 1.5x)
+    things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 1.5 : 0.75, lift, tilt: lean(c.moving, c.flip), shadow: true, hex: !c.freed }); // 32 px beasts, drawn 3/4 size (bosses 1.5x)
   }
   // Your buddies follow a few steps behind, one after the other, in step with you.
   const hero = biome.hero;
@@ -2045,19 +2045,19 @@ function draw(biome, now) {
     const back = hero.trail.length - 1 - (n + 1) * 8; // about 16 pixels apart
     const spot = hero.trail[Math.max(0, back)] || { x: hero.x - 12 * (n + 1), y: hero.y, flip: hero.flip };
     const frame = walkFrame(hero.moving, now, 110, n * 2 + 1);
-    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame, stageOf(pet.level))), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: stepLift(frame), tilt: stepTilt(frame) });
+    things.push({ y: spot.y - 0.5 - n * 0.1, img: spriteCanvas(creatureSrc(pet.id, false, frame, stageOf(pet.level))), x: spot.x, flip: !spot.flip, shadow: true, small: true, lift: stepLift(frame), tilt: lean(hero.moving, !spot.flip) });
   });
   // Runaway critters (chase quests) until they're caught.
   for (const r of biome.runners) {
     if (r.caught) continue;
     const frame = walkFrame(r.moving, now, 90, r.x);
-    things.push({ y: r.y, img: spriteCanvas(creatureSrc(r.id, false, frame)), x: r.x, flip: r.flip, lift: stepLift(frame), tilt: stepTilt(frame), shadow: true, small: true });
+    things.push({ y: r.y, img: spriteCanvas(creatureSrc(r.id, false, frame)), x: r.x, flip: r.flip, lift: stepLift(frame), tilt: lean(r.moving, r.flip), shadow: true, small: true });
   }
   // Townsfolk stroll about.
   for (const f of biome.folk) {
     const frame = walkFrame(f.moving, now, 150, f.x);
     const lift = stepLift(frame);
-    things.push({ y: f.y, img: spriteCanvas(heroSrc(f.look, f.hat, frame, false)), x: f.x, flip: f.moving ? f.flip : hero.x < f.x, lift, tilt: stepTilt(frame), shadow: true });
+    things.push({ y: f.y, img: spriteCanvas(heroSrc(f.look, f.hat, frame, false)), x: f.x, flip: f.moving ? f.flip : hero.x < f.x, lift, tilt: lean(f.moving, !f.flip), shadow: true });
   }
   // Villagers face you.
   for (const v of biome.npcs) {
@@ -2067,7 +2067,7 @@ function draw(biome, now) {
   for (const t of biome.trainers) {
     const frame = walkFrame(t.moving, now, 110, t.x);
     const lift = stepLift(frame);
-    things.push({ y: t.y, img: spriteCanvas(heroSrc(t.look, null, frame, true)), x: t.x, flip: hero.x < t.x, lift, tilt: stepTilt(frame), shadow: true });
+    things.push({ y: t.y, img: spriteCanvas(heroSrc(t.look, null, frame, true)), x: t.x, flip: hero.x < t.x, lift, tilt: lean(t.moving, hero.x >= t.x), shadow: true });
   }
   // Malgrath or Rook, during a story event.
   for (const a of biome.actors) {
@@ -2078,7 +2078,7 @@ function draw(biome, now) {
   // A little puff of dust behind you on each step.
   if (frame !== hero.lastFrame && frame % 2) biome.dust.push({ x: hero.x + (hero.flip ? 4 : -4), y: hero.y, born: now });
   hero.lastFrame = frame;
-  things.push({ y: hero.y, img: spriteCanvas(heroSrc(progress.heroLook(), progress.get().equipped.hat, frame)), x: hero.x, flip: hero.flip, lift: stepLift(frame), tilt: stepTilt(frame), shadow: true });
+  things.push({ y: hero.y, img: spriteCanvas(heroSrc(progress.heroLook(), progress.get().equipped.hat, frame)), x: hero.x, flip: hero.flip, lift: stepLift(frame), tilt: lean(hero.moving, !hero.flip), shadow: true });
 
   biome.dust = biome.dust.filter((p) => now - p.born < 350);
   for (const p of biome.dust) {
@@ -2104,11 +2104,11 @@ function draw(biome, now) {
       ctx.fill();
     }
     ctx.imageSmoothingEnabled = smooth; // painted creatures are drawn smoothly
-    // Leaning into a step: tip the sprite a little around its feet.
+    // Leaning forward while walking: tip the sprite a little around its feet.
     if (t.tilt) {
       ctx.save();
       ctx.translate(t.x - camX, t.y - camY);
-      ctx.rotate(t.tilt * 0.12);
+      ctx.rotate(t.tilt * 0.08);
       ctx.translate(-(t.x - camX), -(t.y - camY));
     }
     if (t.flip) {

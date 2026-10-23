@@ -366,7 +366,9 @@ export const PARTS = {
 
 // ---------- Putting a critter together ----------
 
-const DEFAULT_COLORS = { E: "#ffffff", P: "#2b1d2e", F: "#ffb020", c: "#f29aa6" };
+// The pupil is a shade off the outline color: the lighting (sprites.js) blends
+// inner outline pixels into the fur around them, which smudged the eyes.
+const DEFAULT_COLORS = { E: "#ffffff", P: "#21152a", F: "#ffb020", c: "#f29aa6" };
 
 // spec: { body, parts: [names], colors }. Returns { rows, colors } (full
 // 24-wide rows), the same shape as the other sprites in sprites.js.

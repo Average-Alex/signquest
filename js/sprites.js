@@ -2288,9 +2288,12 @@ function shadeSprite(ctx, w, h) {
     share.set(key, (share.get(key) || 0) + 1);
     solid++;
   }
+  // Small very dark spots are pupils: lighting them turns eyes into muddy
+  // smudges, so they're left as drawn too.
   const sparkle = (i) => {
     const light = (0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2]) / 255;
-    return light > 0.85 && share.get((src[i] << 16) | (src[i + 1] << 8) | src[i + 2]) / solid < 0.08;
+    const part = share.get((src[i] << 16) | (src[i + 1] << 8) | src[i + 2]) / solid;
+    return (light > 0.85 || light < 0.16) && part < 0.08;
   };
 
   // Distance from the edge (two-pass chamfer), capped so big bodies get a

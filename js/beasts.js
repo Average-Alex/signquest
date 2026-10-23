@@ -124,11 +124,21 @@ export function buildBeast(spec, stage = 1, extraFeats = []) {
       if ([[1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => g[y + dy]?.[x + dx] === "B" && !headMask[y + dy][x + dx])) g[y][x] = "b";
     }
 
-  // The eye: big and shiny (a little narrower once fully evolved).
+  // The eye: a tall, dark oval with a shine near the top, so it reads as an
+  // eye and not a smudge (a little shorter once fully evolved).
   const [ex, ey] = T(...H(...body.eye));
-  const eye = stage === 3 ? ["PPP.", "PEPP", "PPPP", ".PP."] : [".PP.", "PEPP", "PPPP", ".PP."];
-  eye.forEach((row, dy) => [...row].forEach((ch, dx) => ch !== "." && setPx(g, ex - 1 + dx, ey - 1 + dy, ch)));
-  if (!feats.has("noBlush")) setPx(g, ex - 1, ey + 3, "c"), setPx(g, ex, ey + 3, "c");
+  const eye = stage === 3 ? ["PPP", "PEP", ".PP"] : [".PP", "PEP", "PPP", ".PP"];
+  const ey0 = Math.round(ey) - (eye.length > 3 ? 2 : 1);
+  eye.forEach((row, dy) => [...row].forEach((ch, dx) => ch !== "." && setPx(g, ex - 1 + dx, ey0 + dy, ch)));
+  // A little smile: a line back from the front of the mouth, curling up at the end.
+  if (body.mouth) {
+    const [mx, my] = T(...H(...body.mouth));
+    const len = Math.max(2, Math.round(2.6 * size * headSize));
+    for (let i = 0; i < len; i++) setPx(g, mx + i, my, "K");
+    setPx(g, mx + len, my - 1, "K");
+  }
+  // Rosy cheeks, back behind the smile.
+  if (!feats.has("noBlush")) setPx(g, ex + 2, ey0 + eye.length + 1, "c"), setPx(g, ex + 3, ey0 + eye.length + 1, "c");
   if (feats.has("glasses")) {
     for (let dx = -2; dx <= 2; dx++) setPx(g, ex + dx, ey - 2, "K"), setPx(g, ex + dx, ey + 2, "K");
     setPx(g, ex - 2, ey, "K"), setPx(g, ex + 2, ey, "K"), setPx(g, ex - 2, ey - 1, "K"), setPx(g, ex + 2, ey + 1, "K");
@@ -136,7 +146,9 @@ export function buildBeast(spec, stage = 1, extraFeats = []) {
   return { rows: outline(g).map((r) => r.join("")), colors: { ...DEFAULT_COLORS, ...spec.colors } };
 }
 
-const DEFAULT_COLORS = { E: "#ffffff", P: "#2b1d2e", F: "#ffb020", c: "#f29aa6" };
+// The pupil is a shade off the outline color: the lighting (sprites.js) blends
+// inner outline pixels into the fur around them, which smudged the eyes.
+const DEFAULT_COLORS = { E: "#ffffff", P: "#21152a", F: "#ffb020", c: "#f29aa6" };
 
 // ---------- Features on top of any body ----------
 // `at` points come from the body: the top of the head, the middle of the back,
@@ -269,12 +281,13 @@ function tail(d, x, y) {
 
 // ---------- Body plans ----------
 // Each one draws itself (back to front), sets where the head is, and says
-// where its eye goes (relative to the head).
+// where its eye and the front of its mouth go (relative to the head).
 
 const BODIES = {
   // Four legs, a snout, a tail: foxes, dogs, cats, bears, rams, lizards.
   beast: {
     eye: [-2, -1],
+    mouth: [-6.4, 3.2],
     draw(d) {
       const { ell, line, hEll, setHead, feats } = d;
       tail(d, 22, 21);
@@ -295,6 +308,7 @@ const BODIES = {
   // Chunky, short-legged, with a big round head: bears, rams, moles.
   bear: {
     eye: [-2, -1],
+    mouth: [-6.8, 3.6],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
       tail(d, 24, 22);
@@ -315,6 +329,7 @@ const BODIES = {
   // Compact and round, with a little face: cats, kits, lynxes.
   cat: {
     eye: [-2, -1],
+    mouth: [-5, 3],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
       tail(d, 21, 24);
@@ -335,6 +350,7 @@ const BODIES = {
   // Long and low, with short legs and a long tail: lizards, salamanders, beetles.
   lizard: {
     eye: [-2, -1],
+    mouth: [-7.6, 2.6],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
       tail(d, 25, 25);
@@ -356,6 +372,7 @@ const BODIES = {
   // A beast with wings and a long neck: dragons, gryphons.
   dragon: {
     eye: [-2, -1],
+    mouth: [-7, 3.2],
     draw(d) {
       const { ell, line, hEll, setHead, feats } = d;
       feats.add("wingsBat");
@@ -397,6 +414,7 @@ const BODIES = {
   // A fish: a long body, fins, and a tail fin.
   fish: {
     eye: [-2, -1],
+    mouth: [-5.4, 3],
     draw(d) {
       const { ell, poly, setHead } = d;
       poly([[25, 18], [31, 10], [29, 18], [31, 26]], "A");
@@ -413,6 +431,7 @@ const BODIES = {
   // A long coiled body with a tall neck: serpents, eels, wyrms.
   serpent: {
     eye: [-2, -1],
+    mouth: [-7.6, 2.4],
     draw(d) {
       const { line, ell, hEll, setHead } = d;
       // The coil: thick at the middle, thinning to the tail.
@@ -431,6 +450,7 @@ const BODIES = {
   // Standing on two legs with arms: golems, sprites, candle-folk, knights.
   biped: {
     eye: [-2, -1],
+    mouth: [-6, 2.8],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
       tail(d, 21, 24);
@@ -450,6 +470,7 @@ const BODIES = {
   // Floating, with a wavy tail or tentacles: ghosts, jellies, wisps.
   ghost: {
     eye: [-3, -1],
+    mouth: [-4.5, 2],
     draw(d) {
       const { ell, poly, line, feats, setHead } = d;
       if (feats.has("tentacles")) for (const x of [10, 14, 18, 22]) line(x, 22, x - 1, 29, 2.2, "B");
@@ -465,6 +486,7 @@ const BODIES = {
   // A plant creature: a bulb body, leaves, little feet.
   plant: {
     eye: [-3, 0],
+    mouth: [-4.5, 2.5],
     draw(d) {
       const { ell, poly, line, setHead } = d;
       line(12, 26, 12, 31, 2.4, "b");
@@ -481,6 +503,7 @@ const BODIES = {
   // A squishy dome: slimes, lava blobs, puffs.
   blob: {
     eye: [-4, 0],
+    mouth: [-5.5, 2.5],
     draw(d) {
       const { ell, setHead } = d;
       ell(16, 24, 11.5, 7.5, "B");

@@ -354,22 +354,23 @@ export const TEAM_SIZE = 2; // buddies that fight beside you
 // Each turn you pick one move, then sign the target to fire it. Signing is
 // what charges your energy, so bigger moves have to be earned by signing.
 // Spark is free, so you can never get stuck.
-// Your hero's spells. You learn more as you level up (`level`), and your
-// armor adds its own (ARMOR `spell`). They're the cards in your spellbook.
-// Your hero's spells. You learn a new one each time you beat a zone boss and
-// win back a Beacon Shard (`shards` = how many shards you need), so going to
-// a harder zone doesn't hand you new spells: beating its boss does.
+// Your hero's spells: the cards in your spellbook. Spark and Blast you always
+// know. Each of the others is taught by one zone's boss (`zone`), and only
+// that boss: you learn Frost Lance by beating the Aurora Glacier's boss, no
+// matter how many other bosses you've beaten. Your armor adds its own spell
+// (ARMOR `spell`); Haunted Hollow's and the Cosmic Rift's bosses teach theirs
+// through their armor.
 export const HERO_SPELLS = [
-  { id: "spark", name: "Spark", icon: "✨", cost: 0, power: 1, shards: 0 },
-  { id: "blast", name: "Blast", icon: "💥", cost: 3, power: 2, element: "fire", shards: 0 },
-  { id: "nova", name: "Nova", icon: "🌟", cost: 6, power: 3.5, element: "light", all: true, shards: 1 },
-  { id: "frost", name: "Frost Lance", icon: "❄️", cost: 4, power: 2.5, element: "ice", shards: 2 },
-  { id: "thunder", name: "Thunder Call", icon: "⚡", cost: 5, power: 3, element: "lightning", shards: 3 },
-  { id: "leafstorm", name: "Leaf Storm", icon: "🌿", cost: 6, power: 3.2, element: "nature", all: true, shards: 4 },
-  { id: "tidal", name: "Tidal Wave", icon: "🌊", cost: 7, power: 4, element: "water", all: true, shards: 5 },
-  { id: "meteor", name: "Meteor", icon: "☄️", cost: 9, power: 6, element: "rock", shards: 6 },
+  { id: "spark", name: "Spark", icon: "✨", cost: 0, power: 1, zone: null },
+  { id: "blast", name: "Blast", icon: "💥", cost: 3, power: 2, element: "fire", zone: null },
+  { id: "leafstorm", name: "Leaf Storm", icon: "🌿", cost: 6, power: 3.2, element: "nature", all: true, zone: "meadow" },
+  { id: "nova", name: "Nova", icon: "🌟", cost: 6, power: 3.5, element: "light", all: true, zone: "forest" },
+  { id: "meteor", name: "Meteor", icon: "☄️", cost: 9, power: 6, element: "rock", zone: "caves" },
+  { id: "tidal", name: "Tidal Wave", icon: "🌊", cost: 7, power: 4, element: "water", all: true, zone: "river" },
+  { id: "frost", name: "Frost Lance", icon: "❄️", cost: 6, power: 4.2, element: "ice", zone: "spires" },
+  { id: "thunder", name: "Thunder Call", icon: "⚡", cost: 7, power: 4.6, element: "lightning", zone: "clouds" },
 ];
-export const HERO_MOVES = HERO_SPELLS.filter((sp) => sp.shards === 0); // always known
+export const HERO_MOVES = HERO_SPELLS.filter((sp) => !sp.zone); // always known
 // Armor: beat a zone's boss to win its armor set, then wear it in the Hero
 // screen. Each one changes how your hero looks (`style` and `colors`), gives
 // a bonus (`hp` and `power` multiply, `crit` adds), and teaches a spell.
@@ -395,9 +396,9 @@ export const ARMOR = [
     colors: { R: "#3a2860", r: "#241848", T: "#c58cf0", G: "#c58cf0", g: "#8a5ad6" }, spell: { id: "voidrift", name: "Cosmic Burst", icon: "🪐", cost: 9, power: 5, element: "dark", all: true } },
 ];
 export const armorById = (id) => ARMOR.find((a) => a.id === id) || ARMOR[0];
-// Your spells with `shards` Beacon Shards won back, wearing `armorId`.
-export function heroSpells(shards, armorId) {
-  const spells = HERO_SPELLS.filter((sp) => sp.shards <= shards);
+// Your spells, having beaten the bosses of `beatenZones` (zone ids), wearing `armorId`.
+export function heroSpells(beatenZones, armorId) {
+  const spells = HERO_SPELLS.filter((sp) => !sp.zone || beatenZones.includes(sp.zone));
   const armor = armorById(armorId);
   return armor.spell ? [...spells, armor.spell] : spells;
 }
@@ -439,9 +440,9 @@ export const SIGN_DAMAGE = 10;
 export const buddyMoveBoost = (level) => 1 + (level - 1) * 0.08;
 // When a wild creature attacks, its quick move does a bit less than normal and
 // its signature move a lot more. It can only use its signature from turn 2.
-export const ENEMY_QUICK_DAMAGE = 0.9;
-export const ENEMY_BIG_DAMAGE = 1.6;
-export const ENEMY_BIG_CHANCE = 0.25;
+export const ENEMY_QUICK_DAMAGE = 1.1;
+export const ENEMY_BIG_DAMAGE = 1.9;
+export const ENEMY_BIG_CHANCE = 0.3;
 export const ENEMY_HEAL_FRACTION = 0.12;
 export const CRIT_CHANCE = 0.1; // normal chance of a critical hit
 export const CRIT_CHANCE_FAST = 0.35; // when you signed fast without a hint
@@ -492,9 +493,9 @@ export const SIGNPOSTS_PER_AREA = 1;
 // Cosmic Rift boss level 50.
 export const creatureLevel = (zoneIndex, area) => 1 + (ZONES[zoneIndex].tier ?? zoneIndex) * BIOME_AREAS + area;
 export const GUARD_EXTRA_LEVELS = 1;
-export const BOSS_EXTRA_LEVELS = 2;
+export const BOSS_EXTRA_LEVELS = 3;
 // Stronger monsters hit harder...
-export const monsterDamage = (level) => 6 + Math.round(level * 0.5);
+export const monsterDamage = (level) => 7 + Math.round(level * 0.6);
 // ...and take more signs to beat.
 export const battleLength = (level) => ({
   letters: Math.min(12, 4 + Math.floor(level / 3)), // letter battles
@@ -519,7 +520,7 @@ export const DEFAULT_SETTINGS = {
 // Turn-based battles: after each of your turns (one letter or one whole
 // word), the monster attacks back - unless you signed fast without a hint,
 // which leaves it too dizzy to attack. Damage and HP scale with levels above.
-export const BOSS_EXTRA_DAMAGE = 4;
+export const BOSS_EXTRA_DAMAGE = 6;
 export const FAST_SIGN_MS = 3000; // per letter, to count as "fast"
 // 🔥 Combo: each target in a row signed fast (no hint) adds damage, up to a max.
 export const COMBO_BONUS = 0.1;
@@ -551,6 +552,15 @@ export const QUICK_BONUS = 2;
 // creatures. Beat them for prize coins. Each one battles you once.
 export const TRAINER_PRIZE = (level) => 20 + level * 3;
 export const TRAINER_HP = 0.6; // each trainer creature has this much of a wild one's HP
+// Packs: wild creatures often come in twos and threes, so you pick who to hit
+// (or hit them all with a group move). Each pack member has PACK_HP of a lone
+// creature's HP. Chances by area: [two, three] in the first area, more later.
+export const PACK_CHANCE = [[0.3, 0.05], [0.4, 0.12], [0.45, 0.18], [0.5, 0.22], [0.5, 0.28], [0.5, 0.3]];
+export const PACK_HP = 0.55;
+// At half health a boss surges, and calls in two helpers (MINION_HP each).
+export const MINION_HP = 0.35;
+// Some turns, a second foe attacks too: a boss with helpers out, or a pack of three.
+export const PACK_EXTRA_ATTACK = 0.4;
 
 export const SMOOTH_FRAMES = 4; // predictions averaged over this many frames (more = steadier but slower)
 export const HINT_AFTER_MS = 8000; // hint glows after this long on one letter

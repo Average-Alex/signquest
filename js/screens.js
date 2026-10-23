@@ -303,7 +303,8 @@ function showResults(z, s, result) {
   }
   show("results");
   const { won } = result;
-  $("results-title").textContent = !won ? "Knocked out!" : result.boss ? "Boss defeated!" : result.opts?.team ? `You beat ${result.opts.owner}!` : "Victory!";
+  const trial = result.opts?.trial;
+  $("results-title").textContent = !won ? "Knocked out!" : trial ? `🏛️ Trial ${trial.name} conquered!` : result.boss ? "Boss defeated!" : result.opts?.team ? `You beat ${result.opts.owner}!` : "Victory!";
   renderPortraits(result.portraits || []);
   $("results-armor").hidden = !result.armor;
   if (result.armor) {
@@ -322,11 +323,11 @@ function showResults(z, s, result) {
   $("results-level").hidden = !levelUps.length;
   $("results-level").textContent = levelUps.map((c) => `⬆️ ${c.name} reached level ${c.level}!`).join(" ");
   // A boss guards a Beacon Shard.
-  const shard = won && result.boss && result.zone.shard !== false;
+  const shard = won && result.boss && result.zone.shard !== false && !trial;
   $("results-shard").hidden = !shard;
   if (shard) {
-    // Each shard teaches your hero a new spell.
-    const learned = HERO_SPELLS.find((sp) => sp.shards === progress.shardCount());
+    // Each zone's boss teaches its own spell.
+    const learned = HERO_SPELLS.find((sp) => sp.zone === result.zone.id);
     $("results-shard").textContent = `💎 You recovered a Beacon Shard! (${progress.shardCount()} of ${SHARD_ZONES.length})${learned ? ` You learned a new spell: ${learned.icon} ${learned.name}!` : ""}`;
   }
   biomeBattleOver(z, won);
@@ -652,22 +653,23 @@ function renderArmorPicker(box, look) {
   box.appendChild(group);
 }
 
-// Your spells: the ones you know, and how many shards it takes to learn the rest.
+// Your spells: the ones you know, and which boss teaches each of the rest.
 function renderSpellList(box) {
-  const shards = progress.shardCount();
+  const beaten = progress.beatenZones();
   const armor = progress.heroArmor();
   const group = document.createElement("div");
   group.className = "maker-group";
-  group.innerHTML = `<p class="label">Spells <small>(beat a zone boss to learn the next one)</small></p>`;
+  group.innerHTML = `<p class="label">Spells <small>(each zone's boss teaches its own spell)</small></p>`;
   const list = document.createElement("div");
   list.className = "spell-list";
   const spells = [...HERO_SPELLS, ...(armor.spell ? [{ ...armor.spell, fromArmor: armor.name }] : [])];
   list.innerHTML = spells
     .map((sp) => {
-      const known = sp.fromArmor || sp.shards <= shards;
+      const known = sp.fromArmor || !sp.zone || beaten.includes(sp.zone);
+      const teacher = sp.zone && ZONES.find((zone) => zone.id === sp.zone);
       const el = ELEMENTS[sp.element];
       return `<span class="spell-chip${known ? "" : " locked"}${sp.element ? ` el-${sp.element}` : ""}">${known ? sp.icon : "🔒"} ${sp.name}
-        <small>${known ? (sp.fromArmor ? `from ${sp.fromArmor}` : el ? el.name : "Free") : `${sp.shards} shard${sp.shards === 1 ? "" : "s"}`}</small></span>`;
+        <small>${known ? (sp.fromArmor ? `from ${sp.fromArmor}` : el ? el.name : "Free") : `Beat the ${teacher.icon} ${teacher.name} boss`}</small></span>`;
     })
     .join("");
   group.appendChild(list);

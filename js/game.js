@@ -31,9 +31,14 @@
 // first (always before a big move). Sign it back in time, or tap the right
 // letter, to block the hit; signing it bounces some damage back too.
 //
-// Taking too long only brings a hint, then a skip button. Skipping still
-// moves you on, but the monster gets its attack. If your HP runs out you're
-// knocked out: you keep some XP and can try again.
+// Wild creatures often come in packs of two or three, and a boss calls in
+// two helpers when it surges at half health: click one to target it, or use
+// a group move (💥 All) to hit them all. Pack members take turns attacking,
+// and some turns a second one joins in.
+//
+// Taking too long brings a hint, then a skip button. Can't sign it? Skipping
+// costs you your turn: your move doesn't fire, and it's their turn. If your
+// HP runs out you're knocked out: you keep some XP and can try again.
 
 import { getPrediction, HoldTimer } from "./classifier.js";
 import {
@@ -42,7 +47,7 @@ import {
   CHALLENGE_BONUS, CHALLENGE_CHANCE, FLURRY_MS, SPELL_BONUS, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, stageOf, stagePower, buddyMoves, heroSpells, armorById,
   GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
   ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET,
-  COUNTER_CHANCE, COUNTER_MS, COUNTER_REFLECT, monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
+  COUNTER_CHANCE, COUNTER_MS, COUNTER_REFLECT, MINION_HP, PACK_CHANCE, PACK_EXTRA_ATTACK, PACK_HP, monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
 import { battleResult } from "./battle-result.js";
 import * as progress from "./progress.js";
@@ -94,6 +99,9 @@ function nextTarget(z, type, previous) {
 // `opts.owner`: a rival's or trainer's name. They fight beside their
 // creatures (`opts.team`, [{ id, level }, ...], or just this one), looking
 // like `opts.look`.
+// opts: owner/team/look (a trainer or rival), area (which part of the zone:
+// later areas bring bigger packs), pack: false (always one-on-one), trial
+// (a Trial battle: see biome.js).
 export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   const zone = ZONES[z];
   const stage = STAGES[s];
@@ -151,7 +159,7 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
   $("arena").classList.toggle("party", party);
   setUpField(battle);
   // Dramatic music: Malgrath has his own theme, bosses a harder one.
-  playMusic(battle.field[0].id === "malgrath" ? "final" : stage.type === "boss" ? "boss" : "battle");
+  playMusic(battle.roster[0].id === "malgrath" ? "final" : stage.type === "boss" || opts.trial ? "boss" : "battle");
   renderCombo();
   $("battle-warning").hidden = true;
   const p = progress.get();
@@ -189,7 +197,7 @@ const TRAINER_MOVES = [
 ];
 
 // One fighter on the other side, with its own HP and state.
-function makeFoe(b, { id, level, trainer = null }) {
+function makeFoe(b, { id, level, trainer = null, share = 1 }) {
   const def = trainer
     ? { id: "trainer", name: trainer.name, look: trainer.look, catchable: false, element: null, moves: TRAINER_MOVES }
     : creature(id);
@@ -198,7 +206,7 @@ function makeFoe(b, { id, level, trainer = null }) {
   const plan = planTargets(b.z, b.stage.type, level);
   const letters = plan.reduce((sum, t) => sum + t.length, 0);
   const rarityHp = trainer || b.party ? 1 : rarityOf(def).hp; // rarer creatures are tougher
-  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.party ? TRAINER_HP : 1) * rarityHp);
+  const maxHp = Math.round(letters * SIGN_DAMAGE * HEX_HP_MULTIPLIER * (b.party ? TRAINER_HP : 1) * rarityHp * share * (b.opts.trial?.hp || 1));
   return {
     def, id: def.id, level, maxHp, hp: maxHp, trainer: Boolean(trainer),
     charging: null, // a big move it's winding up (it lands on its next turn)
@@ -217,8 +225,15 @@ function makeFoe(b, { id, level, trainer = null }) {
 function setUpField(b) {
   for (const slot of SLOTS) $(slot.box).hidden = true;
   if (!b.party) {
-    b.roster = [makeFoe(b, b.foes[0])];
+    // The creature you bumped into in the middle; any pack mates above and below.
+    const mates = packMates(b);
+    const share = mates.length ? PACK_HP : 1;
+    b.roster = [makeFoe(b, { ...b.foes[0], share }), ...mates.map((m) => makeFoe(b, { ...m, share }))];
     place(b, b.roster[0], 1);
+    b.roster.slice(1).forEach((e, n) => place(b, e, n === 0 ? 0 : 2));
+    if (mates.length) announce(`A pack of ${b.roster.length}! Click one to target it, or hit them all with a group move.`);
+    // Trial III: the boss's helpers are there from the start.
+    if (b.opts.trial?.startHelpers) summonHelpers(b, b.roster[0]);
   } else {
     // The trainer in the middle, their first two creatures above and below.
     const look = b.opts.look || (b.opts.owner === "Rook" ? ROOK.look : null);
@@ -232,6 +247,22 @@ function setUpField(b) {
   setTarget(b.field.find((e) => !e.trainer) || b.field[0], false);
 }
 
+// Wild creatures sometimes bring friends from their zone: none for bosses,
+// trials, or story fights; more often (and more of them) further up the zone.
+function packMates(b) {
+  const lead = b.foes[0];
+  const def = creature(lead.id);
+  if (b.opts.pack === false || b.opts.trial || b.stage.type === "boss" || def.kind !== "wild" || def.catchable === false) return [];
+  const [two, three] = PACK_CHANCE[Math.min(PACK_CHANCE.length - 1, b.opts.area || 0)];
+  const roll = Math.random();
+  const count = roll < three ? 2 : roll < three + two ? 1 : 0;
+  const pool = CREATURES.filter((c) => c.zone === def.zone && c.kind === "wild");
+  return Array.from({ length: count }, () => ({ id: pool[Math.floor(Math.random() * pool.length)].id, level: Math.max(1, lead.level - 1) }));
+}
+
+// More than one foe on the field: targets to pick, and the formation layout.
+const isMulti = (b = battle) => b.party || b.field.length > 1;
+
 // Puts `entry` in slot `n` on the field.
 function place(b, entry, n) {
   entry.slot = n;
@@ -241,12 +272,13 @@ function place(b, entry, n) {
   if (!b.field.includes(entry)) b.field.push(entry);
   b.field.sort((x, y) => x.slot - y.slot);
   entry.box.hidden = false;
+  $("arena").classList.toggle("party", isMulti(b)); // the three-spot formation
   // Hexbound creatures look corrupted until you break the hex. (Malgrath is
   // just like that.) A trainer's or rival's creatures aren't hexed.
   const hexed = !entry.trainer && entry.def.catchable !== false && !b.party;
   entry.hexed = hexed; // tick() makes dark motes drift off it
   entry.art.innerHTML = entry.trainer ? heroImg(entry.def.look, null, "foe-hero", true) : creatureImg(entry.id, "", hexed);
-  entry.art.className = `monster${b.stage.type === "boss" ? " boss" : ""}`;
+  entry.art.className = `monster${(b.stage.type === "boss" || b.opts.trial) && entry === b.roster[0] ? " boss" : ""}`;
   entry.box.querySelector(".foe-tag-name").textContent = `${entry.def.name} · Lv ${entry.level}`;
   entry.box.onclick = () => setTarget(entry);
   entry.box.onkeydown = (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setTarget(entry));
@@ -261,7 +293,7 @@ function setTarget(entry, say = true) {
   const b = battle;
   if (!b || !entry || entry.out) return;
   b.target = entry;
-  for (const e of b.field) e.box.classList.toggle("targeted", e === entry && b.party);
+  for (const e of b.field) e.box.classList.toggle("targeted", e === entry && isMulti(b));
   const def = entry.def;
   const hexed = !entry.trainer && def.catchable !== false && !b.party;
   $("monster-name").textContent = b.party && !entry.trainer ? `${b.opts.owner}'s ${def.name}` : def.name;
@@ -284,7 +316,7 @@ function setTarget(entry, say = true) {
 // Up and down arrows (or clicking) pick who to target.
 function cycleTarget(step) {
   const list = alive();
-  if (!battle?.party || list.length < 2) return;
+  if (!battle || !isMulti() || list.length < 2) return;
   const i = list.indexOf(battle.target);
   setTarget(list[(i + step + list.length) % list.length]);
 }
@@ -518,11 +550,9 @@ function letterDone(now, skipped) {
     showGuide();
     return;
   }
-  if (skipped) battle.targetSlow = true;
-  else {
-    if (!battle.hinted) progress.addSuccess(letter);
-    gainEnergy(ENERGY_PER_LETTER); // signing charges your energy
-  }
+  if (skipped) return loseTurn(now);
+  if (!battle.hinted) progress.addSuccess(letter);
+  gainEnergy(ENERGY_PER_LETTER); // signing charges your energy
   battle.times.push(now - battle.letterStart);
   battle.pauseUntil = now + PAUSE_AFTER_HIT_MS;
   $("battle-hold").style.width = "0%";
@@ -539,6 +569,37 @@ function letterDone(now, skipped) {
   }
 
   finishTarget(now, target.length);
+}
+
+// Couldn't sign it: you lose your turn. Your move doesn't fire, your combo
+// ends, and it's their turn.
+function loseTurn(now) {
+  const b = battle;
+  b.busy = true;
+  b.targetSlow = true;
+  b.combo = 0;
+  renderCombo();
+  $("battle-hold").style.width = "0%";
+  $("hint").hidden = true;
+  $("skip-btn").hidden = true;
+  popText("⏭️ Turn skipped!");
+  announce("You skipped the sign, so you lose your turn.");
+  renderTarget();
+  renderMoves();
+  renderItems();
+  setTimeout(() => battle === b && !b.done && theirRound(b, false), 900);
+}
+
+// Their side's turn: one of them attacks (a boss surges first at half health),
+// and sometimes a second one joins in.
+function theirRound(b, fast) {
+  if (battle !== b || b.done) return;
+  const leader = b.roster[0];
+  const boss = (b.stage.type === "boss" || b.opts.trial) && !b.party && !leader.out ? leader : null;
+  const helpersOut = alive(b).length > 1;
+  b.extraAttacks = (boss && helpersOut) || (alive(b).length >= 3 && Math.random() < PACK_EXTRA_ATTACK) || (b.opts.trial && helpersOut) ? 1 : 0;
+  if (boss && !boss.phase2Done && boss.hp <= boss.maxHp / 2) phase2(b, boss, () => monsterTurn(fast));
+  else monsterTurn(fast);
 }
 
 // Finished a letter, a whole word, or a Flurry: your move fires, with
@@ -568,12 +629,7 @@ function finishTarget(now, letters, flurryFast = false) {
 
   // Only the one character you picked acts. Then it's their turn.
   // (At half health, a boss first surges with dark power: phase 2.)
-  const theirTurn = () => {
-    if (battle !== b || b.done) return;
-    const boss = b.stage.type === "boss" && !b.party ? b.field[0] : null;
-    if (boss && !boss.phase2Done && boss.hp <= boss.maxHp / 2) phase2(b, boss, () => monsterTurn(fast));
-    else monsterTurn(fast);
-  };
+  const theirTurn = () => theirRound(b, fast);
   setTimeout(() => {
     if (battle !== b || b.done) return;
     if (downed.length) knockOut(b, downed, theirTurn);
@@ -610,6 +666,23 @@ function knockOut(b, downed, next) {
   }, 1000);
 }
 
+// Two of the zone's wild creatures join `boss`, in any empty spots above and
+// below it. True if any came.
+function summonHelpers(b, boss) {
+  const pool = CREATURES.filter((c) => c.zone === b.zone.id && c.kind === "wild");
+  let came = false;
+  [0, 2].forEach((slot, n) => {
+    if (!pool.length || b.field.some((e) => e.slot === slot && !e.out)) return;
+    const helper = makeFoe(b, { id: pool[(n + b.turn) % pool.length].id, level: Math.max(1, boss.level - 2), share: MINION_HP });
+    b.roster.push(helper);
+    place(b, helper, slot);
+    restartAnimation(helper.art, "send-in");
+    if (boss.art) fx.burst(at.foe(helper), "hex", { count: 30, speed: 1.6 });
+    came = true;
+  });
+  return came;
+}
+
 // Phase 2: Malgrath's voice cuts in, and the boss heals a little and hits harder.
 function phase2(b, boss, next) {
   boss.phase2Done = true;
@@ -624,8 +697,17 @@ function phase2(b, boss, next) {
   $("hud-foe-sub").textContent = `⚡ Powered up! · Lv ${boss.level}`;
   popText("⚡ PHASE 2!", true);
   announce(`${boss.def.name} surges with dark power!`);
+  // Two helpers join the fight, above and below.
+  if (!b.party) {
+    setTimeout(() => {
+      if (battle !== b || b.done || !summonHelpers(b, boss)) return;
+      popText(`${boss.def.name} calls for help!`, true);
+      announce(`${boss.def.name} calls two helpers! Pick a target, or use a group move.`);
+      updateHp(b);
+    }, 500);
+  }
   const lines = QUESTS[b.zone.id]?.phase2 || [];
-  setTimeout(() => (lines.length ? playLines(lines, next) : next()), 900);
+  setTimeout(() => (lines.length ? playLines(lines, next) : next()), 1400);
 }
 
 // ---------- Moves and energy ----------
@@ -849,7 +931,7 @@ function renderMoves() {
   for (const el of document.querySelectorAll(".arena .fighter")) el.classList.toggle("acting", el === actor && !battle.busy);
 
   const tab = tabs[battle.tab];
-  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.shardCount(), progress.get().equipped.armor);
+  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.beatenZones(), progress.get().equipped.armor);
   const bar = $("battle-moves");
   bar.innerHTML = "";
   // The spellbook shows BOOK_PAGE cards at a time; arrows turn the page.
@@ -867,7 +949,7 @@ function renderMoves() {
     button.setAttribute("aria-pressed", String(picked));
     const eff = isAttack(move) ? effectiveness(move.element, battle.target.def.element) : 1;
     const tag = (eff > 1 ? `<span class="move-eff up">▲ Super</span>` : eff < 1 ? `<span class="move-eff down">▼ Weak</span>` : "") +
-      (move.all && battle.party ? `<span class="move-eff all">💥 All</span>` : "");
+      (move.all && isMulti() ? `<span class="move-eff all">💥 All</span>` : "");
     const el = ELEMENTS[move.element];
     button.innerHTML = `
       <span class="move-cost">${move.cost ? `${move.cost}⚡` : "Free"}</span>
@@ -1024,6 +1106,12 @@ function monsterTurn(fast) {
 function endMonsterTurn(b) {
   setTimeout(() => {
     for (const e of b.field) e.box.classList.remove("acting");
+    if (battle !== b || b.done) return;
+    // A second one joins in (a boss's helper, or a big pack).
+    if (b.extraAttacks > 0 && alive(b).length > 1) {
+      b.extraAttacks--;
+      return monsterTurn(false);
+    }
     nextTurn(b);
   }, MONSTER_TURN_MS);
 }
@@ -1277,7 +1365,7 @@ function finish(won) {
   const letters = battle.times.length;
   const boss = battle.stage.type === "boss";
 
-  const main = battle.field[0]; // a lone foe (or the first one standing)
+  const main = battle.party ? battle.field[0] : battle.roster[0]; // a trainer's first, or the creature you bumped into
   const firstCreature = battle.roster.find((e) => !e.trainer) || main;
   if (won) {
     if (battle.party) {
@@ -1291,6 +1379,8 @@ function finish(won) {
       popText("SEALED AWAY!", true);
     } else {
       // The hex shatters: a flash, then the creature's real colors come back.
+      // (Its pack mates and helpers scamper off.)
+      for (const e of battle.roster.slice(1)) restartAnimation(e.art, "faint");
       popText("HEX BROKEN!", true);
       $("monster").classList.add("healing");
       fx.hitStop(160);
@@ -1319,7 +1409,7 @@ function finish(won) {
     z: battle.z, s: battle.s, zone: battle.zone, won, boss, opts: battle.opts, party: battle.party,
     signs: letters, hints: battle.hints, avgSeconds: battle.times.reduce((a, b) => a + b, 0) / Math.max(1, letters) / 1000,
     foe: firstCreature.def, level: firstCreature.level, practice: [...battle.practice],
-    freeId: won && !battle.party && main.def.catchable !== false ? main.id : null,
+    freeId: won && !battle.party && main.def.catchable !== false && !battle.opts.trial ? main.id : null,
   });
   const { onFinish } = battle;
   setTimeout(() => onFinish(result), won ? 2200 : 1400);

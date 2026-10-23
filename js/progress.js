@@ -312,6 +312,8 @@ export const shardCount = () => ZONES.filter((zone, z) => zone.shard !== false &
 // ---------- Exploring a zone: gates and wins per area ----------
 
 export const bossBeaten = (zoneIndex) => stageStars(zoneIndex, STAGES.length - 1) > 0;
+// Ids of the zones whose bosses you've beaten (each one teaches its own spell: HERO_SPELLS).
+export const beatenZones = () => ZONES.filter((zone, z) => bossBeaten(z)).map((zone) => zone.id);
 
 export function trail(zoneIndex) {
   const id = ZONES[zoneIndex].id;
@@ -336,6 +338,14 @@ export function questState(zoneIndex, area) {
 
 export function updateQuest(zoneIndex, area, changes) {
   Object.assign(questState(zoneIndex, area), changes);
+  save();
+}
+
+// 🏛️ Trials beaten in a zone (0 to 3; biome.js TRIALS).
+export const trialTier = (zoneIndex) => trail(zoneIndex).trials || 0;
+export function beatTrial(zoneIndex, tier) {
+  const t = trail(zoneIndex);
+  t.trials = Math.max(t.trials || 0, tier);
   save();
 }
 

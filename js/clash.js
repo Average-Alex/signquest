@@ -34,7 +34,7 @@ export function clashLoadout() {
   const p = progress.get();
   const move = (mv, id) => ({ id: id || mv.id || mv.name, name: mv.name, icon: mv.icon, type: mv.type || "attack", cost: mv.cost || 0, power: mv.power || 1, element: mv.element || "", all: Boolean(mv.all) });
   return {
-    spells: heroSpells(progress.shardCount(), p.equipped.armor).map((sp) => move(sp)),
+    spells: heroSpells(progress.beatenZones(), p.equipped.armor).map((sp) => move(sp)),
     buddies: progress.team().slice(0, 2).map((pet) => {
       const c = CREATURES.find((x) => x.id === pet.id);
       return {

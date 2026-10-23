@@ -19,6 +19,10 @@
 //   📜  word battle - shows up once you've won a practice battle here
 //   👑  the boss
 //
+// 🏛️ Once a zone's boss is beaten, its Trial shrine (by the landmark) opens:
+// three Trials, each a much tougher rematch with the boss (TRIALS). Trial III
+// starts with the boss's helpers already out. Big coin prizes.
+//
 // Each area also has a villager with a quest (quests.js lists the kinds:
 // learn a sign, chat, spot the sign, chase, collect sign cards, free, find,
 // riddle, deliver, gate guard). A tracker under the map says what to do
@@ -103,6 +107,14 @@ function exitsFor(zoneId) {
   }
   return out.map((e) => ({ ...e, y: exitRow(e.area) * T + T - 1 }));
 }
+
+// 🏛️ Trials: rematches with the zone's boss, each much tougher than the last.
+// `levels`: above the boss's level; `hp`: times its HP; `coins`: the prize.
+const TRIALS = [
+  { tier: 1, name: "I", levels: 5, hp: 1.4, coins: 80 },
+  { tier: 2, name: "II", levels: 9, hp: 1.75, coins: 140 },
+  { tier: 3, name: "III", levels: 14, hp: 2.1, coins: 220, startHelpers: true },
+];
 
 // ✨ Secrets: a hidden treasure in each area, out in the wilds away from the
 // path. They only show up when you're close, so you have to go looking.
@@ -591,6 +603,9 @@ function build(z) {
     for (let tx = Math.floor((landmark.x - landmark.w / 2) / T); tx < Math.ceil((landmark.x + landmark.w / 2) / T); tx++)
       if (ty >= 0) blocked[at(tx, ty)] = 1;
 
+  // The Trial shrine, beside the landmark (across from the boss).
+  const trialSpot = { x: landmark.x - landmark.w / 2 - 22, y: landmark.y + 2 * T };
+
   // Start at the entrance, at the bottom.
   const startRow = TH - 3;
   const hero = { x: pathX(startRow) * T, y: startRow * T, flip: false, moving: false, path: [], trail: [] };
@@ -622,6 +637,7 @@ function build(z) {
     spotOpen: false, // the spot-the-sign panel is up
     dust: [], // little puffs from footsteps
     atSign: null,
+    trial: trialSpot, // 🏛️ the Trial shrine
   };
 
   // Chests, signposts, and coins go on open ground you can reach once every
@@ -1387,6 +1403,9 @@ function checkTouch(biome, now) {
 
   if (now < biome.safeUntil) return;
 
+  // 🏛️ The Trial shrine.
+  if (near(biome.trial, hero, 14)) return visitTrial(biome);
+
   // ⚔️ Trainers: walk up to one and they ask if you want to battle (you can
   // say not now). Beaten ones just chat.
   const trainer = biome.trainers.find((t) => near(t, hero, 14) && now > (t.restUntil || 0));
@@ -1525,7 +1544,11 @@ function startEncounter(biome, creature) {
   playBattleSting(creature.boss);
   setTimeout(() => {
     $("biome-wrap").classList.remove("encounter");
-    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, { owner: creature.owner, team: creature.team, prize: creature.prize, look: creature.look });
+    const fight = () => playStage(biome.z, creature.stage, creature.id, creature.level, {
+      owner: creature.owner, team: creature.team, prize: creature.prize, look: creature.look,
+      area: creature.area, trial: creature.trial,
+      pack: creature.guard !== undefined || creature.event ? false : undefined, // gate guards and story fights are one-on-one
+    });
     if (creature.boss) playScene(`boss-${creature.id}`, fight);
     else fight();
   }, 600);
@@ -1549,6 +1572,13 @@ export function biomeBattleOver(z, won) {
       t.beaten = true;
     } else t.restUntil = performance.now() + 10000;
     pendingLines = { lines: [[trainerSpeaker(t), won ? t.after : "Ha! Train up and come find me again!"]] };
+    return;
+  }
+  if (c.trial) {
+    if (won) {
+      progress.beatTrial(z, c.trial.tier);
+      pendingToast = c.trial.tier >= TRIALS.length ? `🏛️ You conquered every Trial in the ${biome.zone.name}! 👑` : `🏛️ Trial ${c.trial.name} conquered! Trial ${TRIALS[c.trial.tier].name} awaits...`;
+    } else pendingToast = `🏛️ The Trial was too much this time. Level up your team and try again!`;
     return;
   }
   if (c.event) {
@@ -1580,6 +1610,50 @@ export function biomeBattleOver(z, won) {
       pendingToast = state.count >= step.count ? `❓ That's ${step.count}! Go back to ${giver.name}.` : `🐾 Freed ${state.count} of ${step.count}!`;
     }
   }
+}
+
+// ---------- 🏛️ Trials ----------
+
+function trialMarker(biome) {
+  const tier = progress.trialTier(biome.z);
+  const text = !progress.bossBeaten(biome.z) ? "🔒 Trial" : tier >= TRIALS.length ? "👑 Conquered" : `Trial ${TRIALS[tier].name}`;
+  return { x: biome.trial.x, y: biome.trial.y - 36, html: `🏛️<small>${text}</small>`, cls: " chest trial" };
+}
+
+function visitTrial(biome) {
+  const now = performance.now();
+  const tier = progress.trialTier(biome.z);
+  const boss = CREATURES.find((c) => c.zone === biome.zone.id && c.kind === "boss");
+  bumpBack(biome, now);
+  if (!boss) return;
+  if (!progress.bossBeaten(biome.z)) return toast(`🏛️ The Trial shrine is sealed. Beat ${boss.name} first!`, 4000);
+  if (tier >= TRIALS.length) return toast(`🏛️ You've conquered all ${TRIALS.length} Trials here. A true Signkeeper! 👑`, 4000);
+  const trial = TRIALS[tier];
+  const level = creatureLevel(biome.z, BIOME_AREAS - 1) + BOSS_EXTRA_LEVELS + trial.levels;
+  keys.clear();
+  biome.hero.path = [];
+  biome.hero.moving = false;
+  biome.asking = { name: "Trial" };
+  const box = $("biome-ask");
+  $("biome-ask-text").textContent = `🏛️ Trial ${trial.name}: ${boss.name} returns at level ${level}, far stronger${trial.startHelpers ? ", with helpers from the start" : ""}. Win ${trial.coins} 🪙. Ready?`;
+  box.hidden = false;
+  $("biome-ask-yes").focus();
+  announce(`Trial ${trial.name}. ${boss.name} at level ${level}. Ready?`);
+  const close = () => {
+    box.hidden = true;
+    biome.asking = null;
+  };
+  $("biome-ask-yes").onclick = () => {
+    close();
+    startEncounter(biome, {
+      id: boss.id, boss: true, stage: STAGES.length - 1, level, area: BIOME_AREAS - 1, prize: trial.coins,
+      trial: { tier: trial.tier, name: trial.name, hp: trial.hp, startHelpers: Boolean(trial.startHelpers) },
+    });
+  };
+  $("biome-ask-no").onclick = () => {
+    close();
+    bumpBack(biome, performance.now());
+  };
 }
 
 // ---------- Quests ----------
@@ -2033,6 +2107,7 @@ function draw(biome, now) {
   for (const s of biome.signposts) things.push({ y: s.y, img: sprite("signpost"), x: s.x, shadow: true });
   for (const c of biome.coins) if (!c.taken) things.push({ y: c.y, img: sprite("coin"), x: c.x });
   things.push({ y: biome.landmark.y, img: spriteCanvas(landmarkSrc(biome.zone.id)), x: biome.landmark.x, scale: 2 });
+  things.push({ y: biome.trial.y, img: sprite("goldstatue"), x: biome.trial.x, scale: 1.4, shadow: true });
   for (const c of biome.creatures) {
     // Walking: step through the walk cycle. Standing: a slow breathing bob.
     const frame = walkFrame(c.moving, now, 170, c.x);
@@ -2167,6 +2242,8 @@ function draw(biome, now) {
     ...biome.runners
       .filter((r) => !r.caught && progress.questState(biome.z, r.area).accepted)
       .map((r) => ({ x: r.x, y: r.y - 20, html: "💨", cls: " item" })),
+    // 🏛️ The Trial shrine: sealed until the boss is beaten.
+    trialMarker(biome),
     // Townsfolk: their names.
     ...biome.folk.map((f) => ({ x: f.x, y: f.y - 31, html: `<small>${f.name}</small>`, cls: " npc folk" })),
   ];

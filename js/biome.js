@@ -47,8 +47,10 @@ import { playBattleSting, playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
 import { hash, noise } from "./worldmap.js";
 import { setHtml } from "./pixel-emoji.js";
+import { decorArt, GROUND_SCALE, paintStorybookGround, STORYBOOK } from "./storybook.js";
 
 const $ = (id) => document.getElementById(id);
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 const T = 8; // tile size in pixels
 const TW = 80; // tiles across the whole zone
@@ -598,7 +600,12 @@ function build(z) {
   const biome = {
     z, zone, theme, kind, blocked, decor, landmark, gates, hero, exits,
     secrets: [],
-    bg: paintGround(theme, kind, seed),
+    bg: STORYBOOK
+      ? paintStorybookGround(theme, {
+        TW, TH, T, kind, areas: BIOME_AREAS,
+        KINDS: { GROUND, PATH, WATER: WATER_TILE, BRIDGE: BRIDGE_TILE, GATE, SOLID, ICE: ICE_TILE },
+      }, seed)
+      : paintGround(theme, kind, seed),
     creatures: [],
     chests: [],
     props, // the thing to do in each area's scene
@@ -2010,11 +2017,24 @@ function draw(biome, now) {
   ctx.setTransform(VIEW_SCALE, 0, 0, VIEW_SCALE, 0, 0);
   ctx.imageSmoothingEnabled = false;
   const camX = Math.round(biome.camX), camY = Math.round(biome.camY);
-  ctx.drawImage(biome.bg, camX, camY, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+  if (STORYBOOK) {
+    // The storybook ground is painted at GROUND_SCALE, and drawn smoothly.
+    ctx.imageSmoothingEnabled = true;
+    const g = GROUND_SCALE;
+    ctx.drawImage(biome.bg, camX * g, camY * g, VIEW_W * g, VIEW_H * g, 0, 0, VIEW_W, VIEW_H);
+    ctx.imageSmoothingEnabled = false;
+  } else ctx.drawImage(biome.bg, camX, camY, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
 
   const things = [];
   const sprite = (type) => spriteCanvas(decorSrc(type));
-  for (const d of biome.decor) things.push({ y: d.y, img: sprite(d.type), x: d.x });
+  // Scenery with storybook art uses it, in the same box as its pixel sprite.
+  const scenery = (type, thing) => {
+    const pixel = sprite(type);
+    const { w, h } = spriteSize(pixel);
+    const art = decorArt(type, w * (thing.scale || 1), h * (thing.scale || 1));
+    return art ? { ...thing, img: art, w: w * (thing.scale || 1), h: h * (thing.scale || 1), smooth: true, scale: 1 } : { ...thing, img: pixel };
+  };
+  for (const d of biome.decor) things.push(scenery(d.type, { y: d.y, x: d.x }));
   for (const g of biome.gates) {
     if (g.open) continue;
     for (let tx = g.minX; tx <= g.maxX; tx += 2) things.push({ y: g.y, img: sprite("gate"), x: tx * T + T });
@@ -2022,9 +2042,9 @@ function draw(biome, now) {
   for (const c of biome.chests) things.push({ y: c.y, img: sprite(c.open ? "chestopen" : "chest"), x: c.x, shadow: true, scale: c.big ? 1.5 : 1 });
   for (const pr of biome.props) {
     const look = PROPS[pr.kind];
-    things.push({ y: pr.y, img: sprite(pr.used && look.used ? look.used : look.decor), x: pr.x });
+    things.push(scenery(pr.used && look.used ? look.used : look.decor, { y: pr.y, x: pr.x }));
   }
-  for (const b of biome.boulders) if (!b.broken) things.push({ y: b.y, img: sprite("rock"), x: b.x, scale: 2 });
+  for (const b of biome.boulders) if (!b.broken) things.push(scenery("rock", { y: b.y, x: b.x, scale: 2 }));
   for (const s of biome.signposts) things.push({ y: s.y, img: sprite("signpost"), x: s.x, shadow: true });
   for (const c of biome.coins) if (!c.taken) things.push({ y: c.y, img: sprite("coin"), x: c.x });
   things.push({ y: biome.landmark.y, img: spriteCanvas(landmarkSrc(biome.zone.id)), x: biome.landmark.x, scale: 2 });
@@ -2086,7 +2106,7 @@ function draw(biome, now) {
 
   things.sort((a, b) => a.y - b.y);
   for (const t of things) {
-    const { w: iw, h: ih, smooth } = spriteSize(t.img); // size in game pixels
+    const { w: iw, h: ih, smooth } = t.w ? t : spriteSize(t.img); // size in game pixels
     let w = iw * (t.scale || 1), h = ih * (t.scale || 1);
     if (t.small && iw > 12) (w = iw * 0.75), (h = ih * 0.75);
     if (t.y < camY - 4 || t.y - h > camY + VIEW_H + 4 || t.x + w / 2 < camX || t.x - w / 2 > camX + VIEW_W) continue; // off screen
@@ -2156,6 +2176,8 @@ function draw(biome, now) {
       .map((r) => ({ x: r.x, y: r.y - 20, html: "💨", cls: " item" })),
     // Townsfolk: their names.
     ...biome.folk.map((f) => ({ x: f.x, y: f.y - 31, html: `<small>${f.name}</small>`, cls: " npc folk" })),
+    // And yours, in the storybook style.
+    ...(STORYBOOK ? [{ x: hero.x, y: hero.y - 31, html: `<small>${escapeHtml(progress.get().name || "You")}</small>`, cls: " npc you" }] : []),
   ];
   const labels = $("biome-labels");
   if (labels.children.length !== markers.length) labels.innerHTML = markers.map(() => `<span class="biome-label"></span>`).join("");

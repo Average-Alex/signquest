@@ -28,6 +28,10 @@ Then open http://localhost:8000. The camera only works on `localhost` or an
 - holding a letter key counts as signing it, anywhere in the game
 - Settings > **Data recorder**
 
+**Art style:** zones are drawn in a smooth, bright storybook style
+(`js/storybook.js`). Add `?pixel` to the address to see the original pixel
+art instead, for example http://localhost:8000/?dev&pixel.
+
 ## How playing works
 
 **Exploring.** It's an open world: every Overworld zone is open from the

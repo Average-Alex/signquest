@@ -1184,3 +1184,22 @@ input[type=text], select {
 /* A trainer asking for a battle. */
 .biome-ask { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; width: min(420px, 92%); padding: 14px; text-align: center; }
 .biome-ask p { margin: 0 0 10px; font-weight: 700; }
+
+/* ---------- Storybook style (js/storybook.js; ?pixel turns it off) ---------- */
+/* Name tags: white with dark text; yours in gold. */
+.storybook .biome-label.npc small {
+  background: rgba(255, 255, 255, 0.94); color: #2a2238; border: 2px solid rgba(42, 34, 56, 0.25);
+  border-radius: 10px; padding: 1px 7px; font-weight: 800;
+}
+.storybook .biome-label.you small { background: #ffd23f; border-color: #8a5a10; }
+/* The status chips sit in one rounded wooden toolbar under the map. */
+.storybook .biome-goals {
+  width: fit-content; max-width: 100%; margin: 14px auto 0; padding: 8px 12px; gap: 8px;
+  background: linear-gradient(#c08a52, #8f5d2e); border: 3px solid #4a2e18; border-radius: 18px;
+  box-shadow: 0 4px 0 #4a2e18, inset 0 2px 0 rgba(255, 255, 255, 0.28);
+}
+.storybook .goal {
+  background: linear-gradient(#fffaf0, #f3e2bd); border: 2px solid #4a2e18; border-radius: 12px;
+  box-shadow: 0 2px 0 #4a2e18; padding: 4px 12px;
+}
+.storybook .biome-wrap { border-radius: 22px; }

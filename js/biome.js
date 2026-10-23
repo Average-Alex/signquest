@@ -8,7 +8,10 @@
 // (higher level) the further up you go.
 //
 // Also around each area: 🔐 treasure chests you open by signing a letter,
-// 🪧 signposts with ASL facts and tips, and ✨ coins to pick up.
+// 🪧 signposts with ASL facts and tips, and ✨ coins to pick up. Each area
+// has its own little scene off the path (a village, a camp, a farm...; see
+// SCENES) with something to do there, and a side trail blocked by a 🪨
+// boulder - sign to smash it, and there's a big chest at the end.
 //
 // Walk with the arrow keys / WASD, or tap where to go (the hero finds a way
 // around things). Bump into a creature to battle it:
@@ -38,7 +41,7 @@ import { announce, flashCamera, isShowing, openBook, playStage, setHandImage, sh
 import { QUESTS, ROOK } from "./quests.js";
 import { openSpotPanel } from "./spot-panel.js";
 import { trainersFor } from "./trainers.js";
-import { creatureSrc, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
+import { creatureSrc, DECOR, decorSrc, heroImg, heroSrc, landmarkSrc, LANDMARKS, SPRITE_SCALE, spriteCanvas } from "./sprites.js";
 import { playCutscene } from "./cutscene.js";
 import { playMusic } from "./music.js";
 import { isStoryPlaying, playLines, playScene } from "./story.js";
@@ -189,6 +192,64 @@ const PATH_SHAPES = {
   straight: () => () => TW / 2,
 };
 
+// ---------- Scenes ----------
+// Each area (but the top one) has a little scene beside the path, so every
+// stretch of a zone looks different. A scene is SCENE_W x SCENE_H tiles of
+// cleared ground with pieces of scenery placed on it ([decor, x, y]: the
+// piece's top-left tile; it stands on its bottom two rows), and one thing to
+// do (`prop`, at `at`):
+//   well: toss in WELL_COST coins and sign a letter for a prize
+//   fire: warm up by the campfire, signing two letters, for team XP
+//   berries: pick them for a potion
+//   stone: sign the word glowing on it for coins and a power-up
+const SCENE_W = 22, SCENE_H = 10;
+const WELL_COST = 5;
+const FIRE_XP = 40;
+const STONE_COINS = 30;
+const PROPS = {
+  well: { decor: "well", icon: "🪙" },
+  fire: { decor: "campfire", icon: "🔥" },
+  berries: { decor: "berrybush", used: "berrybushpicked", icon: "🫐" },
+  stone: { decor: "runestone", icon: "✨" },
+  statue: { decor: "statue", icon: "✨" },
+};
+// Buildings (cabin, cottage, shop, barn, hall, tower) come in each zone's
+// own colors (see building() in sprites.js).
+const SCENES = {
+  village: { pieces: [["cottage", 0, 3], ["cabin", 8, 2], ["shop", 16, 3], ["fence", 1, 8], ["fence", 3, 8], ["bush", 20, 8]], prop: "well", at: [10, 6] },
+  hamlet: { pieces: [["cabin", 0, 3], ["cabin", 7, 2], ["cabin", 16, 4], ["log", 13, 8], ["log", 2, 8], ["pine", 13, 1]], prop: "fire", at: [10, 7] },
+  farmstead: {
+    pieces: [["barn", 0, 4], ["windmill", 16, 4], ["crops", 7, 2], ["crops", 9, 2], ["wheat", 7, 5], ["wheat", 9, 5], ["fence", 7, 8], ["fence", 13, 8]],
+    prop: "berries", at: [12, 6],
+  },
+  market: { pieces: [["shop", 0, 3], ["shop", 6, 3], ["stall", 13, 2], ["stall", 16, 2], ["stall", 19, 2], ["bush", 20, 8]], prop: "well", at: [15, 7] },
+  outpost: { pieces: [["tower", 0, 4], ["hall", 5, 4], ["tower", 19, 4], ["rock", 13, 8], ["brokenpillar", 17, 8]], prop: "statue", at: [14, 5] },
+  camp: { pieces: [["tent", 1, 1], ["tent", 13, 0], ["log", 5, 6], ["log", 11, 6], ["rock", 16, 6], ["cabin", 17, 4]], prop: "fire", at: [8, 4] },
+  garden: { pieces: [["cottage", 15, 3], ["bush", 2, 1], ["bush", 4, 1], ["bush", 11, 1], ["bush", 2, 6], ["bush", 11, 6], ["berrybushpicked", 5, 6]], prop: "statue", at: [7, 3] },
+  grove: { pieces: [["berrybushpicked", 2, 1], ["oak", 5, 0], ["berrybushpicked", 13, 2], ["oak", 15, 0], ["bush", 3, 6], ["log", 12, 6], ["cabin", 17, 4]], prop: "berries", at: [8, 4] },
+  stones: { pieces: [["standingstone", 4, 0], ["standingstone", 12, 0], ["standingstone", 1, 4], ["standingstone", 15, 4], ["standingstone", 5, 6], ["standingstone", 11, 6]], prop: "stone", at: [8, 3] },
+  ruins: { pieces: [["pillar", 1, 0], ["brokenpillar", 4, 1], ["wall", 11, 0], ["brokenpillar", 14, 0], ["pillar", 16, 4], ["rock", 2, 6], ["brokenpillar", 12, 6], ["tower", 19, 4]], prop: "statue", at: [8, 3] },
+  graveyard: { pieces: [["hall", 15, 4], ["grave", 1, 0], ["grave", 4, 0], ["grave", 9, 0], ["grave", 1, 5], ["grave", 4, 5], ["grave", 9, 5], ["deadtree", 12, 7]], prop: "stone", at: [6, 2] },
+  crystals: { pieces: [["crystal", 2, 1], ["crystal", 5, 0], ["crystal", 11, 0], ["crystal", 14, 1], ["crystal", 3, 6], ["crystal", 13, 6]], prop: "stone", at: [8, 3] },
+  mine: { pieces: [["tent", 1, 0], ["cabin", 14, 3], ["rock", 20, 7], ["crystal", 11, 7], ["log", 4, 6], ["stalagmite", 20, 1]], prop: "fire", at: [8, 4] },
+};
+// The scene in each area of a zone, from the entrance up.
+const ZONE_SCENES = {
+  meadow: ["village", "farmstead", "hamlet", "garden", "stones"],
+  forest: ["hamlet", "camp", "grove", "village", "stones"],
+  caves: ["mine", "market", "crystals", "hamlet", "ruins"],
+  river: ["village", "farmstead", "market", "hamlet", "grove"],
+  castle: ["outpost", "graveyard", "market", "ruins", "village"],
+  keep: ["market", "outpost", "village", "garden", "hamlet"],
+  spires: ["hamlet", "camp", "village", "crystals", "outpost"],
+  clouds: ["garden", "village", "market", "crystals", "stones"],
+  void: ["outpost", "graveyard", "hamlet", "ruins", "crystals"],
+};
+// The side trail in each area: TRAIL_LEN tiles long, 4 wide, ending in a nook
+// fenced in by scenery, with a boulder across the trail.
+const TRAIL_LEN = 12;
+const NOOK_RX = 4, NOOK_RY = 3;
+
 // Little things painted on the ground. d / l: a bit darker / lighter than the ground.
 const DECALS = {
   tuft: { rows: ["d.d", ".d."] },
@@ -305,11 +366,90 @@ function build(z) {
   carve([2, 10], [TW / 2 - 11, TW / 2 + 10]);
   carve([9, 11], [Math.min(pathX(10), TW / 2) - 2, Math.max(pathX(10), TW / 2) + 1]);
 
-  // Water: ponds, streams, fountains, or frozen lakes.
+  // Scenes: one in each area but the top, beside the path on the roomier side.
+  const fence = new Uint8Array(TW * TH); // tiles that must get scenery (around the nooks)
+  const nookTile = new Uint8Array(TW * TH);
+  const sceneTile = new Uint8Array(TW * TH); // under a scene: side trails keep out
+  const scenePieces = [];
+  const props = [];
+  const sceneIds = ZONE_SCENES[zone.id] || [];
+  for (let a = 0; a < BIOME_AREAS - 1 && a < sceneIds.length; a++) {
+    const scene = SCENES[sceneIds[a]];
+    const top = areaTop(a) + 11;
+    const cx = pathX(top + 4);
+    const right = cx <= TW - 5 - SCENE_W - 2;
+    const left0 = right ? cx + 5 : cx - 5 - SCENE_W;
+    for (let ty = top - 1; ty < top + SCENE_H; ty++)
+      for (let tx = Math.min(left0, cx) - 1; tx <= Math.max(left0 + SCENE_W, cx); tx++) {
+        if (tx < 1 || tx > TW - 2) continue;
+        open(tx, ty);
+        sceneTile[at(tx, ty)] = 1;
+        if (kind[at(tx, ty)] === GROUND) clear[at(tx, ty)] = 1;
+      }
+    // Pieces are laid out for the right side; on the left they're mirrored.
+    const place = (base, x, y) => {
+      const id = DECOR[`${base}_${zone.id}`] ? `${base}_${zone.id}` : base; // this zone's colors
+      const w = Math.ceil(DECOR[id].rows[0].length / T);
+      const tx = right ? left0 + x : left0 + SCENE_W - x - w;
+      return { type: id, tx, ty: top + y, w, x: (tx + w / 2) * T, y: (top + y + 2) * T };
+    };
+    for (const [id, x, y] of scene.pieces) scenePieces.push(place(id, x, y));
+    const prop = PROPS[scene.prop];
+    const pp = place(prop.decor, ...scene.at);
+    const id = `prop-${a}`;
+    props.push({ ...pp, kind: scene.prop, id, area: a, used: trail.chests.includes(id) });
+  }
+
+  // Side trails: off the path near the bottom of each area, to a nook. Tried
+  // a few rows and both sides (the side away from the scene first), and only
+  // where it won't run into another path.
+  const boulders = [];
+  const nooks = [];
+  const sceneRight = props.map((pr) => pr.x > pathX(tileOf(pr.y)) * T);
+  for (let a = 0; a < BIOME_AREAS - 1; a++) {
+    const tries = [];
+    for (const dy of [22, 24, 20, 18, 4]) for (const right of sceneRight[a] ? [false, true] : [true, false]) tries.push([areaTop(a) + dy, right]);
+    for (const [row, right] of tries) {
+      const rows = [row, row + 1, row + 2, row + 3];
+      // The trail starts right at the edge of the path.
+      const x0 = right ? Math.max(...rows.map(pathX)) + 3 : Math.min(...rows.map(pathX)) - 4 - TRAIL_LEN; // tiles x0 .. x0 + TRAIL_LEN
+      const nx = right ? x0 + TRAIL_LEN + NOOK_RX : x0 - NOOK_RX; // the nook's middle
+      const ny = row + 2;
+      // Room for the scenery all around the nook, inside the map.
+      if (nx - NOOK_RX * 1.3 < 2 || nx + NOOK_RX * 1.3 > TW - 3 || ny + NOOK_RY * 1.8 > TH - 2) continue;
+      let crosses = false;
+      for (let ty = row - 2; ty <= row + 5 && !crosses; ty++)
+        for (let tx = Math.floor(Math.min(x0, nx - NOOK_RX * 1.3)); tx <= Math.max(x0 + TRAIL_LEN, nx + NOOK_RX * 1.3); tx++) {
+          const k = kind[at(tx, ty)];
+          if (((k === PATH || k === GATE) && Math.abs(tx - pathX(ty)) > 3) || sceneTile[at(tx, ty)]) crosses = true;
+        }
+      if (crosses) continue;
+      carve([row, row + 3], [x0, x0 + TRAIL_LEN]);
+      for (const ty of rows) for (let tx = x0; tx <= x0 + TRAIL_LEN; tx++) open(tx, ty);
+      // The nook, and scenery all around it and along the trail.
+      for (let ty = Math.floor(ny - NOOK_RY * 1.8); ty <= ny + NOOK_RY * 1.8; ty++)
+        for (let tx = Math.floor(nx - NOOK_RX * 1.8); tx <= nx + NOOK_RX * 1.8; tx++) {
+          if (tx < 1 || ty < 0 || tx > TW - 2 || ty >= TH) continue;
+          const d = Math.hypot((tx - nx) / NOOK_RX, (ty - ny) / NOOK_RY);
+          if (d < 1) {
+            kind[at(tx, ty)] = GROUND;
+            nookTile[at(tx, ty)] = 1;
+          } else if (d < 1.8 && kind[at(tx, ty)] !== PATH) fence[at(tx, ty)] = 1;
+        }
+      for (let tx = x0; tx <= x0 + TRAIL_LEN; tx++) for (const ty of [row - 2, row - 1, row + 4, row + 5]) if (ty >= 0 && ty < TH) fence[at(tx, ty)] = 1;
+      const bx = right ? x0 + 4 : x0 + TRAIL_LEN - 7; // the boulder covers 4 x 4 tiles of the trail
+      const id = `boulder-${a}`;
+      boulders.push({ id, area: a, tx: bx, ty: row, x: (bx + 2) * T, y: (row + 4) * T, broken: trail.chests.includes(id), letter: zone.letters[(a * 2 + 1) % zone.letters.length] });
+      nooks.push({ area: a, x: nx * T + T / 2, y: ny * T + T - 1 });
+      break;
+    }
+  }
+
+  // Water: ponds, streams, fountains, or frozen lakes (never on a scene or nook).
   const pool = (px, py, rx, ry, tile) => {
     for (let ty = Math.floor(py - ry); ty <= py + ry; ty++)
       for (let tx = Math.floor(px - rx); tx <= px + rx; tx++)
-        if (tx > 0 && tx < TW - 1 && Math.hypot((tx - px) / rx, (ty - py) / ry) < 1 && kind[at(tx, ty)] === GROUND) kind[at(tx, ty)] = tile;
+        if (tx > 0 && tx < TW - 1 && Math.hypot((tx - px) / rx, (ty - py) / ry) < 1 && kind[at(tx, ty)] === GROUND && !clear[at(tx, ty)] && !fence[at(tx, ty)] && !nookTile[at(tx, ty)]) kind[at(tx, ty)] = tile;
   };
   for (let a = 0; a < BIOME_AREAS; a++) {
     const mid = areaTop(a) + 15;
@@ -326,7 +466,10 @@ function build(z) {
       for (let tx = 0; tx < TW; tx++) {
         const r = mid + Math.round(Math.sin(tx * 0.12 + a) * 3);
         const half = 2 + Math.round(noise(tx, a, 5, seed + 30));
-        for (let ty = r - half; ty <= r + half; ty++) kind[at(tx, ty)] = kind[at(tx, ty)] === PATH ? BRIDGE_TILE : WATER_TILE;
+        for (let ty = r - half; ty <= r + half; ty++) {
+          if (clear[at(tx, ty)] || fence[at(tx, ty)] || nookTile[at(tx, ty)]) continue;
+          kind[at(tx, ty)] = kind[at(tx, ty)] === PATH ? BRIDGE_TILE : WATER_TILE;
+        }
       }
       pool(far, mid - 8, 6, 3, WATER_TILE);
     }
@@ -362,8 +505,10 @@ function build(z) {
       let type;
       const fromPath = bx * 2 - pathX(by * 2 + 1); // from the middle of the path, in tiles
       const pick = (list) => list[Math.floor(hash(bx, by, seed + 1) * list.length)];
+      const glade = tiles.some(([tx, ty]) => clear[at(tx, ty)] || nookTile[at(tx, ty)]);
       if (gateBlockRows.has(by)) type = theme.wall;
-      else if (theme.formal && (fromPath === -8 || fromPath === 6)) {
+      else if (tiles.some(([tx, ty]) => fence[at(tx, ty)]) && !tiles.some(([tx, ty]) => nookTile[at(tx, ty)])) type = pick(theme.obstacles);
+      else if (theme.formal && !glade && (fromPath === -8 || fromPath === 6)) {
         // Hedges along the avenue, with a gap now and then to walk through.
         if (by % 5 === 0) continue;
         type = "hedge";
@@ -373,7 +518,6 @@ function build(z) {
         const clump = noise(bx, by, 3, seed) > theme.density || hash(bx, by, seed) < 0.06;
         // Broken walls and pillars just off the castle's halls.
         const ruin = theme.ruins && Math.abs(fromPath) >= 5 && Math.abs(fromPath) <= 7 && hash(bx, by, seed + 3) < 0.45;
-        const glade = tiles.some(([tx, ty]) => clear[at(tx, ty)]);
         const lawn = theme.formal && Math.abs(fromPath) < 16;
         if (!border && !ruin && (nearStart || !clump || glade || lawn)) continue;
         type = ruin ? (hash(bx, by, seed + 4) < 0.5 ? "wall" : "brokenpillar") : pick(theme.obstacles);
@@ -382,6 +526,15 @@ function build(z) {
       for (const [tx, ty] of tiles) blocked[at(tx, ty)] = 1;
     }
   }
+
+  // The scenes' pieces, and their props, stand on their bottom two rows.
+  for (const pc of [...scenePieces, ...props]) {
+    if (!pc.kind) decor.push({ type: pc.type, x: pc.x, y: pc.y });
+    for (let ty = pc.ty; ty < pc.ty + 2; ty++) for (let tx = pc.tx; tx < pc.tx + pc.w; tx++) blocked[at(tx, ty)] = 1;
+  }
+  // The fence around each nook is solid even where the scenery leaves a gap.
+  for (let i = 0; i < fence.length; i++) if (fence[i] && !nookTile[i] && kind[i] !== PATH) blocked[i] = 1;
+  for (const b of boulders) if (!b.broken) blockBoulder(blocked, b, 1);
 
   // The zone's landmark at the top, drawn big like a real building.
   const lm = LANDMARKS[zone.id];
@@ -400,6 +553,8 @@ function build(z) {
     bg: paintGround(theme, kind, seed),
     creatures: [],
     chests: [],
+    props, // the thing to do in each area's scene
+    boulders, // across the side trails
     signposts: [],
     coins: [],
     reachable: null,
@@ -438,6 +593,10 @@ function build(z) {
     }
     return null;
   };
+  for (const n of nooks) {
+    const id = `nook-${n.area}`;
+    biome.chests.push({ x: n.x, y: n.y, id, big: true, letter: zone.letters[(n.area * 3) % zone.letters.length], open: trail.chests.includes(id) });
+  }
   for (let a = 0; a < BIOME_AREAS; a++) {
     for (let i = 0; i < CHESTS_PER_AREA; i++) {
       const p = spot(a, 100 + i, false);
@@ -526,6 +685,11 @@ function build(z) {
   }
   for (let a = 0; a < BIOME_AREAS; a++) for (let i = 0; i < WILD_PER_AREA; i++) spawnWild(biome, a);
   return biome;
+}
+
+// A boulder blocks 4 x 4 tiles of its trail (`on` 1), until it's smashed (0).
+function blockBoulder(blocked, b, on) {
+  for (let ty = b.ty; ty < b.ty + 4; ty++) for (let tx = b.tx; tx < b.tx + 4; tx++) blocked[ty * TW + tx] = on;
 }
 
 // Paints straight into pixel memory - much faster than drawing each pixel.
@@ -828,8 +992,8 @@ function moveCreatures(biome, dt, now) {
     c.moving = false;
     if (c.home) continue; // guards and the boss stay put
     if (now > c.turnAt) {
-      c.dir = Math.random() < 0.3 ? null : Math.random() * Math.PI * 2; // sometimes stand still
-      c.turnAt = now + 1000 + Math.random() * 2000;
+      c.dir = Math.random() < 0.7 ? null : Math.random() * Math.PI * 2; // mostly stand still
+      c.turnAt = now + 2000 + Math.random() * 3000;
     }
     if (c.dir === null) continue;
     const nx = c.x + Math.cos(c.dir) * CREATURE_SPEED * dt;
@@ -868,13 +1032,13 @@ function moveRunners(biome, dt) {
   }
 }
 
-// Townsfolk stroll around near home, stopping now and then.
+// Townsfolk mostly stand about, taking a few steps now and then.
 function moveFolk(biome, dt, now) {
   for (const f of biome.folk) {
     f.moving = false;
     if (now > f.turnAt) {
-      f.dir = Math.random() < 0.45 ? null : Math.random() * Math.PI * 2;
-      f.turnAt = now + 1500 + Math.random() * 2500;
+      f.dir = Math.random() < 0.8 ? null : Math.random() * Math.PI * 2;
+      f.turnAt = now + 2500 + Math.random() * 3500;
     }
     if (f.dir === null) continue;
     if (Math.hypot(f.x - f.homeX, f.y - f.homeY) > FOLK_ROAM) f.dir = Math.atan2(f.homeY - f.y, f.homeX - f.x);
@@ -971,6 +1135,12 @@ function checkTouch(biome, now) {
   // 🔐 Chests: sign the letter to open.
   const chest = biome.chests.find((c) => !c.open && near(c, hero, 9));
   if (chest && now > biome.safeUntil) return openChestPanel(biome, chest);
+
+  // 🪨 Boulders: sign to smash. Scene props: see SCENES.
+  const boulder = biome.boulders.find((b) => !b.broken && Math.abs(b.x - hero.x) < 22 && Math.abs(b.y - 16 - hero.y) < 22);
+  if (boulder && now > biome.safeUntil) return smashBoulder(biome, boulder);
+  const prop = biome.props.find((pr) => !pr.used && near(pr, hero, 15));
+  if (prop && now > biome.safeUntil) return useProp(biome, prop);
 
   if (now < biome.safeUntil) return;
 
@@ -1456,6 +1626,79 @@ function signTick(biome, now) {
   }, 900);
 }
 
+function smashBoulder(biome, b) {
+  openSignPanel(biome, {
+    title: `🪨 A boulder blocks the trail! Sign <b>${b.letter}</b> to smash it!`,
+    word: b.letter,
+    onDone: () => {
+      b.broken = true;
+      progress.openChest(biome.z, b.id);
+      blockBoulder(biome.blocked, b, 0);
+      biome.reachable = floodFrom(biome, tileOf(biome.hero.x), tileOf(biome.hero.y - 1));
+      floatText("💥", { x: b.x, y: b.y - 16 });
+      toast("💥 Smashed! Follow the trail to see where it goes.");
+      announce("You smashed the boulder. Follow the trail.");
+    },
+  });
+}
+
+// The thing to do in an area's scene (see SCENES).
+function useProp(biome, pr) {
+  const letters = biome.zone.letters;
+  const letter = (k) => letters[(pr.area * 3 + k) % letters.length];
+  const used = (text) => {
+    pr.used = true;
+    progress.openChest(biome.z, pr.id);
+    renderCoins();
+    toast(text);
+    announce(text.replace(/^\S+ /, ""));
+  };
+  if (pr.kind === "berries") {
+    progress.addConsumable("potion");
+    floatText("🫐", pr);
+    return used("🫐 You picked berries and made a Potion!");
+  }
+  if (pr.kind === "well") {
+    if (progress.get().coins < WELL_COST) {
+      biome.safeUntil = performance.now() + 4000;
+      return toast(`🪙 A wishing well! Bring ${WELL_COST} coins to make a wish.`);
+    }
+    return openSignPanel(biome, {
+      title: `🪙 A wishing well! Sign <b>${letter(0)}</b> and toss in ${WELL_COST} coins to make a wish.`,
+      word: letter(0),
+      onDone: () => {
+        progress.addCoins(-WELL_COST);
+        const item = CONSUMABLES[1 + Math.floor(Math.random() * (CONSUMABLES.length - 1))];
+        progress.addConsumable(item.id);
+        used(`🪙 Your wish came true: a ${item.name}!`);
+      },
+    });
+  }
+  if (pr.kind === "fire") {
+    const word = letter(0) + letter(1);
+    return openSignPanel(biome, {
+      title: `🔥 Rest by the campfire and practice with your team: sign <b>${word.split("").join(" ")}</b>!`,
+      word,
+      onDone: () => {
+        const up = progress.addTeamXp(FIRE_XP);
+        used(`🔥 Your team practiced by the fire: +${FIRE_XP} XP${up.length ? " - and leveled up!" : "!"}`);
+      },
+    });
+  }
+  // Glowing stones and statues: sign the word on them.
+  const words = biome.zone.words;
+  const word = words[pr.area % words.length];
+  openSignPanel(biome, {
+    title: `✨ Letters glow on the ${pr.kind}. Sign <b>${word}</b> to wake it!`,
+    word,
+    onDone: () => {
+      progress.addCoins(STONE_COINS);
+      progress.addConsumable("power");
+      used(`✨ The ${pr.kind} glows! You got ${STONE_COINS} coins and a Power-up!`);
+    },
+  });
+}
+
 function openChestPanel(biome, chest) {
   openSignPanel(biome, {
     title: `🔐 Sign <b>${chest.letter}</b> to open the chest!`,
@@ -1467,9 +1710,16 @@ function openChestPanel(biome, chest) {
 function openChest(biome, chest) {
   chest.open = true;
   progress.openChest(biome.z, chest.id);
-  // Usually coins; sometimes a potion or power-up.
+  // Usually coins; sometimes a potion or power-up. A big chest has both, and more.
   let reward;
-  if (Math.random() < 0.3) {
+  if (chest.big) {
+    const coins = CHEST_COINS[1] * 2;
+    const item = CONSUMABLES[1 + Math.floor(Math.random() * (CONSUMABLES.length - 1))];
+    progress.addCoins(coins);
+    progress.addConsumable(item.id);
+    renderCoins();
+    reward = `${coins} coins and a ${item.name}`;
+  } else if (Math.random() < 0.3) {
     const item = CONSUMABLES[Math.floor(Math.random() * CONSUMABLES.length)];
     progress.addConsumable(item.id);
     reward = `a ${item.name}`;
@@ -1510,14 +1760,19 @@ function draw(biome, now) {
     if (g.open) continue;
     for (let tx = g.minX; tx <= g.maxX; tx += 2) things.push({ y: g.y, img: sprite("gate"), x: tx * T + T });
   }
-  for (const c of biome.chests) things.push({ y: c.y, img: sprite(c.open ? "chestopen" : "chest"), x: c.x, shadow: true });
+  for (const c of biome.chests) things.push({ y: c.y, img: sprite(c.open ? "chestopen" : "chest"), x: c.x, shadow: true, scale: c.big ? 1.5 : 1 });
+  for (const pr of biome.props) {
+    const look = PROPS[pr.kind];
+    things.push({ y: pr.y, img: sprite(pr.used && look.used ? look.used : look.decor), x: pr.x });
+  }
+  for (const b of biome.boulders) if (!b.broken) things.push({ y: b.y, img: sprite("rock"), x: b.x, scale: 2 });
   for (const s of biome.signposts) things.push({ y: s.y, img: sprite("signpost"), x: s.x, shadow: true });
-  for (const c of biome.coins) if (!c.taken) things.push({ y: c.y, img: sprite("coin"), x: c.x, lift: Math.floor(now / 300 + c.x) % 3 });
+  for (const c of biome.coins) if (!c.taken) things.push({ y: c.y, img: sprite("coin"), x: c.x });
   things.push({ y: biome.landmark.y, img: spriteCanvas(landmarkSrc(biome.zone.id)), x: biome.landmark.x, scale: 2 });
   for (const c of biome.creatures) {
     // Walking: step through the walk cycle. Standing: a slow breathing bob.
     const frame = walkFrame(c.moving, now, 170, c.x);
-    const lift = c.moving ? frame % 2 : Math.floor(now / 400 + c.x) % 2;
+    const lift = frame % 2;
     things.push({ y: c.y, img: spriteCanvas(creatureSrc(c.id, !c.freed, frame)), x: c.x, flip: c.flip, scale: c.boss ? 2 : 1, lift, shadow: true, hex: !c.freed });
   }
   // Your buddies follow a few steps behind, one after the other, in step with you.
@@ -1537,24 +1792,23 @@ function draw(biome, now) {
   // Townsfolk stroll about.
   for (const f of biome.folk) {
     const frame = walkFrame(f.moving, now, 150, f.x);
-    const lift = f.moving ? frame % 2 : Math.floor(now / 520 + f.x) % 2;
+    const lift = frame % 2;
     things.push({ y: f.y, img: spriteCanvas(heroSrc(f.look, f.hat, frame, false)), x: f.x, flip: f.moving ? f.flip : hero.x < f.x, lift, shadow: true });
   }
-  // Villagers face you and breathe gently.
+  // Villagers face you.
   for (const v of biome.npcs) {
-    const lift = Math.floor(now / 500 + v.x) % 2;
-    things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, Boolean(v.wand))), x: v.x, flip: hero.x < v.x, lift, shadow: true });
+    things.push({ y: v.y, img: spriteCanvas(heroSrc(v.look, v.hat, 0, Boolean(v.wand))), x: v.x, flip: hero.x < v.x, shadow: true });
   }
   // Trainers face you; they walk when they come over to battle.
   for (const t of biome.trainers) {
     const frame = walkFrame(t.moving, now, 110, t.x);
-    const lift = t.moving ? frame % 2 : Math.floor(now / 500 + t.x) % 2;
+    const lift = frame % 2;
     things.push({ y: t.y, img: spriteCanvas(heroSrc(t.look, null, frame, true)), x: t.x, flip: hero.x < t.x, lift, shadow: true });
   }
   // Malgrath or Rook, during a story event.
   for (const a of biome.actors) {
     const img = a.kind === "malgrath" ? creatureSrc("malgrath") : heroSrc(ROOK.look, null, 0, true);
-    things.push({ y: a.y, img: spriteCanvas(img), x: a.x, flip: hero.x < a.x, lift: Math.floor(now / 350) % 2, shadow: true, hex: a.kind === "malgrath" });
+    things.push({ y: a.y, img: spriteCanvas(img), x: a.x, flip: hero.x < a.x, shadow: true, hex: a.kind === "malgrath" });
   }
   const frame = walkFrame(hero.moving, now, 110);
   // A little puff of dust behind you on each step.
@@ -1612,7 +1866,9 @@ function draw(biome, now) {
       const color = showRarity ? ` style="color:${rarity.color}"` : "";
       return { x: c.x, y: c.y - h - 2, html: `${icon}<small${color}>${tag}Lv ${c.level}</small>`, cls: c.boss ? " boss" : c.rare ? " rare" : "" };
     }),
-    ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - 14, html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
+    ...biome.chests.filter((c) => !c.open).map((c) => ({ x: c.x, y: c.y - (c.big ? 20 : 14), html: `🔐<small>${c.letter}</small>`, cls: " chest" })),
+    ...biome.boulders.filter((b) => !b.broken).map((b) => ({ x: b.x, y: b.y - 34, html: `🪨<small>${b.letter}</small>`, cls: " chest" })),
+    ...biome.props.filter((pr) => !pr.used).map((pr) => ({ x: pr.x, y: pr.y - 22, html: PROPS[pr.kind].icon, cls: " chest" })),
     // ❗ has a quest for you, ❓ come back (it's done), 💬 just chatting.
     ...biome.npcs.map((v) => ({ x: v.x, y: v.y - 31, html: `<span class="npc-icon">${npcIcon(biome, v)}</span><small>${v.name}</small>`, cls: " npc" })),
     // Road signs to the next zones.

@@ -1112,6 +1112,374 @@ DECOR.reeds = {
   ]), 16),
 };
 
+// Pieces of the little scenes in each area (villages, camps, farms... see
+// SCENES in biome.js).
+DECOR.tent = {
+  colors: { T: "#d8a040", t: "#b07a2a", D: "#3a2a20" },
+  rows: mirror([
+    "..........KK",
+    ".........KTT",
+    "........KTTt",
+    ".......KTTtT",
+    "......KTTtTT",
+    ".....KTTtTTT",
+    "....KTTtTTTK",
+    "...KTTtTTTKD",
+    "..KTTtTTTKDD",
+    ".KTTtTTTKDDD",
+    "KKKKKKKKKKKK",
+  ]),
+};
+DECOR.campfire = {
+  colors: { O: "#e8602a", Y: "#ffc83a", W: "#fff4c0", L: "#8a5a32", l: "#5e3a1c" },
+  rows: padTop(mirror([
+    "......KK",
+    ".....KOY",
+    "....KOYY",
+    "....KOYW",
+    "...KOOYY",
+    "..KLLKOO",
+    ".KLlLLKK",
+    "KLlLLLLL",
+    "KKKKKKKK",
+  ]), 12),
+};
+DECOR.well = {
+  colors: { R: "#b8503a", T: "#8a5a32", S: "#a8a0b0", s: "#7a7288", B: "#3a6ab0" },
+  rows: mirror([
+    "...KKKKK",
+    "..KRRRRR",
+    ".KRRRRRR",
+    "KKKKKKKK",
+    "..KT....",
+    "..KT....",
+    "..KT...K",
+    "KKKKKKKK",
+    "KSSsBBBB",
+    "KSsSSsSS",
+    "KSSSsSSs",
+    "KKKKKKKK",
+  ]),
+};
+DECOR.fence = {
+  colors: { T: "#a87a4a" },
+  rows: padTop(mirror([
+    "KKK.....",
+    "KTKKKKKK",
+    "KTTTTTTT",
+    "KTKKKKKK",
+    "KTK.....",
+    "KTKKKKKK",
+    "KTTTTTTT",
+    "KTKKKKKK",
+    "KKK.....",
+  ]), 16),
+};
+DECOR.crops = {
+  colors: { G: "#7ac84a", g: "#4a8a2e", D: "#8a6a42", d: "#6e5232" },
+  rows: padTop([
+    "..G...G...G...G.",
+    ".GgG.GgG.GgG.GgG",
+    "..g...g...g...g.",
+    "DDDDDDDDDDDDDDDD",
+    "dDdDdDdDdDdDdDdD",
+    "..G...G...G...G.",
+    ".GgG.GgG.GgG.GgG",
+    "..g...g...g...g.",
+    "DDDDDDDDDDDDDDDD",
+    "dDdDdDdDdDdDdDdD",
+  ], 16),
+};
+DECOR.wheat = { rows: DECOR.crops.rows, colors: { ...DECOR.crops.colors, G: "#e8c050", g: "#b08a2a" } };
+DECOR.grave = {
+  colors: { S: "#a8a0b4", s: "#7a7288", G: "#5a7a4a", g: "#3e5a34" },
+  rows: padTop(mirror([
+    "....KKKK",
+    "...KSSSS",
+    "...KSSSK",
+    "...KsSKK",
+    "...KsSSK",
+    "...KsSSS",
+    "..KKKKKK",
+    ".KGGgGGG",
+    ".KKKKKKK",
+  ]), 16),
+};
+DECOR.standingstone = {
+  colors: { S: "#a8a0b4", s: "#7a7288", w: "#d0cad8", R: "#a8a0b4" },
+  rows: mirror([
+    ".....KKK",
+    "....KSSS",
+    "....KSwS",
+    "...KsSSS",
+    "...KsSSS",
+    "...KsSRS",
+    "...KsSRR",
+    "...KsSSS",
+    "...KsSSS",
+    "..KssSSS",
+    "..KKKKKK",
+  ]),
+};
+DECOR.runestone = { rows: DECOR.standingstone.rows, colors: { ...DECOR.standingstone.colors, R: "#7fe3ff" } };
+DECOR.statue = {
+  colors: { S: "#e0dcea", s: "#a8a0bc", P: "#9a92ac", p: "#7a7290" },
+  rows: mirror([
+    "......KK",
+    ".....KSS",
+    ".....KSS",
+    "......KK",
+    "....KKSS",
+    "...KSSSS",
+    "...KSsSS",
+    "....KsSS",
+    "....KsSS",
+    "...KKKKK",
+    "..KPPPPP",
+    "..KPpPPP",
+    ".KKKKKKK",
+  ]),
+};
+DECOR.stall = {
+  colors: { R: "#c8414b", W: "#f4ecdc", T: "#8a5a32", B: "#b08a5a", b: "#8a6a42", A: "#e8602a", O: "#7ac84a" },
+  rows: padTop(mirror([
+    "KKKKKKKK",
+    "KRRWWRRW",
+    "KRRWWRRW",
+    "KKKKKKKK",
+    ".KT.....",
+    ".KT.....",
+    ".KAOAKAO",
+    "KKKKKKKK",
+    "KBBBBBBB",
+    "KBbBBBbB",
+    "KKKKKKKK",
+  ]), 16),
+};
+DECOR.berrybush = {
+  colors: { G: "#5cbf4a", g: "#3a8f3a", B: "#5a5ae0" },
+  rows: padTop(mirror([
+    "....KKKK",
+    "..KKGGGG",
+    ".KGGBGGG",
+    ".KGgGGBG",
+    "KGBGGGGg",
+    "KGGGgGBG",
+    "KgGBGGGG",
+    "KggGGGgG",
+    ".KggGGGG",
+    "..KKKKKK",
+  ]), 16),
+};
+DECOR.berrybushpicked = { rows: DECOR.berrybush.rows, colors: { ...DECOR.berrybush.colors, B: "#5cbf4a" } };
+DECOR.log = {
+  colors: { L: "#8a5a32", l: "#6e4426", W: "#d8b07a", w: "#a8804a" },
+  rows: padTop(mirror([
+    "KKKKKKKK",
+    "KWLLLLLL",
+    "WwWLlLLL",
+    "KWLLLLlL",
+    "KKKKKKKK",
+  ]), 10),
+};
+
+// ---------- Buildings ----------
+// Cabins, cottages, barns, and shops are drawn by `building()` rather than by
+// hand: a shingled roof (snowy in the Spires), walls of logs, timber, planks,
+// or stone, framed windows with flower boxes, a plank door with a step, and a
+// brick chimney. Each zone colors them its own way (BUILDING_COLORS), as
+// DECOR["cabin_forest"] and so on; plain DECOR.cabin is the Meadow's.
+const BUILDING_BASE = {
+  R: "#b8503a", r: "#8a3a2a", Q: "#d8705a", N: "#f4f8fc",
+  W: "#e8d8b8", w: "#b89c74", B: "#7a5232",
+  D: "#8a5a32", d: "#5e3a1c", F: "#f4ecdc", G: "#7fc8e8", g: "#e8f8ff", Y: "#ffd23f",
+  P: "#8a5a32", f: "#f08cb0", L: "#5aa848", C: "#a85a4a", c: "#7a4038", S: "#a8a0b0",
+  A: "#c8414b", a: "#f4ecdc", X: "#5e3a1c",
+};
+const BUILDING_COLORS = {
+  meadow: {},
+  forest: { R: "#4a7a3a", r: "#2e5a2a", Q: "#6a9a4a", W: "#a87a4a", w: "#7a5232" },
+  caves: { R: "#6a6478", r: "#4a4458", Q: "#8a8498", W: "#9a8a78", w: "#6e6050", G: "#ffc83a", g: "#fff4c0" },
+  river: { R: "#4a6ab8", r: "#344c8a", Q: "#6a8ad8", W: "#d8c8a8", A: "#3a8ad0" },
+  castle: { R: "#4a4458", r: "#2e2a3a", Q: "#6a6478", W: "#a8a0b0", w: "#7a7288", G: "#ffc83a", g: "#fff4c0" },
+  keep: { R: "#6a4bd6", r: "#4a2fa8", Q: "#8a6af0", W: "#e0dcea", w: "#a8a0bc", A: "#6a4bd6" },
+  spires: { R: "#7a9ab8", r: "#5a7a98", Q: "#9abad8", W: "#a87a4a", w: "#7a5232" },
+  clouds: { R: "#e8b84a", r: "#b88a2a", Q: "#ffd870", W: "#f8f8ff", w: "#c8d0e8", A: "#e8b84a" },
+  void: { R: "#3a2860", r: "#241848", Q: "#5a3f8a", W: "#4a3a6e", w: "#2e2448", B: "#241848", G: "#c58cf0", g: "#f2e0ff", D: "#2e2448", d: "#1a1030", f: "#c58cf0" },
+};
+const SNOWY = new Set(["spires"]);
+
+function building({ w, h, roofH, wall, door = 0.5, windows = [], chimney = null, barn = false, awning = false, snow = false }) {
+  const g = Array.from({ length: h }, () => Array(w).fill("."));
+  const set = (x, y, ch) => {
+    if (x >= 0 && y >= 0 && x < w && y < h) g[y][x] = ch;
+  };
+  const top = chimney !== null ? 4 : 0; // room above the roof for the chimney
+  const roofBot = top + roofH;
+  const wallL = 2, wallR = w - 3, wallTop = roofBot, wallBot = h - 2;
+  // Walls.
+  for (let y = wallTop; y <= wallBot; y++) {
+    const row = y - wallTop;
+    for (let x = wallL; x <= wallR; x++) {
+      let ch = "W";
+      if (wall === "logs") {
+        if (row % 3 === 2) ch = "w";
+        if ((x === wallL || x === wallR) && row % 3 !== 2) ch = "B";
+      } else if (wall === "planks") {
+        if ((x - wallL) % 4 === 0) ch = "w";
+      } else if (wall === "stone") {
+        if (row % 3 === 2 || ((x + (Math.floor(row / 3) % 2) * 3) % 6 === 0)) ch = "w";
+      } else if (wall === "timber") {
+        if (x === wallL || x === wallR || x === Math.floor(w / 2) || row === 0 || row === Math.floor((wallBot - wallTop) / 2)) ch = "B";
+      }
+      set(x, y, ch);
+    }
+  }
+  // Roof: a trapezoid of shingles, narrower at the top, overhanging the walls.
+  for (let y = top; y < roofBot; y++) {
+    const row = y - top;
+    const inset = Math.round((1 - row / (roofH - 1)) * w * 0.16);
+    for (let x = inset; x < w - inset; x++) {
+      let ch = "R";
+      if (row % 3 === 2 || (row % 3 === 1 && (x + (Math.floor(row / 3) % 2) * 2) % 4 === 0)) ch = "r";
+      if (row === 0) ch = "Q";
+      if (snow && (row < 2 || (row === 2 && (x * 7) % 5 < 2))) ch = "N";
+      if (row === roofH - 1) ch = "K";
+      set(x, y, ch);
+    }
+  }
+  // An awning over the shop front, striped.
+  if (awning)
+    for (let x = wallL - 1; x <= wallR + 1; x++) {
+      set(x, wallTop + 1, Math.floor(x / 3) % 2 ? "A" : "a");
+      set(x, wallTop + 2, Math.floor(x / 3) % 2 ? "A" : "a");
+      set(x, wallTop + 3, x % 3 === 1 ? "." : "K");
+    }
+  // Windows: a frame, four panes with a shine, and a flower box.
+  const winTop = wallTop + (awning ? 5 : 3);
+  for (const wx of windows) {
+    const x0 = Math.round(wx * w) - 3;
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 7; x++) {
+        const edge = x === 0 || y === 0 || x === 6 || y === 5;
+        set(x0 + x, winTop + y, edge ? "K" : x === 3 || y === 2 ? "F" : x === 1 && y === 1 ? "g" : "G");
+      }
+    for (let x = 0; x < 7; x++) {
+      set(x0 + x, winTop + 6, x % 2 ? "L" : "f");
+      set(x0 + x, winTop + 7, "P");
+    }
+  }
+  // The door: a frame, planks, a knob, and a step.
+  const dw = barn ? 12 : 7, dh = Math.min(barn ? 14 : 10, wallBot - wallTop);
+  const dx0 = Math.round(door * w) - Math.floor(dw / 2);
+  for (let y = 0; y < dh; y++)
+    for (let x = 0; x < dw; x++) {
+      const edge = x === 0 || x === dw - 1 || y === 0;
+      let ch = edge ? "K" : x % 2 ? "D" : "d";
+      if (barn && !edge) ch = x === y - 1 || x === dw - y || x === Math.floor(dw / 2) ? "X" : "D";
+      if (!barn && x === dw - 2 && y === Math.floor(dh / 2)) ch = "Y";
+      set(dx0 + x, wallBot - dh + 1 + y, ch);
+    }
+  for (let x = -1; x <= dw; x++) set(dx0 + x, h - 1, "S");
+  // A brick chimney poking out of the roof.
+  if (chimney !== null) {
+    const cx0 = Math.round(chimney * w) - 2;
+    for (let y = 0; y < top + Math.floor(roofH / 2); y++)
+      for (let x = 0; x < 5; x++) set(cx0 + x, y, x === 0 || x === 4 || y === 0 ? "K" : y % 2 ? "C" : x % 2 ? "c" : "C");
+  }
+  // Outline everything against the background, and a line along the ground.
+  const out = g.map((r) => r.slice());
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (g[y][x] === "." || g[y][x] === "S") continue;
+      const empty = (xx, yy) => xx < 0 || yy < 0 || xx >= w || yy >= h || g[yy][xx] === ".";
+      if (empty(x - 1, y) || empty(x + 1, y) || empty(x, y - 1) || empty(x, y + 1)) out[y][x] = "K";
+    }
+  for (let x = wallL; x <= wallR; x++) if (out[h - 2][x] !== "d" && out[h - 2][x] !== "D" && out[h - 2][x] !== "X") out[h - 2][x] = "K";
+  return out.map((r) => r.join(""));
+}
+
+const BUILDINGS = {
+  cottage: { w: 40, h: 36, roofH: 15, wall: "timber", door: 0.5, windows: [0.2, 0.8], chimney: 0.76 },
+  cabin: { w: 34, h: 32, roofH: 13, wall: "logs", door: 0.66, windows: [0.27], chimney: 0.22 },
+  barn: { w: 46, h: 40, roofH: 17, wall: "planks", door: 0.5, windows: [], barn: true, colors: { W: "#b84a3a", w: "#8a3428", R: "#5a4a4a", r: "#3e3232", Q: "#7a6a6a" } },
+  shop: { w: 40, h: 36, roofH: 14, wall: "planks", door: 0.3, windows: [0.72], awning: true },
+  hall: { w: 48, h: 38, roofH: 15, wall: "stone", door: 0.5, windows: [0.18, 0.82], chimney: 0.2 },
+};
+for (const [kind, spec] of Object.entries(BUILDINGS)) {
+  for (const [zone, zc] of Object.entries(BUILDING_COLORS)) {
+    const art = {
+      rows: building({ ...spec, snow: SNOWY.has(zone) }),
+      colors: { ...BUILDING_BASE, ...zc, ...(spec.colors || {}), ...(zone === "void" && spec.colors ? zc : {}) },
+    };
+    DECOR[`${kind}_${zone}`] = art;
+    if (zone === "meadow") DECOR[kind] = art;
+  }
+}
+
+// A stone tower with battlements and slit windows (Castle, Keep, Void).
+function tower(w, h) {
+  const g = Array.from({ length: h }, () => Array(w).fill("."));
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const battlement = y < 4 && x % 6 >= 3;
+      if (y < 4 && !battlement) continue;
+      let ch = (y + 1) % 4 === 0 || (x + (Math.floor(y / 4) % 2) * 3) % 6 === 0 ? "w" : "W";
+      if (y === 4) ch = "K";
+      g[y][x] = ch;
+    }
+  const cx = Math.floor(w / 2);
+  for (const sy of [9, 20]) for (let y = sy; y < sy + 6; y++) for (const x of [cx - 1, cx]) g[y][x] = y === sy ? "K" : "G";
+  for (let y = h - 10; y < h - 1; y++) for (let x = cx - 3; x <= cx + 2; x++) g[y][x] = y === h - 10 || x === cx - 3 || x === cx + 2 ? "K" : x % 2 ? "D" : "d";
+  const out = g.map((r) => r.slice());
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (g[y][x] === ".") continue;
+      const empty = (xx, yy) => xx < 0 || yy < 0 || xx >= w || yy >= h || g[yy][xx] === ".";
+      if (empty(x - 1, y) || empty(x + 1, y) || empty(x, y - 1) || empty(x, y + 1)) out[y][x] = "K";
+    }
+  return out.map((r) => r.join(""));
+}
+for (const zone of Object.keys(BUILDING_COLORS)) {
+  const zc = BUILDING_COLORS[zone];
+  DECOR[`tower_${zone}`] = { rows: tower(22, 46), colors: { ...BUILDING_BASE, W: "#a8a0b0", w: "#7a7288", G: "#3a2a40", ...(zone === "void" || zone === "castle" ? { W: zc.W, w: zc.w, G: zc.G } : {}) } };
+}
+DECOR.tower = DECOR.tower_meadow;
+
+// A windmill: a tapered tower, a cap, and four sails.
+DECOR.windmill = (() => {
+  const w = 44, h = 52;
+  const g = Array.from({ length: h }, () => Array(w).fill("."));
+  const cx = w / 2 - 0.5;
+  for (let y = 16; y < h; y++) {
+    const half = 6 + ((y - 16) / (h - 16)) * 5;
+    for (let x = Math.ceil(cx - half); x <= Math.floor(cx + half); x++) g[y][x] = (y % 4 === 0) ? "w" : "W";
+  }
+  for (let y = 10; y < 17; y++) {
+    const half = 2 + (y - 10);
+    for (let x = Math.ceil(cx - half); x <= Math.floor(cx + half); x++) g[y][x] = y % 3 === 0 ? "r" : "R";
+  }
+  // Sails on two diagonals, a lattice of frame and cloth.
+  for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]])
+    for (let t = 2; t < 20; t++)
+      for (let k = 0; k < 4; k++) {
+        // Along the spar, then out to one side of it for the cloth.
+        const x = Math.round(cx + sx * t - sy * k * 0.7), y = Math.round(13 + sy * t * 0.62 + sx * k * 0.7);
+        if (x >= 0 && y >= 0 && x < w && y < h && (k === 0 || t > 5)) g[y][x] = k === 0 || t % 4 === 0 || k === 3 ? "B" : "a";
+      }
+  for (let y = h - 9; y < h - 1; y++) for (let x = Math.round(cx) - 2; x <= Math.round(cx) + 2; x++) g[y][x] = x === Math.round(cx) - 2 || x === Math.round(cx) + 2 || y === h - 9 ? "K" : "D";
+  for (let y = 24; y < 28; y++) for (let x = Math.round(cx) - 1; x <= Math.round(cx) + 1; x++) g[y][x] = y === 24 || x !== Math.round(cx) ? "K" : "G";
+  g[13][Math.round(cx)] = "K";
+  const out = g.map((r) => r.slice());
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (g[y][x] === "." || g[y][x] === "a" || g[y][x] === "B") continue;
+      const empty = (xx, yy) => xx < 0 || yy < 0 || xx >= w || yy >= h || g[yy][xx] === ".";
+      if (empty(x - 1, y) || empty(x + 1, y) || empty(x, y - 1) || empty(x, y + 1)) out[y][x] = "K";
+    }
+  return { rows: out.map((r) => r.join("")), colors: { ...BUILDING_BASE, W: "#e8dcc8", w: "#c4b494", a: "#f8f4ec", B: "#7a5232" } };
+})();
+
 export const LANDMARKS = {
   // Cottage
   meadow: {

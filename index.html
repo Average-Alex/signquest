@@ -664,5 +664,20 @@
 
   <div id="announce" class="sr-only" aria-live="assertive"></div>
   <script type="module" src="js/main.js"></script>
+  <!-- The main bar along the bottom (mainbar.js) -->
+  <nav id="main-bar" class="main-bar" aria-label="Main menu" hidden>
+    <button data-bar="map"><span class="bar-icon">🗺️</span><span class="bar-name">Map</span></button>
+    <button data-bar="book"><span class="bar-icon">📖</span><span class="bar-name">Book</span></button>
+    <button data-bar="hero"><span class="bar-icon">🛡️</span><span class="bar-name">Hero</span></button>
+    <button data-bar="shop"><span class="bar-icon">🛍️</span><span class="bar-name">Shop</span></button>
+    <button data-bar="friends"><span class="bar-icon">👥</span><span class="bar-name">Friends</span></button>
+    <button data-bar="settings"><span class="bar-icon">⚙️</span><span class="bar-name">Settings</span></button>
+    <button data-bar="menu" aria-haspopup="true" aria-expanded="false"><span class="bar-icon">☰</span><span class="bar-name">Menu</span></button>
+    <div id="main-menu" class="card main-menu" role="menu" hidden>
+      <button id="menu-title" class="btn" role="menuitem">🏠 Title screen</button>
+      <button id="menu-camera" class="btn" role="menuitem">✋ Teach the camera</button>
+      <button id="menu-close" class="btn" role="menuitem">✖ Close</button>
+    </div>
+  </nav>
 </body>
 </html>

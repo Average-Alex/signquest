@@ -9,7 +9,9 @@ import { playCutscene } from "./cutscene.js";
 import { initMotionTest } from "./motion-test.js";
 import { initRecordPage } from "./record.js";
 import { countsByLetter } from "./samples.js";
-import { show } from "./screens.js";
+import { setBarHook, show } from "./screens.js";
+import { updateMainBar } from "./mainbar.js";
+setBarHook(updateMainBar);
 import "./arena.js";
 import { playScene } from "./story.js";
 

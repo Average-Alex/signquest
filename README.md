@@ -74,6 +74,28 @@ current foe. Some turns twist the sign: a riddle (a handshape clue), a missing
 letter in a word, or a quick-draw for double damage. Buddies evolve at level
 5: a new name, a brighter look, and stronger moves.
 
+Wild creatures often come in packs of two or three (bigger packs further up a
+zone), and a boss calls two helpers when it surges at half health. Click a foe
+to target it (🎯), or use a group move (💥 All) to hit them all. Can't sign
+it? The skip button costs you your turn: your move doesn't fire.
+
+**Spells.** Spark and Blast you always know. Each zone's boss teaches its own
+spell (Leaf Storm in the Meadow, Frost Lance in the Aurora Glacier...), and
+only that boss: beating other zones doesn't hand you the later ones.
+
+**Trials.** Once a zone's boss is beaten, the 🏛️ Trial shrine beside its
+landmark opens: three rematches with the boss, each far stronger than the
+last (Trial III starts with its helpers already out), for big coin prizes.
+
+**Missions.** The first time you walk into a zone, someone by the entrance
+shows you a problem (lambs bolting, lanterns going out, stars falling...),
+and you head down the zone's three branching trails to fix it and come back.
+A glowing trail and an arrow at your feet show the way. Every zone's mission
+works differently (`js/missions.js`).
+
+**The main bar** along the bottom has the Map, your Book, your Hero, the
+Shop, Friends (the Arena, where other players are), Settings, and a Menu.
+
 **Side quests.** Optional. Villagers with a ❗ have a quest; come back when
 they show a ❓ for coins and a present. Five kinds:
 

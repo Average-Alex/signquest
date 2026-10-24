@@ -67,6 +67,8 @@ const MONSTER_TURN_MS = 1200;
 const creature = (id) => CREATURES.find((c) => c.id === id);
 
 let battle = null;
+// For testing with ?dev: the battle on screen, from the browser console.
+if (new URLSearchParams(location.search).has("dev")) (window.signquestDebug ||= {}).battle = () => battle;
 
 // ---------- Targets ----------
 
@@ -244,7 +246,8 @@ function setUpField(b) {
     creatures.slice(0, 2).forEach((e, n) => place(b, e, n === 0 ? 0 : 2));
     b.reserve = creatures.slice(2);
   }
-  setTarget(b.field.find((e) => !e.trainer) || b.field[0], false);
+  // Aim at the creature you bumped into (a trainer's first creature).
+  setTarget(b.party ? b.field.find((e) => !e.trainer) || b.field[0] : b.roster[0], false);
 }
 
 // Wild creatures sometimes bring friends from their zone: none for bosses,

@@ -1293,3 +1293,35 @@ h2 { font-size: clamp(14px, 2.6vw, 22px); }
 .goal.mission { background: linear-gradient(#fff3b8, #ffd23f); }
 .goal.mission.done { background: linear-gradient(#e6ffd8, #9ee07a); }
 .story-emoji { display: grid; place-items: center; width: 100%; height: 100%; font-size: 64px; }
+
+/* A pack (or a boss with helpers): the leader in the middle is bigger than
+   the others, but not lone-creature big, so everyone fits. */
+.arena.party .fighter.monster-side .monster .sprite:not(.foe-hero) { width: 10.5cqw; }
+.arena.party .fighter.monster-side .monster.boss .sprite:not(.foe-hero) { width: 12cqw; }
+
+/* ---------- The main bar along the bottom (mainbar.js) ---------- */
+body.has-bar { padding-bottom: 84px; }
+.main-bar {
+  position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 40;
+  display: flex; gap: 6px; padding: 6px 8px; max-width: calc(100vw - 16px);
+  background: linear-gradient(#b07a46, #85552a); border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 var(--ink), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+.main-bar > button {
+  display: grid; justify-items: center; gap: 2px; min-width: 64px; padding: 5px 6px 4px;
+  background: linear-gradient(#fffaf0, #f0dcb4); border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink);
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--ink); cursor: pointer;
+}
+.main-bar > button:hover { transform: translateY(-2px); }
+.main-bar > button:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+.main-bar > button.on { background: linear-gradient(#fff3b8, #ffd23f); }
+.main-bar .bar-icon { font-size: 22px; line-height: 1; }
+.main-menu {
+  position: absolute; right: 0; bottom: calc(100% + 10px); display: grid; gap: 6px; padding: 10px; min-width: 210px;
+}
+@media (max-width: 560px) {
+  .main-bar { gap: 3px; padding: 4px; }
+  .main-bar > button { min-width: 0; padding: 4px; }
+  .main-bar .bar-name { font-size: 9px; }
+  .main-bar .bar-icon { font-size: 18px; }
+}

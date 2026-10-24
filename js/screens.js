@@ -2,7 +2,7 @@
 // screens. The battle itself lives in game.js.
 
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
-import { biomeBattleOver, enterBiome, resetBiomes } from "./biome.js";
+import { biomeBattleOver, enterBiome, resetBiomes, startLoop } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
   ARMOR, DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, HERO_SPELLS, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLUTIONS_3, EVOLVE_LEVEL, EVOLVE_LEVEL_3, buddyMoves, stageOf, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
@@ -16,6 +16,9 @@ import { worldMapSrc } from "./worldmap.js";
 
 const $ = (id) => document.getElementById(id);
 export const showHooks = {};
+// The main bar (mainbar.js) follows along; set once it's loaded.
+let barHook = () => {};
+export const setBarHook = (fn) => (barHook = fn);
 
 export function show(name) {
   for (const screen of document.querySelectorAll(".screen")) screen.hidden = screen.id !== `screen-${name}`;
@@ -28,6 +31,8 @@ export function show(name) {
   if (slot) $("camera-video").play().catch(() => {});
 
   showHooks[name]?.();
+  if (name === "biome") startLoop(); // walk on where you left off
+  barHook(name);
   musicForScreen(name);
   screen.querySelector("h1, h2")?.focus({ preventScroll: true });
 }

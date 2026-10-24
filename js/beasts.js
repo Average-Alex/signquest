@@ -124,11 +124,18 @@ export function buildBeast(spec, stage = 1, extraFeats = []) {
       if ([[1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => g[y + dy]?.[x + dx] === "B" && !headMask[y + dy][x + dx])) g[y][x] = "b";
     }
 
-  // The eye: big, dark, and round with a one-pixel shine near the top, so it
-  // reads as an eye and not a smudge (a little smaller once fully evolved).
+  // The eyes: big, dark, and round with a one-pixel shine near the top, so
+  // they read as eyes and not smudges (a little smaller once fully evolved).
+  // Turned a little toward you (three-quarter view), so the far eye shows
+  // too, smaller, nearer the front of the face: faces read as faces.
   const [ex, ey] = T(...H(...body.eye));
   const eye = stage === 3 ? [".PP", "PEP", "PPP", ".PP"] : [".PP.", "PPEP", "PPPP", "PPPP", ".PP."];
   const ey0 = Math.round(ey) - 2;
+  if (body.farEye) {
+    const [fx, fy] = T(...H(...body.farEye));
+    const far = stage === 3 ? ["PP", "EP", "PP"] : ["PP", "EP", "PP", "PP"];
+    far.forEach((row, dy) => [...row].forEach((ch, dx) => setPx(g, Math.round(fx) + dx, Math.round(fy) - 1 + dy, ch)));
+  }
   eye.forEach((row, dy) => [...row].forEach((ch, dx) => ch !== "." && setPx(g, ex - 1 + dx, ey0 + dy, ch)));
   // A little smile: a line back from the front of the mouth, curling up at the end.
   if (body.mouth) {
@@ -295,6 +302,7 @@ const BODIES = {
   // Four legs, a snout, a tail: foxes, dogs, cats, bears, rams, lizards.
   beast: {
     eye: [-2, -1],
+    farEye: [-5.4, -1.4],
     mouth: [-6.4, 3.2],
     draw(d) {
       const { ell, line, hEll, setHead, feats } = d;
@@ -316,6 +324,7 @@ const BODIES = {
   // Chunky, short-legged, with a big round head: bears, rams, moles.
   bear: {
     eye: [-2, -1],
+    farEye: [-5.6, -1.2],
     mouth: [-6.8, 3.6],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
@@ -337,6 +346,7 @@ const BODIES = {
   // Compact and round, with a little face: cats, kits, lynxes.
   cat: {
     eye: [-2, -1],
+    farEye: [-5.4, -1],
     mouth: [-5, 3],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
@@ -358,6 +368,7 @@ const BODIES = {
   // Long and low, with short legs and a long tail: lizards, salamanders, beetles.
   lizard: {
     eye: [-2, -1],
+    farEye: [-5.2, -1.4],
     mouth: [-7.6, 2.6],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
@@ -380,6 +391,7 @@ const BODIES = {
   // A beast with wings and a long neck: dragons, gryphons.
   dragon: {
     eye: [-2, -1],
+    farEye: [-5.2, -1.4],
     mouth: [-7, 3.2],
     draw(d) {
       const { ell, line, hEll, setHead, feats } = d;
@@ -403,6 +415,7 @@ const BODIES = {
   // A round bird with a beak, a wing, and tail feathers.
   bird: {
     eye: [-1, -1],
+    farEye: [-4.4, -1.2],
     draw(d) {
       const { ell, poly, line, hEll, hPoly, setHead } = d;
       poly([[22, 20], [30, 13], [31, 18], [29, 24]], "A");
@@ -439,6 +452,7 @@ const BODIES = {
   // A long coiled body with a tall neck: serpents, eels, wyrms.
   serpent: {
     eye: [-2, -1],
+    farEye: [-5.2, -1.4],
     mouth: [-7.6, 2.4],
     draw(d) {
       const { line, ell, hEll, setHead } = d;
@@ -458,6 +472,7 @@ const BODIES = {
   // Standing on two legs with arms: golems, sprites, candle-folk, knights.
   biped: {
     eye: [-2, -1],
+    farEye: [-5.4, -1],
     mouth: [-6, 2.8],
     draw(d) {
       const { ell, line, hEll, setHead } = d;
@@ -478,6 +493,7 @@ const BODIES = {
   // Floating, with a wavy tail or tentacles: ghosts, jellies, wisps.
   ghost: {
     eye: [-3, -1],
+    farEye: [-6.4, -1],
     mouth: [-4.5, 2],
     draw(d) {
       const { ell, poly, line, feats, setHead } = d;
@@ -494,6 +510,7 @@ const BODIES = {
   // A plant creature: a bulb body, leaves, little feet.
   plant: {
     eye: [-3, 0],
+    farEye: [-6.4, 0],
     mouth: [-4.5, 2.5],
     draw(d) {
       const { ell, poly, line, setHead } = d;
@@ -508,9 +525,286 @@ const BODIES = {
       headTop({ ...d, hEll: (dx, dy, rx, ry, ch) => d.hEll(dx, dy - 4, rx, ry, ch), hPoly: (pts, ch) => d.hPoly(pts.map(([x, y]) => [x, y - 4]), ch) });
     },
   },
+  // Slender and quick, with long legs, a long pointed snout, and a big
+  // bushy tail that curls up behind it: foxes, lynxes.
+  fox: {
+    eye: [-1.6, -1.2],
+    farEye: [-5, -1.6],
+    mouth: [-6.8, 2.8],
+    draw(d) {
+      const { ell, line, hEll, hPoly, setHead, feats } = d;
+      // The tail: a big plume curling up over the back.
+      if (!feats.has("tailFlame") && !feats.has("tailBolt")) {
+        ell(26, 17, 4.2, 7, "B");
+        ell(27, 11.5, 3, 3.2, "L");
+      }
+      tail(d, 23, 21);
+      line(13, 23, 13, 31, 2.4, "b");
+      line(22, 23, 23, 31, 2.4, "b");
+      ell(17, 21, 8.5, 4.8, "B");
+      ell(15, 23.5, 6, 2, "L");
+      back(d, 18, 15);
+      line(10, 23, 9, 31, 2.6, "B");
+      line(20, 23, 20, 31, 2.6, "B");
+      setHead(9, 13);
+      headTop(d);
+      d.head(5.8, 5);
+      hPoly([[-3, 0.6], [-9.2, 2.6], [-3, 3.8]], "L");
+      hEll(-9, 2.2, 0.9, 0.8, "K");
+    },
+  },
+  // A puppy: a round head with floppy ears, a stubby tail that wags up.
+  pup: {
+    eye: [-1.6, -0.8],
+    farEye: [-5.2, -1],
+    mouth: [-6.4, 3.4],
+    draw(d) {
+      const { ell, line, hEll, setHead } = d;
+      tail(d, 23, 21);
+      line(24, 21, 27, 16, 2.4, "B");
+      line(13, 25, 13, 31, 3, "b");
+      line(21, 25, 21, 31, 3, "b");
+      ell(17, 23, 8, 5.6, "B");
+      ell(15, 25.5, 5.5, 2.2, "L");
+      back(d, 18, 17);
+      line(10, 25, 10, 31, 3.2, "B");
+      line(19, 25, 19, 31, 3.2, "B");
+      setHead(10, 14);
+      headTop(d);
+      d.head(6.8, 6);
+      hEll(-4.8, 2.6, 3.2, 2.4, "L");
+      hEll(-7.4, 1.6, 1, 0.9, "K");
+      // Floppy ears hanging down beside the face.
+      hEll(3.6, 1, 2, 4, "b");
+    },
+  },
+  // Sitting up on big back feet, long ears straight up, a puff of a tail.
+  rabbit: {
+    eye: [-1.6, -0.6],
+    farEye: [-4.8, -0.8],
+    mouth: [-5.4, 3],
+    draw(d) {
+      const { ell, hEll, setHead } = d;
+      ell(24, 24, 3, 3, "L");
+      ell(19, 28.5, 6, 2.6, "b");
+      ell(17, 23, 7, 7, "B");
+      ell(14, 25, 4, 4, "L");
+      back(d, 19, 18);
+      ell(11, 29.5, 3.5, 1.8, "B");
+      setHead(12, 13);
+      d.feats.add("earsLong");
+      headTop(d);
+      d.head(6.2, 5.6);
+      hEll(-4.4, 2.4, 2, 1.6, "L");
+      hEll(-5.8, 1.6, 0.8, 0.7, "K");
+    },
+  },
+  // Wide and squat, with big eyes bulging up on top of its head and a wide grin.
+  frog: {
+    eye: [-2.6, -4.6],
+    farEye: [-7.4, -4.4],
+    mouth: [-8.6, 1.4],
+    draw(d) {
+      const { ell, line, hEll, setHead } = d;
+      line(22, 27, 27, 31, 3, "b");
+      ell(17, 25, 11, 6, "B");
+      ell(15, 28, 8, 2.6, "L");
+      back(d, 20, 20);
+      line(9, 27, 6, 31, 2.8, "B");
+      setHead(15, 22);
+      hEll(-2.4, -4.4, 3.2, 3.2, "B");
+      hEll(-7.4, -4.2, 2.6, 2.6, "B");
+      headTop({ ...d, hEll: (dx, dy, rx, ry, ch) => d.hEll(dx - 4, dy - 4, rx, ry, ch), hPoly: (pts, ch) => d.hPoly(pts.map(([x, y]) => [x - 4, y - 4]), ch) });
+    },
+  },
+  // Upright and round, a flat face with two big eyes looking right at you,
+  // a little hooked beak, and ear tufts: owls.
+  owl: {
+    eye: [-0.6, -0.8],
+    farEye: [-5.4, -0.8],
+    draw(d) {
+      const { ell, poly, line, hEll, hPoly, setHead } = d;
+      line(13, 27, 13, 31, 1.4, "F");
+      line(19, 27, 19, 31, 1.4, "F");
+      ell(16, 22, 8.5, 8, "B");
+      ell(15, 24, 5.5, 5, "L");
+      back(d, 20, 17);
+      ell(22, 21, 4, 6, "A");
+      setHead(15, 12);
+      headTop(d);
+      d.head(7.4, 6.4);
+      // The face disc, then the beak between the eyes.
+      hEll(-3, 0.4, 5.8, 4.6, "L");
+      hPoly([[-2.4, 1.2], [-4.2, 1.2], [-3.3, 3.8]], "F");
+    },
+  },
+  // Upright, with a white tummy and little flippers: penguins.
+  penguin: {
+    eye: [-1.4, -1],
+    farEye: [-5, -1.2],
+    draw(d) {
+      const { ell, line, hPoly, setHead } = d;
+      line(13, 28, 11, 31, 2, "F");
+      line(19, 28, 19, 31, 2, "F");
+      ell(16, 22, 7.5, 8.6, "B");
+      ell(14, 23.5, 5, 6.4, "L");
+      back(d, 19, 17);
+      line(22, 19, 25, 25, 2.4, "b");
+      setHead(15, 11);
+      headTop(d);
+      d.head(6.2, 5.8);
+      hPoly([[-5, 0.6], [-9, 1.6], [-5, 2.8]], "F");
+    },
+  },
+  // A fuzzy little body with big patterned wings spread behind: moths.
+  moth: {
+    eye: [-1.4, -0.6],
+    farEye: [-5, -0.6],
+    draw(d) {
+      const { ell, line, setHead } = d;
+      // Wings first, big and round, with a spot on each.
+      ell(23, 12, 7.5, 7, "A");
+      ell(24, 23, 5.5, 5, "a");
+      ell(23, 12, 3, 3, "L");
+      ell(24, 23, 2, 2, "L");
+      line(13, 27, 12, 31, 1.4, "b");
+      line(17, 27, 17, 31, 1.4, "b");
+      ell(15, 22, 5.5, 6.5, "B");
+      ell(14, 23, 3, 4, "L");
+      setHead(13, 13);
+      d.feats.add("antennae");
+      headTop(d);
+      d.head(5.6, 5.2);
+    },
+  },
+  // A wide shell with two big claws and eyes on stalks: crabs.
+  crab: {
+    eye: [-1, -5.4],
+    farEye: [-6, -5.2],
+    mouth: [-5, 1.6],
+    draw(d) {
+      const { ell, line, poly, hEll, setHead } = d;
+      for (const x of [20, 24, 27]) line(x, 25, x + 2, 31, 1.6, "b");
+      line(8, 24, 5, 21, 2.4, "B");
+      ell(4, 18.5, 3.4, 3, "A");
+      poly([[1, 17], [4, 14.5], [3, 18]], "a");
+      ell(17, 24, 10.5, 6.4, "B");
+      ell(16, 27, 7, 2.2, "L");
+      back(d, 17, 19);
+      for (const x of [10, 13]) line(x, 27, x - 2, 31, 1.6, "B");
+      line(12, 22, 8, 17, 2.6, "B");
+      ell(7, 14, 4, 3.4, "A");
+      poly([[3, 12], [7, 9.5], [6, 13.5]], "a");
+      setHead(17, 22);
+      line(16, 19, 16, 15, 1.4, "B");
+      line(11, 19, 11, 15.5, 1.4, "B");
+      hEll(-1, -5.2, 2.2, 2.2, "B");
+      hEll(-6, -5, 1.9, 1.9, "B");
+    },
+  },
+  // A big round head over curling tentacles: octopuses.
+  octopus: {
+    eye: [-1.6, 0.6],
+    farEye: [-5.8, 0.6],
+    mouth: [-4.6, 3.6],
+    draw(d) {
+      const { ell, line, setHead, feats } = d;
+      const arms = [[8, 23, 4, 30], [12, 24, 10, 31], [17, 24, 18, 31], [21, 23, 25, 30], [24, 22, 29, 26]];
+      for (const [x0, y0, x1, y1] of arms) {
+        line(x0, y0, x1, y1, 2.6, "B");
+        ell(x1, y1, 1.6, 1.4, "b");
+      }
+      ell(16, 15, 9.5, 9, "B");
+      ell(13, 19, 6, 3.4, "L");
+      back(d, 20, 9);
+      setHead(15, 16);
+      headTop({ ...d, hEll: (dx, dy, rx, ry, ch) => d.hEll(dx, dy - 5, rx, ry, ch), hPoly: (pts, ch) => d.hPoly(pts.map(([x, y]) => [x, y - 5]), ch) });
+    },
+  },
+  // A bell that floats over long wavy strands: jellyfish.
+  jelly: {
+    eye: [-1.6, 0.8],
+    farEye: [-5.6, 0.8],
+    mouth: [-4.4, 3.4],
+    draw(d) {
+      const { ell, line, poly, setHead } = d;
+      for (const [x, wob] of [[10, 1], [14, -1], [18, 1], [22, -1]]) {
+        line(x, 20, x + wob, 25, 1.4, "A");
+        line(x + wob, 25, x, 30, 1.4, "A");
+      }
+      ell(16, 16, 9.5, 7.5, "B");
+      poly([[6.5, 17], [25.5, 17], [24, 21], [21, 19.5], [18, 21.5], [15, 19.5], [12, 21.5], [9, 19.5], [7.5, 21]], "B");
+      ell(13, 19, 6, 2, "L");
+      back(d, 20, 10);
+      setHead(15, 16);
+      headTop({ ...d, hEll: (dx, dy, rx, ry, ch) => d.hEll(dx, dy - 4, rx, ry, ch), hPoly: (pts, ch) => d.hPoly(pts.map(([x, y]) => [x, y - 4]), ch) });
+    },
+  },
+  // Sturdy legs, a big woolly coat, and curled horns: rams.
+  ram: {
+    eye: [-1.8, -0.6],
+    farEye: [-5.4, -0.8],
+    mouth: [-6.2, 3.4],
+    draw(d) {
+      const { ell, line, hEll, setHead } = d;
+      line(13, 25, 13, 31, 2.6, "b");
+      line(22, 25, 22, 31, 2.6, "b");
+      for (const [x, y] of [[11, 18], [16, 16], [21, 17], [25, 21], [21, 26], [14, 26], [10, 23]]) ell(x, y, 4.6, 4.2, "L");
+      ell(17, 22, 8.5, 5.6, "L");
+      back(d, 18, 15);
+      line(10, 25, 10, 31, 2.8, "B");
+      line(19, 25, 19, 31, 2.8, "B");
+      setHead(8, 15);
+      d.head(5, 5.6);
+      hEll(-3.6, 2.6, 2.6, 2.4, "B");
+      // Curled horns around the ears.
+      hEll(3.2, -1.6, 3.6, 3.6, "A");
+      hEll(3.2, -1.6, 1.6, 1.6, "a");
+      headTop(d);
+    },
+  },
+  // A star with a face and stubby feet: star creatures.
+  star: {
+    eye: [-1.6, 0.4],
+    farEye: [-5.4, 0.4],
+    mouth: [-4.2, 3.4],
+    draw(d) {
+      const { poly, line, setHead } = d;
+      line(12, 27, 11, 31, 2.4, "b");
+      line(19, 27, 20, 31, 2.4, "b");
+      const pts = [];
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 6 : 13;
+        pts.push([16 + Math.cos(a) * r, 18 + Math.sin(a) * r]);
+      }
+      poly(pts, "B");
+      poly(pts.map(([x, y]) => [16 + (x - 16) * 0.45 - 1, 20 + (y - 18) * 0.45]), "L");
+      setHead(15, 18);
+    },
+  },
+  // A fluffy cloud with a face, floating on little puffs: storm clouds.
+  cloud: {
+    eye: [-1.6, 0.2],
+    farEye: [-5.6, 0.2],
+    mouth: [-4.2, 3],
+    draw(d) {
+      const { ell, line, setHead, feats } = d;
+      if (feats.has("bolt")) {
+        line(14, 25, 11, 29, 1.8, "A");
+        line(11, 29, 15, 29, 1.8, "A");
+        line(15, 29, 12, 32, 1.8, "A");
+      }
+      for (const [x, y, r] of [[9, 20, 5], [15, 15, 6.5], [22, 17, 5.5], [25, 22, 4], [17, 22, 6.5]]) ell(x, y, r, r * 0.9, "B");
+      ell(14, 22.5, 7, 2.4, "L");
+      back(d, 21, 13);
+      setHead(15, 19);
+    },
+  },
+
   // A squishy dome: slimes, lava blobs, puffs.
   blob: {
     eye: [-4, 0],
+    farEye: [-7.6, 0],
     mouth: [-5.5, 2.5],
     draw(d) {
       const { ell, setHead } = d;
@@ -540,31 +834,31 @@ export const STAGE_FEATS = {
 // CRITTERS). Malgrath keeps his own art.
 const f = (body, ...feats) => ({ body, feats });
 export const BEASTS = {
-  pip: f("beast", "earsPoint", "tailFluffy", "wingsMoth"),
+  pip: f("fox", "earsPoint", "wingsMoth"),
   // Meadow
-  puddlepup: f("cat", "earsRound", "tailThin"),
+  puddlepup: f("pup", "tailThin"),
   sproutling: f("plant", "sprout"),
-  thistlefox: f("beast", "earsPoint", "tailFluffy"),
-  petalpuff: f("blob", "petals"),
-  frog: f("blob", "crown", "spots"),
+  thistlefox: f("fox", "earsPoint"),
+  petalpuff: f("plant", "petals"),
+  frog: f("frog", "crown", "spots"),
   // Glowshroom Forest
   shroomlet: f("plant", "mushroomCap"),
   mossnout: f("bear", "earsRound", "vines"),
-  lumoth: f("bird", "wingsMoth", "antennae"),
-  glimmerkit: f("beast", "earsLong", "tailFluffy", "star"),
-  owl: f("bird", "earsPoint", "glasses", "wingsBird"),
+  lumoth: f("moth"),
+  glimmerkit: f("rabbit", "star"),
+  owl: f("owl", "earsPoint", "glasses"),
   // Magma Canyon
   magmite: f("blob", "flame", "spots"),
-  scorchpup: f("beast", "earsPoint", "tailFlame", "longSnout"),
+  scorchpup: f("pup", "tailFlame"),
   ashcrow: f("bird", "crest", "wingsBird"),
   obsidrake: f("lizard", "horns", "spikes", "tailSpiky"),
   bat: f("dragon", "horns", "tailFlame"),
   // Coral Lagoon
   coralpuff: f("blob", "coral"),
   finnow: f("fish"),
-  shellsnap: f("lizard", "shell"),
-  jellybop: f("ghost", "tentacles", "crest"),
-  octopus: f("ghost", "tentacles", "crest"),
+  shellsnap: f("crab"),
+  jellybop: f("jelly", "crest"),
+  octopus: f("octopus", "crest"),
   // Haunted Hollow
   pumpling: f("plant", "sprout", "stripes"),
   boolet: f("ghost"),
@@ -572,28 +866,28 @@ export const BEASTS = {
   batcat: f("cat", "earsPoint", "wingsBat", "tailThin"),
   dragon: f("ghost", "crown", "stripes"),
   // Crown Keep
-  squirepup: f("beast", "earsPoint", "crest", "tailThin"),
+  squirepup: f("pup", "crest", "tailThin"),
   crownling: f("blob", "crown"),
   shieldbug: f("lizard", "shell", "antennae"),
   griffling: f("bird", "crest", "wingsBird"),
   gryphon: f("beast", "crest", "crown", "wingsBird", "tailThin"),
   // Aurora Glacier
-  pengling: f("bird", "crest"),
+  pengling: f("penguin", "crest"),
   icicub: f("bear", "earsRound", "crystals"),
-  frostfox: f("beast", "earsPoint", "tailFluffy"),
+  frostfox: f("fox", "earsPoint"),
   aurorafin: f("fish", "crest"),
   icewyrm: f("serpent", "crystals", "spikes"),
   // Thunder Peaks
-  nimbling: f("blob", "cloud", "antennae"),
+  nimbling: f("cloud", "bolt"),
   zipsparrow: f("bird", "crest"),
   voltkit: f("cat", "earsPoint", "tailBolt"),
-  thunderam: f("bear", "horns", "mane"),
-  stormowl: f("bird", "earsPoint", "crest", "wingsBird"),
+  thunderam: f("ram"),
+  stormowl: f("owl", "earsPoint", "crest"),
   // Cosmic Rift
-  starbit: f("blob", "star"),
-  moonmoth: f("bird", "wingsMoth", "antennae"),
-  nebulynx: f("cat", "earsPoint", "tailFluffy", "ring"),
-  voidjelly: f("ghost", "tentacles"),
+  starbit: f("star"),
+  moonmoth: f("moth"),
+  nebulynx: f("fox", "earsPoint", "ring"),
+  voidjelly: f("jelly"),
   // Shop pets
   cat: f("cat", "earsPoint", "tailThin", "stripes"),
   drake: f("dragon", "horns"),

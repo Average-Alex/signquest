@@ -339,7 +339,7 @@ export function resetBiomes() {
 }
 let current = null; // the biome on screen
 // For testing with ?dev: the biome on screen, from the browser console.
-if (new URLSearchParams(location.search).has("dev")) window.signquestDebug = { biome: () => current };
+if (new URLSearchParams(location.search).has("dev")) (window.signquestDebug ||= {}).biome = () => current;
 const keys = new Set();
 let pendingToast = null; // shown when you come back from a battle
 
@@ -2876,8 +2876,23 @@ const cameraTarget = (biome) => {
   };
 };
 
+// The loop runs while the biome is on screen; showing it again resumes it
+// (screens.js calls this from show("biome")).
+let looping = false;
+export function startLoop() {
+  if (looping || !current) return;
+  looping = true;
+  current.last = 0;
+  requestAnimationFrame(frame);
+}
+// The zone you're walking around in (or were, before opening the book, shop...).
+export const currentZone = () => current?.z ?? null;
+
 function frame(now) {
-  if (!current || !isShowing("biome")) return;
+  if (!current || !isShowing("biome")) {
+    looping = false;
+    return;
+  }
   requestAnimationFrame(frame);
   const biome = current;
   const dt = Math.min(0.05, (now - (biome.last || now)) / 1000);
@@ -2920,6 +2935,7 @@ function frame(now) {
 
 // `from`: the zone you walked in from, along a road (null from the map).
 export function enterBiome(z, from = null) {
+  current = null; // the old loop stops; this one starts once the zone's opening has played
   if (!biomes.has(z)) biomes.set(z, build(z));
   const biome = biomes.get(z);
   biome.last = 0;
@@ -2966,7 +2982,7 @@ export function enterBiome(z, from = null) {
       pendingLines = null;
       say(biome, lines, after);
     } else if (biome.mission && !progress.missionState(biome.z).started) startMissionIntro(biome);
-    requestAnimationFrame(frame);
+    startLoop();
   }));
 }
 

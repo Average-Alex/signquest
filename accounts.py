@@ -63,6 +63,20 @@ def connect():
     return conn
 
 
+def storage_status():
+    """One line for the server log: where accounts are being kept, and whether that works."""
+    if not DATABASE_URL:
+        return f"Accounts: saved in a file ({STORE}). On Render's free plan this is wiped on every restart - set DATABASE_URL."
+    try:
+        with connect() as conn:
+            row = conn.execute("SELECT value FROM signquest_store WHERE key = 'accounts'").fetchone()
+        return f"Accounts: saved in the database (connected; {len(row[0]['users']) if row else 0} accounts so far)."
+    except ImportError:
+        return "Accounts: DATABASE_URL is set, but psycopg isn't installed - set the Build Command to: pip install -r requirements.txt"
+    except Exception as e:  # a wrong link, a reset password...
+        return f"Accounts: DATABASE_URL is set, but the database didn't connect: {type(e).__name__}: {str(e).splitlines()[0][:160]}"
+
+
 def load():
     if DATABASE_URL:
         with connect() as conn:

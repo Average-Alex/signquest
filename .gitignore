@@ -10,3 +10,9 @@ training/data/*
 
 # The https certificate serve.py makes for the Arena (has a private key).
 .cert/
+
+# Player accounts serve.py keeps (emails and password hashes).
+.accounts/
+
+# Local Claude Code settings.
+.claude/

@@ -473,7 +473,7 @@ export function playBattleSting(boss = false) {
 }
 
 // Which song goes with which screen (battles, zones, and results pick their own).
-const SCREEN_SONGS = { title: "title", map: "map", shop: "shop", hero: "shop", learn: "learn", calibrate: "learn", arena: "shop", pvp: "battle" };
+const SCREEN_SONGS = { login: "title", title: "title", map: "map", shop: "shop", hero: "shop", learn: "learn", calibrate: "learn", arena: "shop", pvp: "battle", tower: "learn", hub: "map" };
 export function musicForScreen(screen) {
   if (SCREEN_SONGS[screen]) playMusic(SCREEN_SONGS[screen]);
 }

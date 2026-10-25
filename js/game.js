@@ -46,8 +46,8 @@ import {
   ENEMY_BIG_CHANCE, ENEMY_BIG_DAMAGE, ENEMY_HEAL_FRACTION, ENEMY_QUICK_DAMAGE,
   CHALLENGE_BONUS, CHALLENGE_CHANCE, FLURRY_MS, SPELL_BONUS, COMBO_BONUS, COMBO_MAX, creatureName, CRIT_CHANCE, effectiveness, ELEMENTS, stageOf, stagePower, buddyMoves, heroSpells, armorById,
   GROUP_POWER, isEvolved, QUICK_BONUS, QUICK_MS, TRAINER_HP, CRIT_CHANCE_FAST, CRIT_MULTIPLIER, dizzyChance, ENERGY_FAST_BONUS, ENERGY_MAX, ENERGY_PER_LETTER,
-  ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET,
-  COUNTER_CHANCE, COUNTER_MS, COUNTER_REFLECT, MINION_HP, PACK_CHANCE, PACK_EXTRA_ATTACK, PACK_HP, monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
+  ENERGY_START, FAST_SIGN_MS, HEAL_FRACTION, HERO_MOVES, HEX_HP_MULTIPLIER, HINT_AFTER_MS, ALPHABET, LOOK_ALIKES,
+  COUNTER_CHANCE, COUNTER_EASE, COUNTER_MS, COUNTER_REFLECT, MINION_HP, PACK_CHANCE, PACK_EXTRA_ATTACK, PACK_HP, monsterDamage, MOTION_LETTERS, playerMaxHp, rarityOf, POTION_HEAL, SHIELD_BLOCKS, SIGN_DAMAGE, SKIP_AFTER_MS, STAGES, TIPS, ZONES,
 } from "./config.js";
 import { battleResult } from "./battle-result.js";
 import * as progress from "./progress.js";
@@ -155,7 +155,9 @@ export function startBattle(z, s, foeId, level, onFinish, opts = {}) {
 
   show("battle");
   renderAvatars();
-  $("battle-title").textContent = `${zone.icon} ${zone.name} · ${party ? opts.owner : stage.name}`;
+  const foeKind = CREATURES.find((c) => c.id === foeId)?.kind;
+  const special = foeKind === "raid" ? `⚔️ Raid ${opts.trial?.name || ""}` : foeKind === "trial" ? `🔷 Trial ${opts.trial?.name || ""}` : foeKind === "ultimate" ? "👑 Ultimate" : foeKind === "spirekeeper" ? "⏳ The Spire's top" : null;
+  $("battle-title").textContent = `${zone.icon} ${zone.name} · ${party ? opts.owner : special || stage.name}`;
   $("arena-bg").src = battleBackdropSrc(zone.id);
   $("arena").classList.remove("surge");
   $("arena").classList.toggle("party", party);
@@ -281,7 +283,7 @@ function place(b, entry, n) {
   const hexed = !entry.trainer && entry.def.catchable !== false && !b.party;
   entry.hexed = hexed; // tick() makes dark motes drift off it
   entry.art.innerHTML = entry.trainer ? heroImg(entry.def.look, null, "foe-hero", true) : creatureImg(entry.id, "", hexed);
-  entry.art.className = `monster${(b.stage.type === "boss" || b.opts.trial) && entry === b.roster[0] ? " boss" : ""}`;
+  entry.art.className = `monster${(b.stage.type === "boss" || b.opts.trial) && entry === b.roster[0] ? " boss" : ""}${entry.def.kind === "raid" ? " raid" : entry.def.kind === "trial" ? " trial-guardian" : entry.def.kind === "ultimate" || entry.def.kind === "spirekeeper" ? " trial-guardian ultimate" : ""}`;
   entry.box.querySelector(".foe-tag-name").textContent = `${entry.def.name} · Lv ${entry.level}`;
   entry.box.onclick = () => setTarget(entry);
   entry.box.onkeydown = (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setTarget(entry));
@@ -301,7 +303,7 @@ function setTarget(entry, say = true) {
   const hexed = !entry.trainer && def.catchable !== false && !b.party;
   $("monster-name").textContent = b.party && !entry.trainer ? `${b.opts.owner}'s ${def.name}` : def.name;
   const el = ELEMENTS[def.element];
-  const kind = entry.trainer ? "Signkeeper" : b.opts.team ? "Trainer" : b.party ? "Rival battle" : def.catchable === false ? "Hollow King" : "Hexbound";
+  const kind = entry.trainer ? "Signkeeper" : b.opts.team ? "Trainer" : b.party ? "Rival battle" : def.kind === "raid" ? "⚔️ Raid legend" : def.kind === "trial" ? "🔷 Trial Guardian" : def.kind === "warden" ? "🔷 Trial Warden" : def.kind === "ultimate" ? "👑 Ultimate" : def.kind === "rift" ? "🌀 Rift raid boss" : def.kind === "spirekeeper" ? "⏳ Keeper of the Spire" : def.catchable === false ? "Hollow King" : "Hexbound";
   const rarity = entry.trainer || b.party || rarityOf(def).name === "Common" ? null : rarityOf(def); // common is the norm: no badge
   $("hud-foe-sub").innerHTML =
     `${rarity ? `<span class="rarity-badge" style="--rarity:${rarity.color}">${rarity.name}</span>` : ""}` +
@@ -934,7 +936,7 @@ function renderMoves() {
   for (const el of document.querySelectorAll(".arena .fighter")) el.classList.toggle("acting", el === actor && !battle.busy);
 
   const tab = tabs[battle.tab];
-  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.beatenZones(), progress.get().equipped.armor);
+  const moves = tab.mover ? buddyMoves(tab.mover.id, tab.mover.level) : heroSpells(progress.beatenZones(), progress.get().equipped.armor, progress.towerSpells());
   const bar = $("battle-moves");
   bar.innerHTML = "";
   // The spellbook shows BOOK_PAGE cards at a time; arrows turn the page.
@@ -1168,10 +1170,16 @@ function hitYou(b, a, move, big) {
 // before the bar runs out, or tap the right letter, to block the attack.
 // done("block" | "miss").
 function counterSign(b, a, move, done) {
-  const known = progress.get().learned;
-  const pool = [...new Set([...b.zone.letters, ...known])].filter((l) => known.includes(l) || b.zone.letters.includes(l));
+  // A letter from this zone (the ones you're practicing here), never a moving one.
+  const pool = b.zone.letters.filter((l) => !MOTION_LETTERS.includes(l));
   const letter = progress.weightedPick(pool);
-  const others = [...pool.filter((l) => l !== letter)].sort(() => Math.random() - 0.5).slice(0, 2);
+  // The wrong choices aren't look-alikes (no M, N, and T together): reading
+  // the sign should be about the hand, not a coin toss.
+  const lookAlike = (x, y) => LOOK_ALIKES.some((group) => group.includes(x) && group.includes(y));
+  const others = [...new Set([...pool, ...ALPHABET.filter((l) => !MOTION_LETTERS.includes(l))])]
+    .filter((l) => l !== letter && !lookAlike(l, letter))
+    .sort((x, y) => (pool.includes(y) ? 1 : 0) - (pool.includes(x) ? 1 : 0) || Math.random() - 0.5)
+    .slice(0, 2);
   const choices = [letter, ...others].sort(() => Math.random() - 0.5);
   const assist = Boolean(progress.get().settings.assist);
   const panel = $("counter");
@@ -1233,14 +1241,24 @@ function counterSign(b, a, move, done) {
   });
   panel.hidden = false;
   announce(`${a.def.name} signs at you! Sign it back, or tap the letter, to block.`);
-  const hold = new HoldTimer();
+  const hold = new HoldTimer({ ease: COUNTER_EASE });
+  let shownName = false;
+  $("counter-ask").textContent = "Sign it back, or tap it:";
   const start = performance.now();
   const limit = COUNTER_MS;
   const loop = (now) => {
     if (over || battle !== b) return;
     requestAnimationFrame(loop);
-    const held = hold.update(letter, getPrediction(), now);
+    const prediction = getPrediction();
+    const held = hold.update(letter, prediction, now);
     $("counter-hold").style.width = `${held * 100}%`;
+    // What the camera sees, so you know it's reading you.
+    $("counter-seeing").textContent = prediction?.partial ? "✋ Move your whole hand into view" : !prediction ? "✋ Show your hand to the camera" : `I see: ${prediction.letter}`;
+    // Halfway through, it tells you which letter it was, so you can still block it.
+    if (!assist && !shownName && now - start > limit / 2) {
+      shownName = true;
+      $("counter-ask").textContent = `It's ${letter}! Sign ${letter} back, quick!`;
+    }
     if (held >= 1) return end("block", true);
     if (!assist) {
       const left = Math.max(0, 1 - (now - start) / limit);

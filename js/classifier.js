@@ -27,6 +27,8 @@ const DEV = new URLSearchParams(location.search).has("dev");
 const KNN_K = 9;
 const MAX_PER_LETTER = 400; // samples kept per letter for kNN (keeps it fast)
 const AUGMENT_COPIES = 2; // extra slightly-turned copies of each sample
+const MAX_KNN_BLEND = 0.6; // at most this much of a guess comes from your own taught signs...
+const KNN_BLEND_FULL = 12; // ...once you've taught about this many per letter
 
 let model = null; // { labels, layers: [{ W: [in][out], b: [out], activation }] }
 let knn = null; // { features: Float32Array[], labels: index into LETTERS }
@@ -187,7 +189,15 @@ function handleHand(hand) {
   }
 
   const features = toFeatures(flatten(hand.world), resolveHand(hand.handedness, progress.get().settings.hand));
-  history.push(kind === "model" ? modelProbs(features) : knnProbs(features));
+  let probs = kind === "model" ? modelProbs(features) : knnProbs(features);
+  // Signs you've taught the camera ("Teach the camera your hands") make the
+  // trained model fit YOUR hands: blend them in, more the more you've taught.
+  if (kind === "model" && knn && progress.get().settings.recognizer === "auto") {
+    const mine = knnProbs(features);
+    const w = Math.min(MAX_KNN_BLEND, knn.count / (LETTERS.length * KNN_BLEND_FULL));
+    probs = probs.map((p, i) => p * (1 - w) + mine[i] * w);
+  }
+  history.push(probs);
   if (history.length > SMOOTH_FRAMES) history.shift();
 
   // Average the last few frames so the answer doesn't flicker.
@@ -243,16 +253,24 @@ export function targetConfidence(target, prediction) {
 
 // Tracks how long the target letter has been held. update() returns 0-1;
 // 1 means it's been held long enough to count.
-// J and Z are drawn in the air, not held: they count as soon as the
+// J, Z, and moving words (HELLO, THANK YOU...) are moved, not held: they count as soon as the
 // moving-sign recognizer sees them (the bar shows how close it is).
+// `ease`: accept a sign this much less sure than the setting (counter-signs).
+// Sideways letters are harder for the camera to track, so they get some ease too.
+const HARD_LETTERS = { G: 0.15, H: 0.08, P: 0.15, Q: 0.15, K: 0.05 };
 export class HoldTimer {
-  constructor() {
+  constructor({ ease = 0 } = {}) {
     this.since = null;
+    this.ease = ease;
   }
 
   update(target, prediction, now) {
-    if (MOTION_LETTERS.includes(target) && !prediction?.keyboard) return this.updateMoving(target);
-    const { holdMs, minConfidence } = progress.get().settings;
+    const moving = MOTION_LETTERS.includes(target) || target.length > 1; // J, Z, or a moving word like HELLO
+    if (moving && !prediction?.keyboard) return this.updateMoving(target);
+    // Testing with the keyboard: hold a moving word's first letter (H for HELLO).
+    if (moving && target.length > 1) target = target[0];
+    const { holdMs } = progress.get().settings;
+    const minConfidence = progress.get().settings.minConfidence - this.ease - (HARD_LETTERS[target] || 0);
     const sure = targetConfidence(target, prediction);
     // It counts if we're sure enough it's the target, or it's our top guess and nearly sure enough.
     const ok = sure >= minConfidence || (prediction?.letter === target && sure >= minConfidence - 0.15);

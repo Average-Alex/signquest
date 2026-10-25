@@ -10,6 +10,7 @@
 import { buildCritter, CRITTERS, evolveSpec } from "./critters.js";
 import { BEASTS, buildBeast, STAGE_FEATS } from "./beasts.js";
 import { PAINTED as PAINTED_ART } from "./painted.js";
+import { RETRO_LOOKS, RETRO_SPRITES } from "./retro.js";
 import { armorById, CREATURES } from "./config.js";
 
 const OUTLINE = "#2b1d2e";
@@ -2158,6 +2159,26 @@ const CREATURE_ART = {
 // Creatures are side-view beasts (beasts.js) in their critter colors (critters.js).
 for (const [id, spec] of Object.entries(CRITTERS)) CREATURE_ART[id] = BEASTS[id] ? buildBeast({ ...BEASTS[id], colors: spec.colors }) : buildCritter(spec);
 
+// ...but they're drawn as mythical creatures in the retro style (retro.js):
+// 32 x 32, standing on the bottom row, with a dark outline all around.
+const RETRO_SIZE = 32;
+const RETRO_COLORS = { W: "#ffffff", c: "#ff9ab0" }; // eye shine and blush, unless a creature says otherwise
+const retroRows = new Map();
+function buildRetro(name) {
+  const body = RETRO_SPRITES[name].map((r) => `.${r.padEnd(RETRO_SIZE - 2, ".")}.`);
+  const grid = padTop(body, RETRO_SIZE - 1).concat(".".repeat(RETRO_SIZE)).map((r) => [...r]);
+  const solid = (x, y) => grid[y]?.[x] !== undefined && grid[y][x] !== ".";
+  return grid.map((r, y) => r.map((ch, x) => (ch === "." && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1)) ? "K" : ch)).join(""));
+}
+// `stage`: 1-3; each evolution stage has its own sprite.
+function retroArt(id, stage = 1) {
+  const look = RETRO_LOOKS[id];
+  const name = look.stages[stage - 1];
+  if (!retroRows.has(name)) retroRows.set(name, buildRetro(name));
+  return { rows: retroRows.get(name), colors: { ...RETRO_COLORS, ...look.colors } };
+}
+for (const id of Object.keys(RETRO_LOOKS)) CREATURE_ART[id] = retroArt(id);
+
 // Malgrath the Hollow King, the final boss.
 CREATURE_ART.malgrath = {
   colors: { Y: "#ffc93c", H: "#3a2a5e", h: "#120a24", E: "#ff4df0", R: "#c58cf0" },
@@ -2409,14 +2430,21 @@ export const WALK_FRAMES = 4;
 
 function liftFoot(ctx, w, h, frame) {
   if (frame % 2 === 0) return;
+  // The feet are on the lowest row with anything drawn (evolved sprites have
+  // empty room below them for the outline and glow).
+  const d = ctx.getImageData(0, 0, w, h).data;
+  const rowEmpty = (y) => { for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3]) return false; return true; };
+  let feet = h;
+  while (feet > 1 && rowEmpty(feet - 1)) feet--;
   // Lift the foot high, so every step reads clearly: 3 pixels on bigger
   // sprites, 2 on small ones.
-  for (let i = 0; i < (h >= 24 ? 3 : 2); i++) liftFootOnce(ctx, w, h, frame);
+  for (let i = 0; i < (h >= 24 ? 3 : 2); i++) liftFootOnce(ctx, w, h, frame, feet);
 }
 
-function liftFootOnce(ctx, w, h, frame) {
+// `feet`: one past the lowest drawn row.
+function liftFootOnce(ctx, w, h, frame, feet = h) {
   const legRows = h >= 24 ? 3 : 2;
-  const top = h - legRows - 1; // includes one row above the feet
+  const top = feet - legRows - 1; // includes one row above the feet
   const image = ctx.getImageData(0, top, w, legRows + 1);
   const d = image.data;
   const alpha = (x, r) => d[(r * w + x) * 4 + 3];
@@ -2478,7 +2506,9 @@ function evolvedArt(id, stage) {
   if (!evolvedArts.has(key)) {
     const element = CREATURES.find((c) => c.id === id)?.element;
     const extra = (STAGE_FEATS[element] || []).slice(0, stage - 1).flat();
-    const art = BEASTS[id] && CRITTERS[id]
+    const retro = RETRO_LOOKS[id] && retroArt(id, stage);
+    const art = retro ? { rows: retro.rows, colors: evolvedColors(retro) }
+      : BEASTS[id] && CRITTERS[id]
       ? buildBeast({ ...BEASTS[id], colors: evolveSpec(CRITTERS[id], element, stage).colors }, stage, extra)
       : CRITTERS[id] ? buildCritter(evolveSpec(CRITTERS[id], element, stage)) : { rows: CREATURE_ART[id].rows, colors: evolvedColors(CREATURE_ART[id]) };
     evolvedArts.set(key, art);
@@ -2488,11 +2518,117 @@ function evolvedArt(id, stage) {
 // `stage` can be given as true (an old "evolved" flag): stage 2.
 const stageNumber = (stage) => (stage === true ? 2 : stage || 1);
 
+// 🥚 A raid egg (eggs.js), with 0-3 cracks. Its spots show the raid tier.
+const EGG_SPOTS = { 1: "#6fdc6a", 2: "#4fb3ff", 3: "#ffc93c", 4: "#c58cf0" }; // 4: a Rift egg
+const EGG_CRACKS = [
+  [[4, 9], [6, 11], [8, 9], [10, 11]],
+  [[10, 11], [12, 9], [14, 11]],
+  [[6, 5], [8, 7], [10, 5], [12, 7], [13, 6]],
+];
+export function eggSrc(tier = 1, cracks = 0) {
+  const W = 18, H = 22, cx = 8.5, cy = 12;
+  return draw(`egg:${tier}:${cracks}`, W, H, (ctx) => {
+    const inside = (x, y) => {
+      const rx = y < cy ? 6.2 : 7.4, ry = y < cy ? 10 : 8.4;
+      return ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1;
+    };
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!inside(x, y)) continue;
+        const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+        const spot = (x * 7 + y * 13) % 23 < 2 || ((x - 5) ** 2 + (y - 15) ** 2 < 3) || ((x - 11) ** 2 + (y - 8) ** 2 < 3);
+        ctx.fillStyle = edge ? OUTLINE : x < 5 && y < 9 && y > 4 ? "#ffffff" : spot ? EGG_SPOTS[tier] : x > 11 ? "#e6dcc8" : "#fbf5e6";
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    ctx.fillStyle = OUTLINE;
+    for (const line of EGG_CRACKS.slice(0, cracks)) {
+      for (let i = 1; i < line.length; i++) {
+        const [x0, y0] = line[i - 1], [x1, y1] = line[i];
+        const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        for (let s = 0; s <= steps; s++) ctx.fillRect(Math.round(x0 + ((x1 - x0) * s) / steps), Math.round(y0 + ((y1 - y0) * s) / steps), 1, 1);
+      }
+    }
+  });
+}
+
+// ☁️ Skyhaven on the world map: a little floating island with a white tower and a swirl of the Rift.
+export const SKYHAVEN_PIN = { w: 36, h: 40 };
+export function skyhavenPinSrc() {
+  const { w: W, h: H } = SKYHAVEN_PIN;
+  return draw("skyhaven-pin", W, H, (ctx) => {
+    const px = (x, y, c) => ((ctx.fillStyle = c), ctx.fillRect(x, y, 1, 1));
+    // The island: grass on top, rock hanging below.
+    for (let x = 2; x < W - 2; x++) {
+      const t = (x - W / 2) / (W / 2 - 2);
+      const top = 26 + Math.round(t * t * 2);
+      const bottom = 30 + Math.round(8 * (1 - Math.abs(t)) ** 1.4);
+      for (let y = top; y <= bottom; y++) px(x, y, y === top || y === top + 1 ? "#6fbf4a" : y === bottom ? OUTLINE : (x + y) % 3 ? "#8a7a6a" : "#7a6a5a");
+      px(x, top - 1, OUTLINE);
+    }
+    // The Spire.
+    for (let y = 3; y < 27; y++) {
+      const half = y < 8 ? 1 : 2;
+      for (let x = 10 - half - 1; x <= 10 + half + 1; x++) px(x, y, x === 10 - half - 1 || x === 10 + half + 1 ? OUTLINE : y % 6 === 0 ? "#ffd23f" : "#e8e0f4");
+    }
+    px(10, 2, "#ffd23f");
+    px(10, 1, OUTLINE);
+    px(10, 12, "#7fe3ff");
+    px(10, 18, "#7fe3ff");
+    // The Rift: a purple swirl in the grass.
+    for (let x = 20; x < 32; x++) for (let y = 23; y < 28; y++) if (((x - 26) / 6) ** 2 + ((y - 25.5) / 2.5) ** 2 < 1) px(x, y, (x + y) % 2 ? "#7a2ab0" : "#c84ab0");
+    px(26, 25, "#ffffff");
+  });
+}
+
+// 🔷 A Trial portal: a swirling crystal ring on a stone base. `frame` turns the swirl.
+export function portalSrc(frame = 0) {
+  frame = ((frame % 8) + 8) % 8;
+  const W = 30, H = 38, cx = 15, cy = 17, rx = 12, ry = 16;
+  const RING = ["#e8f8ff", "#7fe3ff", "#3fa8e0", "#7fe3ff"];
+  const SWIRL = ["#2a1850", "#4a2a8a", "#7a4ad6", "#c58cf0"];
+  return draw(`portal:${frame}`, W, H, (ctx) => {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+        const r = Math.hypot(dx, dy);
+        if (r > 1.08) continue;
+        const angle = Math.atan2(dy, dx);
+        let color;
+        if (r > 0.98) color = OUTLINE;
+        else if (r > 0.78) color = RING[Math.floor(((angle / Math.PI + 1) * 4 + frame) % 4)];
+        else if (r > 0.72) color = OUTLINE;
+        else {
+          // A spiral: bands that wind inward and turn with each frame.
+          const band = Math.floor(((angle / (2 * Math.PI)) * 4 + r * 5 - frame * 0.5 + 16) % 4);
+          color = r < 0.18 ? "#ffffff" : SWIRL[band];
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // Sparkles drifting around the ring.
+    ctx.fillStyle = "#ffffff";
+    for (let k = 0; k < 3; k++) {
+      const a = ((frame + k * 2.7) / 8) * 2 * Math.PI;
+      ctx.fillRect(Math.round(cx + Math.cos(a) * (rx + 1.5)), Math.round(cy + Math.sin(a) * (ry + 1.5)), 1, 1);
+    }
+    // The stone base.
+    for (let y = H - 5; y < H; y++) {
+      for (let x = 5; x < W - 5; x++) {
+        ctx.fillStyle = y === H - 5 || y === H - 1 || x === 5 || x === W - 6 ? OUTLINE : y === H - 4 ? "#b8b0c8" : "#8a82a0";
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  });
+}
+
 // `hexed`: draw the corrupted Hexbound version. `frame`: a walking frame.
 // `stage`: the evolution stage, 1-3 (see stageOf in config.js). Stage 3
 // has a golden glow around it.
 export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
   stage = stageNumber(stage);
+  const retro = Boolean(RETRO_LOOKS[id]); // the original look: flat colors, a thin outline
   if (PAINTED.has(id)) return hexed ? `${paintedPath(id, 1)}#hexed` : paintedPath(id, stage);
   if (stage > 1 && !hexed) {
     const art = evolvedArt(id, stage);
@@ -2501,8 +2637,7 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
     const W = w + pad * 2, H = h + pad * 2;
     return draw(`creature:${id}:stage${stage}:${frame}`, W, H, (ctx) => {
       paint(ctx, art.rows, art.colors, pad, pad);
-      shadeSprite(ctx, W, H, true);
-      thickOutline(ctx, W, H, EVOLVED_OUTLINE);
+      if (!retro) { shadeSprite(ctx, W, H, true); thickOutline(ctx, W, H, EVOLVED_OUTLINE); }
       liftFoot(ctx, W, H, frame);
       if (stage === 3) glow(ctx, W, H);
     });
@@ -2513,8 +2648,7 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
     // One pixel of room on every side for the thick outline.
     return draw(`creature:${id}:${frame}`, w + 2, h + 2, (ctx) => {
       paint(ctx, art.rows, art.colors, 1, 1);
-      shadeSprite(ctx, w + 2, h + 2, true);
-      thickOutline(ctx, w + 2, h + 2, OUTLINE);
+      if (!retro) { shadeSprite(ctx, w + 2, h + 2, true); thickOutline(ctx, w + 2, h + 2, OUTLINE); }
       liftFoot(ctx, w + 2, h + 2, frame);
     });
   }
@@ -2522,8 +2656,7 @@ export function creatureSrc(id, hexed = false, frame = 0, stage = 1) {
   return draw(`creature:${id}:hexed:${frame}`, w + 4, h + 4, (ctx) => {
     paint(ctx, art.rows, hexedColors(art), 2, 2);
     hexCracks(ctx, w + 4, h + 4, id);
-    shadeSprite(ctx, w + 4, h + 4, true);
-    thickOutline(ctx, w + 4, h + 4, HEX_OUTLINE);
+    if (!retro) { shadeSprite(ctx, w + 4, h + 4, true); thickOutline(ctx, w + 4, h + 4, HEX_OUTLINE); }
     liftFoot(ctx, w + 4, h + 4, frame);
     hexAura(ctx, w + 4, h + 4);
   });
@@ -2545,12 +2678,26 @@ function thickOutline(ctx, w, h, color) {
 
 // Small (12 px) creatures get a "small" class so they can be shown bigger.
 // Evolved ones (`stage` 2 or 3) are shown bigger too.
-export function creatureImg(id, cls = "", hexed = false, stage = 1) {
+// `walk`: it walks on the spot (the Book, your team on the map).
+export function creatureImg(id, cls = "", hexed = false, stage = 1, walk = false) {
   stage = stageNumber(stage);
   const painted = PAINTED.has(id);
   const small = !painted && CREATURE_ART[id].rows.length <= 12;
-  return img(creatureSrc(id, hexed, 0, stage), `creature ${small ? "small" : ""}${painted ? " painted" : ""}${stage > 1 ? ` evolved stage-${stage}` : ""}${hexed ? " hexed" : ""} ${cls}`, id);
+  const html = img(creatureSrc(id, hexed, 0, stage), `creature ${small ? "small" : ""}${painted ? " painted" : ""}${stage > 1 ? ` evolved stage-${stage}` : ""}${hexed ? " hexed" : ""} ${cls}`, id);
+  return walk && !hexed && !painted ? html.replace("<img ", `<img data-walk="${id}:${stage}" `) : html;
 }
+
+// Step every walking creature picture on screen through its walk cycle.
+const WALK_MS = 180;
+let walkStep = 0;
+setInterval(() => {
+  walkStep = (walkStep + 1) % 4;
+  for (const el of document.querySelectorAll("img[data-walk]")) {
+    if (!el.offsetParent) continue; // not on screen
+    const [id, stage] = el.dataset.walk.split(":");
+    el.src = creatureSrc(id, false, walkStep, Number(stage));
+  }
+}, WALK_MS);
 
 // Scenery is toned down (less saturated, a little darker) so the world looks
 // calmer and the creatures stand out against it.

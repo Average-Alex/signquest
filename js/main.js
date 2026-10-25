@@ -2,6 +2,7 @@
 
 import { onHand, startCamera } from "./camera.js";
 import { initClassifier } from "./classifier.js";
+import { initMotion } from "./motion.js";
 import { startPixelEmoji } from "./pixel-emoji.js";
 import * as progress from "./progress.js";
 import { ENOUGH, openCalibration } from "./calibrate.js";
@@ -14,6 +15,8 @@ import { updateMainBar } from "./mainbar.js";
 setBarHook(updateMainBar);
 import "./arena.js";
 import { playScene } from "./story.js";
+import { checkSession } from "./account.js";
+import { initLogin, showLogin } from "./login.js";
 
 const $ = (id) => document.getElementById(id);
 const DEV = new URLSearchParams(location.search).has("dev");
@@ -28,6 +31,7 @@ document.addEventListener("click", (e) => {
 
 startPixelEmoji(); // emoji -> pixel icons, everywhere
 await initClassifier();
+initMotion(); // moving signs (J, Z, HELLO, THANK YOU...): load in the background
 initRecordPage();
 await initMotionTest();
 $("open-record").hidden = !DEV && !RECORD;
@@ -38,6 +42,16 @@ $("open-motion").hidden = !DEV && !MOTION;
 let handSeen = false;
 $("player-name").value = progress.get().name;
 $("player-name").oninput = (e) => progress.update({ name: e.target.value.trim() });
+
+// Logged in: your username is your name in the game (and the Arena).
+function showAccount(user) {
+  $("title-name").hidden = Boolean(user);
+  $("title-account").hidden = !user;
+  if (!user) return;
+  progress.update({ name: user.username });
+  $("title-account").innerHTML = "👤 Welcome back, <b></b>!";
+  $("title-account").querySelector("b").textContent = user.username;
+}
 
 $("start-camera").onclick = async () => {
   $("start-camera").disabled = true;
@@ -77,6 +91,8 @@ onHand((hand) => {
 // introduces itself.
 function startAdventure() {
   if (!progress.get().name) progress.update({ name: "Hero" });
+  // Play full screen (browsers only allow it right after a click, like this one).
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
   show("map");
   playCutscene("opening", () => playScene("intro"));
 }
@@ -93,4 +109,16 @@ $("keyboard-play").onclick = startAdventure;
 $("keyboard-play").hidden = !DEV;
 // ?record opens the data recorder straight away, for collecting training data.
 // ?motion opens the moving-sign test.
-show(RECORD ? "record" : MOTION ? "motion" : "title");
+// Everyone logs in first (login.js), unless the server can't be reached: then
+// you can play as a guest. Builders skip it with ?dev, ?record, or ?motion.
+initLogin({ onGuest: () => show("title") });
+if (RECORD || MOTION) show(RECORD ? "record" : "motion");
+else {
+  const user = await checkSession();
+  showAccount(user);
+  if (user || DEV) show("title");
+  else {
+    show("login");
+    showLogin();
+  }
+}

@@ -23,7 +23,7 @@ export function battleResult({ z, s, zone, won, signs, hints, avgSeconds, boss, 
   // Where you and your buddies were before, for the results screen's XP bars.
   const heroBefore = { level: progress.level(), pct: progress.xpIntoLevel() };
   const petsBefore = progress.team().map((pet) => ({ id: pet.id, level: pet.level, pct: xpPct(pet.id) }));
-  const armorWon = won && boss && !progress.bossBeaten(z) ? ARMOR.find((a) => a.zone === ZONES[z].id) : null;
+  const armorWon = null; // (armor is bought with 🔷 Crests from Trials now)
   let result;
   if (won) {
     // Stars: 3 for a fast, hint-free battle. Hints and slow signing each cost one.

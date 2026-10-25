@@ -91,7 +91,7 @@ h2, h3 { color: #fff; -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke
 .btn.warn { background: var(--warn); color: #fff; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.3), inset 0 -4px 0 #8f2620, 0 3px 0 var(--ink); }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 4px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 8px var(--ink); }
 
-input[type=text], select {
+input[type=text], input[type=email], input[type=password], select {
   font: inherit; width: 100%; padding: 12px 14px; border: var(--outline); border-radius: 8px; background: #fffaf0;
   box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.08);
 }
@@ -110,6 +110,39 @@ input[type=text], select {
 .hero-row .avatar .pet { width: 30px; }
 .hand-check { margin-top: 16px; text-align: center; }
 .hand-check .camera { max-width: 360px; margin: 0 auto; }
+/* ---------- Log in / sign up (login.js) ---------- */
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 4px; }
+.auth-tab { font: inherit; font-size: 22px; font-weight: 700; padding: 10px; cursor: pointer; border: var(--outline); background: var(--card-2); color: var(--muted); }
+.auth-tab.on { background: var(--brand); color: #fff; box-shadow: inset 0 -4px 0 var(--brand-dark); }
+.field-hint { min-height: 1.2em; margin: 4px 0 0; font-size: 15px; color: var(--muted); }
+.field-hint.bad { color: var(--warn); font-weight: 700; }
+.field-hint.good { color: var(--go-dark); font-weight: 700; }
+.password-row { display: flex; gap: 8px; align-items: stretch; }
+.password-row input { flex: 1; min-width: 0; }
+.password-row .btn { white-space: nowrap; }
+.strength { height: 8px; margin-top: 6px; background: var(--card-2); border: 2px solid var(--ink); }
+.strength span { display: block; height: 100%; width: 0; background: var(--warn); transition: width 0.2s; }
+.strength span.s1 { background: var(--gold); }
+.strength span.s2, .strength span.s3 { background: var(--go); }
+.agree { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 17px; line-height: 1.3; cursor: pointer; }
+.agree input { width: 22px; height: 22px; flex: none; margin-top: 2px; accent-color: var(--brand); }
+.link { font: inherit; color: var(--brand-dark); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; font-weight: 700; }
+#auth-form .btn.big { width: 100%; margin-top: 16px; }
+#auth-error { margin: 12px 0 0; }
+.auth-switch { text-align: center; margin: 14px 0 0; }
+#auth-guest { display: block; margin: 10px auto 0; }
+.title-account { font-size: 22px; text-align: center; margin: 0 0 6px; }
+.agreement-wrap { align-items: center; z-index: 60; }
+.agreement { width: min(640px, 100%); max-height: min(86vh, 760px); display: flex; flex-direction: column; gap: 10px; }
+.agreement h2 { margin: 0; }
+.agreement-text { overflow-y: auto; flex: 1; padding: 6px 14px; background: #fffaf0; border: var(--outline); font-size: 17px; line-height: 1.35; }
+.agreement-text h3 { margin: 14px 0 4px; font-size: 19px; }
+.agreement-text ul { margin: 4px 0; padding-left: 22px; }
+.agreement-buttons { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.account-box { margin: 14px 0; padding: 10px 12px; border: var(--outline); background: #fffaf0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.account-box p { flex-basis: 100%; margin: 0; }
+#delete-box { flex-basis: 100%; }
+#delete-box input { margin-bottom: 8px; }
 .privacy { text-align: center; max-width: 520px; margin: 20px auto; padding: 10px 14px; background: rgba(251, 241, 214, 0.9); border: var(--outline); border-radius: 10px; }
 
 /* ---------- Camera ---------- */
@@ -1017,7 +1050,8 @@ input[type=text], select {
 .counter-title { margin: 0 0 8px; font-weight: 800; font-size: max(15px, 1.7cqw); text-align: center; }
 .counter-body { display: flex; gap: 14px; align-items: center; }
 .counter-hand-box { width: 42%; aspect-ratio: 1; overflow: hidden; border-radius: 10px; border: 3px solid var(--ink); background: #fff8ec; flex: none; }
-.counter-hand { width: 100%; height: 100%; object-fit: cover; transform: scale(1.7); transform-origin: 50% 46%; }
+.counter-hand { width: 100%; height: 100%; object-fit: contain; } /* the whole hand and its hints: the thumb is what tells M, N, and T apart */
+.counter-seeing { margin: 6px 0 0; font-weight: 700; text-align: center; }
 .counter-side { flex: 1; }
 .counter-ask { margin: 0 0 6px; font-weight: 700; }
 .counter-choices { display: flex; gap: 8px; }
@@ -1325,3 +1359,264 @@ body.has-bar { padding-bottom: 84px; }
   .main-bar .bar-name { font-size: 9px; }
   .main-bar .bar-icon { font-size: 18px; }
 }
+
+/* ---------- A zone fills the whole screen ---------- */
+/* The map view edge to edge; Map, the zone's name, coins, and the book float
+   over it, with what you're doing just under them. (biome.js fitView sizes the
+   view to the screen's shape.) */
+#screen-biome { position: fixed; inset: 0; max-width: none; margin: 0; padding: 0; background: #0d0b16; z-index: 5; }
+#screen-biome .biome-wrap { position: absolute; inset: 0; border: 0; border-radius: 0; box-shadow: none; }
+#screen-biome .biome-canvas { width: 100%; height: 100%; aspect-ratio: auto; }
+#screen-biome .screen-top { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 6; margin: 0; pointer-events: none; }
+#screen-biome .screen-top > * { pointer-events: auto; }
+#screen-biome .screen-top h2 {
+  font-size: clamp(14px, 2vw, 20px); background: rgba(18, 12, 30, 0.6); color: #fff; padding: 4px 12px; border-radius: 8px;
+  -webkit-text-stroke: 0; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); margin-right: auto; margin-left: 8px;
+}
+#screen-biome .screen-top .btn { opacity: 0.92; }
+#screen-biome .biome-goals { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); z-index: 6; margin: 0; pointer-events: none; width: max-content; max-width: 90%; }
+#screen-biome .goal { font-size: clamp(13px, 1.6vw, 17px); background: rgba(251, 241, 214, 0.92); }
+/* The main bar floats over the bottom of the zone: messages sit just above it. */
+#screen-biome .biome-toast { bottom: 92px; }
+#screen-biome .biome-ask { bottom: 100px; z-index: 45; } /* above the main bar, so its buttons can be pressed */
+body.has-bar #screen-biome { bottom: 0; }
+
+
+/* ⚔️ A raid creature: giant, glowing, and looming over the battlefield. */
+.monster.boss.raid .sprite { width: 34cqw; filter: drop-shadow(0 0 1.2cqw rgba(255, 210, 63, 0.55)); }
+.monster.boss.raid { z-index: 2; }
+
+/* 🃏 Match quests: flip cards to pair letters with handshapes. */
+.match-panel { width: min(560px, 94%); }
+.match-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 6px 0 10px; }
+.match-card {
+  aspect-ratio: 1; font: inherit; font-size: 34px; font-weight: 800; cursor: pointer; display: grid; place-items: center; padding: 4px;
+  background: linear-gradient(#8a5ad6, #5a3496); color: #fff; border: var(--outline); box-shadow: 0 4px 0 var(--ink);
+}
+.match-card.up { background: #fffaf0; color: var(--ink); }
+.match-card.done { background: #c8f0b0; }
+.match-card img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------- ⚔️ Co-op raids (raid.js): a battlefield like the zones' battles ---------- */
+.raid-field {
+  position: relative; container-type: inline-size; aspect-ratio: 16 / 8; border: var(--outline); overflow: hidden;
+  background: #1d2033 center / cover no-repeat; image-rendering: pixelated;
+}
+.raid-hud { position: absolute; top: 3%; right: 3%; width: 46%; z-index: 4; color: #fff; text-align: right; text-shadow: 0 2px 0 var(--ink); font-size: max(15px, 2cqw); }
+.raid-hp { position: relative; height: max(18px, 2.6cqw); border: 3px solid var(--ink); background: #2a1a3e; margin-top: 4px; }
+#raid-hp-fill { height: 100%; width: 100%; background: linear-gradient(#b06aff, #6a3fd0); transition: width 0.3s; }
+#raid-hp-text { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: max(12px, 1.5cqw); }
+.raid-boss-art { position: absolute; right: 3%; bottom: 7%; width: 38%; z-index: 2; display: grid; place-items: end center; }
+.raid-boss-art .sprite { width: 100%; filter: drop-shadow(0 0 1.4cqw rgba(255, 210, 63, 0.6)); animation: raid-breathe 2.4s ease-in-out infinite; }
+.raid-boss-art.beaten .sprite { filter: grayscale(1) brightness(0.6); animation: none; }
+.raid-boss-art.hit .sprite { animation: raid-flinch 0.25s; }
+.raid-boss-art.charging .sprite { animation: raid-charge 0.6s ease-in-out 3; }
+.raid-boss-art.lunge { animation: raid-lunge 0.45s ease-out; }
+@keyframes raid-breathe { 50% { scale: 1.03; } }
+@keyframes raid-flinch { 50% { filter: brightness(2.4); translate: 1.5cqw 0; } }
+@keyframes raid-charge { 50% { filter: drop-shadow(0 0 2cqw #ff4a4a) brightness(1.3); } }
+@keyframes raid-lunge { 40% { translate: -14cqw 2cqw; } }
+.raid-team { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.raid-hero { position: absolute; width: 8.5cqw; translate: -50% -50%; text-align: center; transition: left 0.4s, top 0.4s; }
+.raid-hero .sprite { width: 100%; filter: drop-shadow(0 0.4cqw 0 rgba(0, 0, 0, 0.3)); }
+.raid-hero small { display: block; font-size: max(10px, 1.1cqw); font-weight: 700; color: #fff; background: rgba(18, 12, 30, 0.7); padding: 0 4px; white-space: nowrap; }
+.raid-hero.me small { background: var(--gold); color: var(--ink); }
+.raid-hero.me::before { content: ""; position: absolute; left: 10%; right: 10%; bottom: 14%; height: 1.6cqw; border: 3px solid var(--gold); border-radius: 50%; z-index: -1; }
+.raid-hero.cast .sprite { animation: raid-cast 0.35s; }
+.raid-hero.hurt .sprite { animation: raid-hurt 0.4s; }
+.raid-hero.dodge .sprite { animation: raid-dodge 0.4s; }
+.raid-hero.down .sprite { filter: grayscale(1) brightness(0.6); rotate: -80deg; }
+@keyframes raid-cast { 40% { translate: 1cqw -0.6cqw; filter: brightness(1.5) drop-shadow(0 0 1cqw #ffd23f); } }
+@keyframes raid-hurt { 30%, 70% { filter: brightness(2) sepia(1) hue-rotate(-30deg); translate: -1cqw 0; } }
+@keyframes raid-dodge { 50% { translate: 0 -2.5cqw; } }
+/* 🌟 Unity Comet: the raid-only spell. */
+.raid-comet {
+  position: absolute; z-index: 5; width: 2.2cqw; height: 2.2cqw; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 25%, #ffe066 45%, rgba(255, 138, 216, 0.6) 70%, transparent 72%);
+  box-shadow: 0 0 1.4cqw #ffd23f, -1.2cqw 0 1.6cqw rgba(197, 140, 240, 0.7);
+}
+.raid-comet.mine { width: 3cqw; height: 3cqw; box-shadow: 0 0 2cqw #ffd23f, -1.6cqw 0 2cqw rgba(127, 227, 255, 0.8); }
+.raid-burst { position: absolute; z-index: 5; width: 7cqw; height: 7cqw; translate: -50% -50%; border-radius: 50%; pointer-events: none; border: 0.6cqw solid #ffe066; animation: raid-burst 0.5s ease-out forwards; }
+@keyframes raid-burst { from { scale: 0.2; opacity: 1; } to { scale: 1.3; opacity: 0; } }
+.raid-pop { position: absolute; z-index: 6; translate: -50% -100%; font-size: max(16px, 2.6cqw); font-weight: 800; color: #fff; -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; animation: float-up-coin 0.9s ease-out forwards; pointer-events: none; }
+.raid-pop.mine { color: var(--gold); font-size: max(20px, 3.4cqw); }
+.raid-banner { position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 7; text-align: center; max-width: 70%; }
+.raid-phase { margin: 0 0 10px; padding: 10px 16px; background: rgba(251, 241, 214, 0.95); border: var(--outline); font-weight: 700; font-size: max(15px, 1.7cqw); }
+.raid-panel { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-top: 12px; align-items: center; }
+@media (max-width: 760px) { .raid-panel { grid-template-columns: 1fr; } }
+.raid-sign { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: center; }
+.raid-sign .camera { max-width: 220px; }
+.raid-target { text-align: center; }
+.raid-prompt { font-weight: 800; margin: 0; }
+.raid-prompt.danger { color: var(--warn); }
+.raid-target .big-letter { font-size: 72px; min-height: 1.1em; }
+.raid-spell-name { margin: 0 0 6px; font-weight: 700; }
+.raid-me { display: flex; gap: 8px; align-items: center; margin: 6px 0; font-weight: 700; }
+.raid-myhp { flex: 1; height: 14px; border: 2px solid var(--ink); background: #3a2a3e; }
+#raid-myhp-fill { height: 100%; width: 100%; background: var(--good); transition: width 0.3s; }
+.raid-log { list-style: none; margin: 6px 0 0; padding: 0; font-size: 15px; color: var(--muted); }
+.raid-list { margin-bottom: 12px; }
+.raid-list h3 { margin: 0 0 6px; }
+.raid-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 4px 0; border-top: 2px dashed var(--card-2); }
+.raid-mini { width: 34px; vertical-align: middle; margin-right: 6px; }
+
+/* 🔷 A Trial Guardian: shimmering crystal light. */
+.monster.boss.trial-guardian .sprite { animation: crystal-shimmer 2.4s ease-in-out infinite; }
+@keyframes crystal-shimmer {
+  0%, 100% { filter: drop-shadow(0 0 0.8cqw rgba(127, 227, 255, 0.7)); }
+  50% { filter: drop-shadow(0 0 1.4cqw rgba(197, 140, 240, 0.8)) brightness(1.08); }
+}
+.coins.crests { color: #2a6ab0; }
+.armor-card.can-buy { outline: 3px dashed #3fa8e0; }
+
+/* 🥚 A raid egg hatching (eggs.js). */
+.coins.egg { cursor: help; }
+.hatch {
+  position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: radial-gradient(circle, rgba(255, 236, 170, 0.35), rgba(20, 14, 40, 0.88) 70%); color: #fff; text-align: center; padding: 16px;
+}
+.hatch-title { font-size: 1.6rem; font-weight: 800; text-shadow: 0 3px 0 var(--ink); margin: 0; }
+.hatch-help { font-weight: 700; text-shadow: 0 2px 0 var(--ink); margin: 0; max-width: 420px; }
+.hatch-egg { background: none; border: 0; padding: 0; cursor: pointer; animation: egg-wobble 1.2s ease-in-out infinite; }
+.hatch-egg img { width: min(40vw, 180px); image-rendering: pixelated; filter: drop-shadow(0 0 18px rgba(255, 230, 140, 0.8)); }
+.hatch-egg.tier-3 img { filter: drop-shadow(0 0 26px rgba(255, 201, 60, 0.95)); }
+.hatch-egg.tier-4 img { filter: drop-shadow(0 0 30px rgba(197, 140, 240, 1)); }
+.hatch-egg.shake { animation: egg-shake 0.35s linear; }
+@keyframes egg-wobble { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(8deg); } 60% { transform: rotate(0); } }
+@keyframes egg-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px) rotate(-6deg); } 75% { transform: translateX(10px) rotate(6deg); } }
+.hatch-born { width: min(46vw, 220px); image-rendering: pixelated; animation: hatch-pop 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.8)); }
+@keyframes hatch-pop { from { transform: scale(0.1); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.hatch-name { font-size: 1.3rem; margin: 0; text-shadow: 0 2px 0 var(--ink); }
+.hatch-name .rarity { font-size: 0.9rem; margin-left: 6px; }
+@media (prefers-reduced-motion: reduce) { .hatch-egg, .hatch-egg.shake, .hatch-born { animation: none; } }
+
+/* 🗼 Trial Tower (tower.js): a tall tower of floors to climb, under the zone's sky. */
+#screen-tower {
+  --tower-sky1: #2a2030; --tower-sky2: #6a4bd6; --tower-stone: #8a7a92; --tower-dark: #5a4e66; --tower-trim: #ffd23f;
+  position: fixed; inset: 0; max-width: none; margin: 0; padding: 12px 16px 0; z-index: 5; box-sizing: border-box;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.18) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 30%, rgba(255, 255, 255, 0.14) 0 2px, transparent 3px),
+    radial-gradient(circle at 62% 8%, rgba(255, 255, 255, 0.12) 0 1px, transparent 2px),
+    linear-gradient(180deg, var(--tower-sky1), var(--tower-sky2));
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#screen-tower[hidden] { display: none; }
+#screen-tower .screen-top h2 { color: #fff; text-shadow: 0 2px 0 var(--ink); }
+.tower-layout { flex: 1; display: flex; gap: 24px; align-items: stretch; justify-content: center; min-height: 0; }
+.tower-wrap { overflow-y: auto; overflow-x: hidden; padding: 0 24px; scrollbar-width: none; }
+.tower-wrap::-webkit-scrollbar { display: none; }
+.tower { width: min(380px, 78vw); margin: 0 auto; display: flex; flex-direction: column; align-items: stretch; }
+.tower-roof {
+  height: 110px; margin: 16px -20px 0; position: relative;
+  background: linear-gradient(180deg, var(--tower-trim), var(--tower-dark));
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14px; font-size: 26px;
+}
+.tower-roof span { filter: drop-shadow(0 0 8px var(--tower-trim)); animation: tower-glint 2.4s ease-in-out infinite; }
+@keyframes tower-glint { 50% { transform: translateY(-4px) scale(1.15); } }
+.tower-floor {
+  position: relative; height: 78px; display: grid; grid-template-columns: 40px 1fr 70px 1fr 40px; align-items: center;
+  border: 0; border-bottom: 4px solid var(--tower-dark); padding: 0 6px; cursor: pointer; font: inherit; color: #fff;
+  /* Stone bricks. */
+  background:
+    repeating-linear-gradient(0deg, transparent 0 18px, rgba(0, 0, 0, 0.18) 18px 20px),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(0, 0, 0, 0.14) 38px 40px),
+    var(--tower-stone);
+  box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.25), inset -6px 0 0 rgba(0, 0, 0, 0.25);
+}
+.tower-floor.guardian { height: 98px; border-top: 4px solid var(--tower-trim); border-bottom-color: var(--tower-trim); }
+.tower-floor.locked { filter: brightness(0.55) saturate(0.6); }
+.tower-floor.cleared { filter: brightness(0.85); }
+.tower-floor.next { animation: tower-next 1.6s ease-in-out infinite; }
+@keyframes tower-next { 50% { box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.25), inset -6px 0 0 rgba(0, 0, 0, 0.25), inset 0 0 26px var(--tower-trim); } }
+.tower-floor.selected { outline: 4px solid #fff; outline-offset: -4px; z-index: 1; }
+.tower-floor:focus-visible { outline: 4px solid var(--tower-trim); outline-offset: -4px; }
+.tower-floor > * { grid-row: 1; }
+.tower-num {
+  grid-column: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 800;
+  background: var(--tower-dark); border: 3px solid var(--tower-trim); text-shadow: 0 1px 0 var(--ink);
+}
+.tower-window { width: 16px; height: 26px; border-radius: 8px 8px 2px 2px; background: #1a1428; box-shadow: inset 0 -8px 0 rgba(255, 210, 63, 0.35); justify-self: center; }
+.tower-floor .tower-window:first-of-type { grid-column: 2; }
+.tower-floor .tower-window:last-of-type { grid-column: 4; }
+.tower-who { grid-column: 3; display: flex; justify-content: center; align-items: flex-end; height: 100%; }
+.tower-who .sprite { width: 62px; image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.35)); }
+.tower-floor.guardian .tower-who .sprite { width: 84px; }
+.tower-floor.locked .tower-who .sprite { filter: brightness(0) opacity(0.6); }
+.tower-hero { position: absolute; left: 46px; bottom: 2px; }
+.tower-hero .sprite { width: 40px; image-rendering: pixelated; }
+.tower-tag { grid-column: 5; font-weight: 800; font-size: 0.8rem; text-shadow: 0 2px 0 var(--ink); text-align: center; }
+.tower-floor.guardian .tower-tag { grid-column: 4 / 6; justify-self: end; color: var(--tower-trim); }
+.tower-door {
+  height: 60px; display: grid; place-items: center; font-size: 30px; margin: 0 -24px; padding-bottom: 6px;
+  background: linear-gradient(180deg, var(--tower-dark) 0 70%, #4a8a3a 70% 100%);
+}
+.tower-panel { width: 260px; text-align: center; align-self: center; box-sizing: border-box; }
+.tower-foe-art { height: 130px; display: flex; align-items: flex-end; justify-content: center; }
+.tower-foe-art .sprite { height: 120px; width: auto; max-width: 160px; object-fit: contain; image-rendering: pixelated; scale: 1; transform-origin: bottom; }
+#screen-tower .sprite { scale: 1; } /* evolved sprites are shown bigger elsewhere; here each slot sets its own size */
+.tower-mystery { font-size: 64px; opacity: 0.5; }
+.tower-floor-name { font-weight: 800; font-size: 1.2rem; margin: 8px 0 2px; }
+.tower-foe-name { font-weight: 700; margin: 0; }
+.tower-foe-kind, .tower-reward { margin: 4px 0; font-size: 0.9rem; }
+#tower-fight { width: 100%; margin-top: 8px; box-sizing: border-box; }
+@media (max-width: 700px) {
+  .tower-layout { flex-direction: column; align-items: stretch; gap: 8px; padding-bottom: 10px; }
+  .tower-wrap { flex: 1; min-height: 0; }
+  /* The floor's details in one compact strip under the tower. */
+  .tower-panel { width: 100%; padding: 8px 10px; display: grid; grid-template-columns: 64px 1fr; column-gap: 10px; text-align: left; align-items: center; }
+  .tower-panel > * { grid-column: 2; margin: 0; }
+  .tower-panel .tower-foe-art { grid-column: 1; grid-row: 1 / 5; height: 64px; }
+  .tower-panel .tower-floor-name { font-size: 1rem; }
+  .tower-panel .tower-foe-kind, .tower-panel .tower-reward { font-size: 0.8rem; margin: 0; }
+  .tower-panel #tower-fight { grid-column: 1 / 3; min-height: 46px; font-size: 20px; margin-top: 6px; padding: 6px; }
+  #screen-tower .top-actions #tower-progress { display: none; }
+  #screen-tower .screen-top h2 { font-size: 16px; }
+  .tower { width: min(340px, 100%); }
+  .tower-foe-art { height: 80px; }
+  .tower-foe-art .sprite { height: 60px; width: auto; max-width: 64px; }
+}
+@media (prefers-reduced-motion: reduce) { .tower-roof span, .tower-floor.next { animation: none; } }
+
+/* 💀 A tower's Ultimate: its floor is the tallest, dark and glowing; in battle it's huge. */
+.tower-floor.ultimate {
+  height: 128px; border-top: 6px solid #ff4a7a; border-bottom-color: #ff4a7a;
+  background:
+    radial-gradient(ellipse at 50% 70%, rgba(255, 74, 122, 0.35), transparent 65%),
+    repeating-linear-gradient(0deg, transparent 0 18px, rgba(0, 0, 0, 0.25) 18px 20px),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(0, 0, 0, 0.2) 38px 40px),
+    #2a1a2e;
+}
+.tower-floor.ultimate .tower-who .sprite { width: 112px; filter: drop-shadow(0 0 10px rgba(255, 74, 122, 0.8)); }
+.tower-floor.ultimate.locked .tower-who .sprite { filter: brightness(0) drop-shadow(0 0 8px rgba(255, 74, 122, 0.9)); }
+.tower-floor.ultimate .tower-tag { color: #ff8aa8; }
+.tower-floor.ultimate .tower-num { border-color: #ff4a7a; }
+.monster.boss.ultimate .sprite { width: 36cqw; filter: drop-shadow(0 0 1.4cqw rgba(255, 74, 122, 0.7)); animation: ultimate-pulse 2s ease-in-out infinite; }
+@keyframes ultimate-pulse { 50% { filter: drop-shadow(0 0 2.6cqw rgba(255, 74, 122, 0.95)); } }
+@media (prefers-reduced-motion: reduce) { .monster.boss.ultimate .sprite { animation: none; } }
+
+/* ☁️ Skyhaven (hub.js): the whole screen is the sky; the island sits in the middle. */
+#screen-hub { position: fixed; inset: 0; max-width: none; margin: 0; padding: 0; z-index: 5; background: linear-gradient(180deg, #5a8ad8, #c8e8ff); }
+#screen-hub[hidden] { display: none; }
+#screen-hub .screen-top { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 6; margin: 0; }
+.hub-wrap { position: absolute; inset: 0; display: grid; place-items: center; }
+.hub-canvas { width: min(100vw, calc(100vh * 440 / 260)); aspect-ratio: 440 / 260; image-rendering: pixelated; touch-action: none; }
+.hub-action {
+  position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); box-sizing: border-box;
+  display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 14px; font-weight: 700; z-index: 7;
+}
+.hub-action .btn { flex: none; }
+.hub-emotes { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 6px; z-index: 7; }
+.hub-emote { font-size: 24px; width: 48px; height: 48px; border-radius: 50%; border: var(--outline); background: var(--card); box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
+.hub-emote:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.zone-pin.hub-pin { transform: translate(-50%, calc(var(--h) * -1 * var(--u))); }
+.zone-pin.hub-pin .landmark { width: calc(var(--w) * 0.95 * var(--u)); animation: hub-float 3s ease-in-out infinite; }
+.zone-pin.hub-pin .banner { background: #4f8ad8; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.22), inset 0 -3px 0 #2a5a9a; }
+@keyframes hub-float { 50% { transform: translateY(calc(var(--u) * -2)); } }
+/* 🌀 A Rift raid: a purple storm over the battlefield. */
+#screen-raid.rift #raid-field { box-shadow: inset 0 0 0 4px #c84ab0, inset 0 0 60px rgba(122, 42, 176, 0.75); }
+#screen-raid.rift #raid-field::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 70% 35%, rgba(200, 74, 176, 0.35), transparent 60%); }
+/* ⏳ The Spire of Ages: marble and gold. */
+#screen-tower.spire .tower-floor.guardian { border-top-color: #ffd23f; }
+@media (prefers-reduced-motion: reduce) { .zone-pin.hub-pin .landmark { animation: none; } }

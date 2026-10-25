@@ -9,8 +9,9 @@ import { currentZone } from "./biome.js";
 import { isShowing, openBook, openHeroMaker, show } from "./screens.js";
 
 const $ = (id) => document.getElementById(id);
+// (In a zone too, floating over the full-screen view.)
 const BAR_SCREENS = ["map", "biome", "shop", "book", "hero", "arena", "settings"];
-const ACTIVE = { map: "map", book: "book", hero: "hero", shop: "shop", arena: "friends", settings: "settings" };
+const ACTIVE = { map: "map", biome: "map", book: "book", hero: "hero", shop: "shop", arena: "friends", settings: "settings" };
 
 // Where to go back to: the zone you were in, or the map.
 let base = "map";

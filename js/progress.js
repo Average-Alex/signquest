@@ -1,14 +1,16 @@
 // Player progress: XP, coins, stars, learned letters, miss counts, closet,
-// settings. Saved in localStorage - no accounts. (In the Battle Arena, your
-// name, hero, and rank are shared with the players there; see arena.js.)
+// settings. Saved in localStorage, one save per account (account.js). (In the
+// Battle Arena, your name, hero, and rank are shared with the players there;
+// see arena.js.)
 
 import {
-  armorById, ARMOR, BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, RENAMED_CREATURES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
-  TEAM_SIZE, ZONES,
+  armorById, ARMOR, BIOME_AREAS, BUDDY_MAX_LEVEL, buddyXpToLevel, CREATURE_RARITY, CREATURES, DEFAULT_CLASS, DEFAULT_SETTINGS, HERO_CLASSES, RENAMED_CREATURES, STAGES, STARTER_CREATURE, STARTING_CONSUMABLES,
+  TEAM_SIZE, TOWER_SPELLS, ZONES,
 } from "./config.js";
 import { normalizeLook } from "./sprites.js";
+import { saveKey } from "./account.js";
 
-const KEY = "signquest.v1";
+const KEY = saveKey(); // whoever is logged in on this device
 
 function defaults() {
   return {
@@ -23,6 +25,9 @@ function defaults() {
     signed: {}, // letter -> times signed without help (the hand picture fades as this grows)
     owned: [], // hats
     equipped: { hat: null, armor: "tunic" }, // armor: see ARMOR in config.js
+    crests: 0, // 🔷 Crests: won from Trial Guardians, spent on armor
+    armorBought: [], // armor sets bought with Crests
+    eggs: [], // 🥚 raid eggs: { z, tier, warmth, need }; the first one is warming (warmEgg)
     consumables: { ...STARTING_CONSUMABLES }, // potion id -> how many
     creatures: { [STARTER_CREATURE]: { level: 1, xp: 0 } }, // every creature you've freed: id -> level/xp
     team: [STARTER_CREATURE], // up to TEAM_SIZE buddies that fight beside you
@@ -161,9 +166,11 @@ export function zoneStars(zoneIndex) {
 // Go anywhere in the Overworld, in any order. The portal to the Starfall
 // Realm opens once you've collected all of the Overworld's shards; there the
 // zones open one after another, leading up to Malgrath.
+// TEMP: everything open, to look around the Starfall Realm. Set back to false before shipping.
+const OPEN_EVERYTHING = false;
 export function zoneUnlocked(zoneIndex) {
   const zone = ZONES[zoneIndex];
-  if (zone.dimension === 0) return true;
+  if (zone.dimension === 0 || OPEN_EVERYTHING) return true;
   const first = ZONES.findIndex((zn) => zn.dimension === zone.dimension);
   if (zoneIndex > first) return bossBeaten(zoneIndex - 1);
   return ZONES.every((zn, z) => zn.dimension >= zone.dimension || zn.shard === false || bossBeaten(z));
@@ -199,6 +206,7 @@ export function addSuccess(letter) {
   state.signed ||= {};
   state.signed[letter] = (state.signed[letter] || 0) + 1;
   if (state.misses[letter]) state.misses[letter] = Math.max(0, state.misses[letter] - 0.5);
+  warmEgg();
   save();
 }
 
@@ -343,10 +351,88 @@ export function updateQuest(zoneIndex, area, changes) {
 
 // 🏛️ Trials beaten in a zone (0 to 3; biome.js TRIALS).
 export const trialTier = (zoneIndex) => trail(zoneIndex).trials || 0;
+// ⚔️ Raid tiers won in a zone (raid.js).
+export const raidTier = (zoneIndex) => trail(zoneIndex).raids || 0;
+export function beatRaid(zoneIndex, tier) {
+  const t = trail(zoneIndex);
+  t.raids = Math.max(t.raids || 0, tier);
+  save();
+}
+// 🌀 Motion Trials beaten in a zone (moving signs; biome.js MOTION_TRIALS).
+export const motionTier = (zoneIndex) => trail(zoneIndex).motionTrials || 0;
+export function beatMotionTrial(zoneIndex, tier) {
+  const t = trail(zoneIndex);
+  t.motionTrials = Math.max(t.motionTrials || 0, tier);
+  save();
+}
 export function beatTrial(zoneIndex, tier) {
   const t = trail(zoneIndex);
   t.trials = Math.max(t.trials || 0, tier);
   save();
+}
+// 🗼 The highest Trial Tower floor climbed in a zone (tower.js). Trials won
+// before there were towers count: the Guardian is on every fifth floor.
+export const towerFloor = (zoneIndex) => Math.max(trail(zoneIndex).tower || 0, trialTier(zoneIndex) * 5);
+// Ids of the Trial Tower spells you've learned: each is taught by a boss floor you've cleared.
+export const towerSpells = () => TOWER_SPELLS.filter((sp) => towerFloor(ZONES.findIndex((zone) => zone.id === sp.tower)) >= sp.floor).map((sp) => sp.id);
+// ⏳ The Spire of Ages (Skyhaven's tower, tower.js): the highest floor climbed.
+export const spireFloor = () => state.spire || 0;
+export function clearSpireFloor(floor) {
+  state.spire = Math.max(state.spire || 0, floor);
+  save();
+}
+export function clearFloor(zoneIndex, floor) {
+  const t = trail(zoneIndex);
+  t.tower = Math.max(t.tower || 0, floor);
+  save();
+}
+
+// ---------- 🥚 Raid eggs ----------
+// Winning a raid gives an egg. The first egg sits in the incubator, and every
+// sign you get right warms it; once warm enough it hatches (eggs.js) into a
+// creature from the raid's zone: rarer, and stronger, the higher the raid.
+export const EGG_SIGNS = { 1: 15, 2: 25, 3: 40, 4: 50 }; // 4: a Rift egg (Skyhaven's Rift raids)
+export const EGG_MIN_RARITY = { 1: "uncommon", 2: "rare", 3: "epic", 4: "legendary" };
+export const eggs = () => state.eggs || [];
+
+export function addEgg(zoneIndex, tier) {
+  (state.eggs ||= []).push({ z: zoneIndex, tier, warmth: 0, need: EGG_SIGNS[tier] || EGG_SIGNS[1] });
+  save();
+}
+
+// The egg in the incubator, if it's ready to hatch.
+export const readyEgg = () => (eggs()[0] && eggs()[0].warmth >= eggs()[0].need ? eggs()[0] : null);
+
+export function warmEgg() {
+  const egg = eggs()[0];
+  if (!egg || egg.warmth >= egg.need) return;
+  egg.warmth++;
+  save();
+}
+
+// Hatch the egg in the incubator. Returns { id, level, isNew }.
+export function hatchEgg() {
+  const egg = readyEgg();
+  if (!egg) return null;
+  const order = ["common", "uncommon", "rare", "epic", "legendary"];
+  const zone = ZONES[egg.z];
+  const wild = CREATURES.filter((c) => c.zone === zone?.id && c.catchable !== false && c.kind !== "boss" && c.kind !== "raid" && c.kind !== "trial" && c.kind !== "warden" && c.kind !== "ultimate" && c.kind !== "rift" && c.kind !== "spirekeeper");
+  const minRank = order.indexOf(EGG_MIN_RARITY[egg.tier] || "common");
+  // The rarest kinds this zone has, at or above the egg's rarity; ones you don't have yet first.
+  const rank = (c) => order.indexOf(CREATURE_RARITY[c.id] || "common");
+  let pool = wild.filter((c) => rank(c) >= minRank);
+  if (!pool.length) pool = wild.filter((c) => rank(c) === Math.max(...wild.map(rank)));
+  const fresh = pool.filter((c) => !hasCreature(c.id));
+  const pick = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length || pool.length))] || CREATURES.find((c) => c.id === STARTER_CREATURE);
+  const level = Math.min(BUDDY_MAX_LEVEL, 3 + egg.tier * 4);
+  const isNew = catchCreature(pick.id);
+  const mine = state.creatures[pick.id];
+  // A creature you already had grows instead: it jumps up a few levels.
+  mine.level = Math.min(BUDDY_MAX_LEVEL, isNew ? Math.max(mine.level, level) : mine.level + egg.tier + 1);
+  mine.xp = 0;
+  state.eggs.shift();
+  save();
+  return { id: pick.id, level: mine.level, isNew, tier: egg.tier };
 }
 
 // The zone's mission (missions.js). State: { started, phase, done: goal ids,
@@ -424,10 +510,22 @@ export function equip(item) {
 }
 
 // ---------- Armor ----------
-// You win a zone's armor set by beating its boss (so older saves have theirs).
+// Armor sets are bought with 🔷 Crests (from Trial Guardians).
 export function ownsArmor(id) {
   const armor = armorById(id);
-  return !armor.zone || bossBeaten(ZONES.findIndex((zn) => zn.id === armor.zone));
+  return !armor.crests || (state.armorBought || []).includes(id);
+}
+export function buyArmor(id) {
+  const armor = armorById(id);
+  if (ownsArmor(id) || (state.crests || 0) < armor.crests) return false;
+  state.crests -= armor.crests;
+  (state.armorBought ||= []).push(id);
+  save();
+  return true;
+}
+export function addCrests(n) {
+  state.crests = (state.crests || 0) + n;
+  save();
 }
 export const ownedArmor = () => ARMOR.filter((a) => ownsArmor(a.id));
 export const heroArmor = () => armorById(state.equipped.armor);

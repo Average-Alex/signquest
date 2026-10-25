@@ -18,8 +18,10 @@
 // Each area (except the boss's, at the top) has a villager with a quest.
 // Each zone mixes them up (never the same kind twice in a row), and ends
 // with the gate guard, a mini-boss before the boss. Quest types:
-//   learn   - the giver shows you a sign (`word`), and you copy it
+//   learn   - the giver shows you a sign (`word`), and you copy it; `move`:
+//             a moving sign they teach you too (HELLO, YES...; config.js MOTION_TIPS)
 //   convo   - a signed conversation: they ask, you answer with a sign
+//             (a letter, or a moving sign like THANK YOU)
 //             (`qa`: [[lines asking, answer, short question], ...])
 //   spot    - spot the sign: tap who's signing the letter they ask for
 //             (reading signs, not just making them; `rounds` questions)
@@ -30,7 +32,46 @@
 //             up), then bring it back
 //   riddle  - answer a riddle by fingerspelling `word` (one of the zone's words)
 //   deliver - take an item from the quest giver to `to`, another villager here
+//   hide    - hide-and-seek: find `item` (`emoji`) and sign to tag it; it
+//             dashes off to hide again, `hops` times in all
+//   memory  - the giver signs `word` once; you sign it back from memory
+//   quiz    - true or false about ASL and Deaf culture (`qs`: [[statement,
+//             true/false, why], ...]); a wrong answer is explained, then asked again
+//   chant   - sign `words` in order ([[word, what it is], ...]), like a
+//             potion's ingredients or the lines of a spell (`icon`, `verb`)
 //   guard   - beat the hexed gate guard (a word battle, which opens the boss)
+//
+// Every zone also has one signature quest that plays like nothing else, found
+// only there (biome.js "Signature quests"):
+//   garden   - Meadow: plant `count` `seed`s, wait `growMs` while they grow,
+//              then pick the `crop`
+//   glow     - Glowshroom Forest: light the mushrooms in the color `order`;
+//              a wrong one, or the hexed decoy, puts them all out
+//   (race)   - Magma Canyon: a collect quest with a `timer`
+//   fish     - Coral Lagoon: cast from the dock, wait for a bite, sign fast
+//   ghosts   - Haunted Hollow: the area goes dark; find `count` drifting
+//              ghosts by your lantern's light
+//   snowball - Aurora Glacier: snowmen pop up around you; sign before they throw
+//   simon    - Thunder Peaks: echo the chime's patterns (`rounds`), longer each time
+//   escort   - Crown Keep: find `item` (`emoji`), then lead it to the `goal`
+//              (`goalEmoji`) while it follows you
+//   stars    - Cosmic Rift: sign the stars in order to draw a constellation;
+//              they spell `word`, the answer to the giver's `clue`
+//
+// And kinds that move and play differently (no "go fetch it"):
+//   race     - race the giver to the 🚩 flag (`retry`: what they say for a rematch)
+//   follow   - sneak after the giver to the hideout (`goalEmoji`); stay close,
+//              and keep out of sight of the hexed eyes (`watchers`, 2 if not said)
+//   defend   - protect `target` for `seconds` from `raider`s (`raiderName`),
+//              which come every `every` ms; sign at each one to drive it off
+//   mirror   - the giver signs (only the hand picture shows); copy it fast.
+//              `rounds` signs, `need` of them right
+//   match    - pair `pairs` letters with their handshapes (`prompt`), then sign them
+//
+// A collect quest can gather something else than sign cards (`thing`: emoji,
+// name, plural, found, verb), and can be a race (`timer`: seconds to find
+// them all, or they slip away; `retry`: what the giver says to try again).
+// Every zone mixes its own kinds, so no two zones play the same.
 //
 // `folk`: townsfolk who wander about and chat.
 //
@@ -80,14 +121,15 @@ export const QUESTS = {
     ],
     steps: [
       {
-        type: "learn", npc: "fern", word: "A", title: "Learn your first sign with Farmer Fern",
-        start: [["fern", "A Signkeeper! Oh, thank goodness. A Beacon Shard crashed into Sprout Pond, and the Croak King swallowed its light."], ["fern", "My grandma taught me some signs. Hexes hate signing! Let me show you the letter A. Make a fist, with your thumb on the side."]],
-        done: [["fern", "That's it! A, for A Signkeeper! The Croak King lives at the top of the meadow, by the old pond. Go through my garden."]],
+        type: "learn", npc: "fern", word: "A", move: "HELLO", title: "Learn your first signs with Farmer Fern",
+        start: [["fern", "A Signkeeper! Oh, thank goodness. A Beacon Shard crashed into Sprout Pond, and the Croak King swallowed its light."], ["fern", "My grandma taught me some signs. Hexes hate signing! First, the letter A: a fist, with your thumb on the side."], ["fern", "Then a sign that MOVES: HELLO. Flat hand at your forehead, then salute out to the side, like a friendly wave."]],
+        done: [["fern", "That's it! A, for A Signkeeper, and a big HELLO! The Croak King lives at the top of the meadow, by the old pond. Go through my garden."]],
       },
       {
-        type: "find", npc: "milo", item: "Milo's kite", title: "Find Milo's kite",
-        start: [["milo", "My kite flew right over Sprout Pond when the shard fell! I drew a map on it. Then the purple fog blew it away."], ["pip", "A map to the pond? We need that kite!"]],
-        done: [["milo", "My kite! See the map? The pond is past Gatekeeper Gus. Good luck!"]],
+        type: "race", npc: "milo", title: "Race Milo to the hilltop flag",
+        start: [["milo", "My kite got stuck on the hilltop flagpole when the shard fell! I drew a map to the pond on it."], ["milo", "Race you up there! First one to the 🚩 flag gets to read the map. Ready?"]],
+        retry: "Rematch! On your marks...",
+        done: [["milo", "Whoa, you're fast! Here's my kite. The map shows the pond, past Gatekeeper Gus. Good luck!"]],
       },
       {
         type: "riddle", npc: "gus", word: "CAB", title: "Remember Gus's lost password",
@@ -95,9 +137,9 @@ export const QUESTS = {
         done: [["gus", "C-A-B! It's all coming back to me. Welcome back, Signkeeper."]],
       },
       {
-        type: "spot", npc: "nana", prompt: "Nana Bea's signing game!", rounds: 2, title: "Play Nana Bea's signing game",
-        start: [["nana", "Grandpa Bo knows how to get past the Croak King's guards. But first, a little game!"], ["nana", "My friends will each sign a letter. You tell me who's signing the one I ask for. Watch their hands!"]],
-        done: [["nana", "Sharp eyes! Bo says the king's last guard sleeps by the top gate. Scout Ivy's been watching it."]],
+        type: "garden", npc: "nana", count: 3, seed: "carrot seed", crop: "🥕", growMs: 25000, title: "Grow carrots in Nana Bea's garden",
+        start: [["nana", "Grandpa Bo knows how to get past the Croak King's guards. But he won't say a word on an empty tummy!"], ["nana", "The hex scared off my garden. Plant three carrots for me, wait for them to grow, then pick them. Signlight makes them grow FAST."]],
+        done: [["nana", "Look at these carrots! Bo is munching happily. He says the king's last guard sleeps by the top gate. Scout Ivy's been watching it."]],
       },
       {
         type: "guard", npc: "ivy", title: "Beat the Croak King's gate guard",
@@ -141,19 +183,20 @@ export const QUESTS = {
         done: [["rowan", "My lantern! And the little guy says sorry. The students ran toward the Owlery. Follow the trail."]],
       },
       {
-        type: "riddle", npc: "sam", word: "BIKE", title: "Prove you're a Signkeeper to Sam",
-        start: [["sam", "Are you a real Signkeeper? Professor Hoot says a real one can answer any riddle with their hands."], ["sam", "What has two wheels and pedals? Sign it!"]],
-        done: [["sam", "B-I-K-E! You ARE a Signkeeper! Lena knows how to help the Professor. She's up ahead."]],
+        type: "chant", npc: "sam", icon: "🧪", verb: "Ingredient", title: "Brew Professor Hoot's wake-up potion with Sam",
+        words: [["F", "a Fern leaf"], ["G", "a Glowcap mushroom"], ["H", "a drop of Honey"], ["PLEASE", "ask nicely, so it works. Flat hand on your chest, rub a circle"]],
+        start: [["sam", "I'm the Professor's student! I'm brewing his wake-up potion, to clear the hex fog in the woods."], ["sam", "Each ingredient only goes in when someone signs its letter. Help me add them, in order!"]],
+        done: [["sam", "*POOF* It's glowing! The fog is lifting. Lena knows how to help the Professor. She's up ahead."]],
       },
       {
-        type: "collect", npc: "lena", count: 3, title: "Gather the pages of Professor Hoot's spellbook",
-        start: [["lena", "Professor Hoot's spellbook burst open when the hex hit. The Signkeeper Oath is in there!"], ["lena", "Three pages blew around this part of the glowing woods. Each one has a sign on it. Can you collect them?"]],
-        done: [["lena", "All three pages! Here, the Oath is on the first one. Now go save the Professor!"]],
+        type: "match", npc: "lena", pairs: 4, prompt: "Professor Hoot's flash cards: match each letter to its handshape!", title: "Sort Professor Hoot's flash cards",
+        start: [["lena", "Professor Hoot's flash cards got all mixed up when the hex hit! Letters on some, handshapes on others."], ["lena", "Match each letter to its handshape, then sign them for me. The Professor will need them when he wakes up!"]],
+        done: [["lena", "All sorted! These cards will help the Professor remember who he is. Go save him!"]],
       },
       {
-        type: "deliver", npc: "pippa", to: "wes", item: "a basket of muffins", title: "Bring Pippa's muffins to Woodcutter Wes",
-        start: [["pippa", "Wes has been chopping through Malgrath's hexed vines all night to reach the Owlery. Bring him these muffins?"]],
-        done: [["wes", "Muffins! Just what I needed. One more chop... there! The way to the Owlery is clear."]],
+        type: "glow", npc: "pippa", order: ["blue", "pink", "gold"], title: "Light the glowshroom path for Pippa",
+        start: [["pippa", "The hex put out the glowshrooms, and now nobody can find the way to the Owlery in the dark!"], ["pippa", "They only light up in the right order: BLUE, then PINK, then GOLD. And whatever you do, don't touch the purple-black one. It's hexed!"]],
+        done: [["pippa", "The whole path is glowing! Woodcutter Wes is already heading up it to clear the vines. Go on!"]],
       },
       {
         type: "guard", npc: "hazel", title: "Beat the Owlery's gate guard",
@@ -198,21 +241,25 @@ export const QUESTS = {
         done: [["mo", "The canyon's safer already! Magmaw is up in the volcano, where the shard landed."]],
       },
       {
-        type: "spot", npc: "pete", prompt: "Old Pete's door code", rounds: 2, title: "Help Pete read the door code",
-        start: [["pete", "Heh. This door was built by Signkeepers. It opens when you point out the right signer."], ["pete", "My old crew will each sign a letter. Tell the door who's signing the one it asks for!"]],
-        done: [["pete", "Ha! The old door hasn't opened in years! In you go."]],
+        type: "collect", npc: "pete", count: 3, timer: 75, title: "Cool the lava vents before they blow!",
+        thing: { emoji: "🌋", name: "lava vent", plural: "lava vents", found: "A bubbling lava vent!", verb: "cool it down" },
+        start: [["pete", "Heh. Hear that rumbling? Three lava vents around here are about to blow!"], ["pete", "Signlight cools them right down. But you'll have to be QUICK. Ready? GO!"]],
+        retry: "Phew, too slow! They're bubbling up again. Once more, quick as you can!",
+        done: [["pete", "Ha! Cool as a cave pool. The old Signkeeper door is safe to open now. In you go."]],
       },
       {
-        type: "find", npc: "kit", item: "Kit's lantern", title: "Find Kit's lantern",
-        start: [["kit", "I dropped my lantern when the ashcrows swooped! The smoke is so thick without it."], ["pip", "My antennae glow a little... but not enough. Let's find that lantern."]],
-        done: [["kit", "Light! Thank you! Look, the path splits at the lava falls. The shard's glow is coming from the left!"]],
+        type: "defend", npc: "kit", seconds: 40, target: "Kit's mine cart", raider: "🦇", raiderName: "fire bats", title: "Guard Kit's mine cart from the fire bats",
+        start: [["kit", "I'm hauling the last cart of glowstones out of the mine, and fire bats keep swooping at it!"], ["kit", "Keep them off for 40 seconds! Run at each one and sign to scare it away. Three get through, and we have to start over."]],
+        retry: "Here they come again! Ready?",
+        done: [["kit", "We made it! These glowstones light the whole canyon. Look, the path splits at the lava falls. The shard's glow is coming from the left!"]],
       },
       {
         type: "convo", npc: "carla", title: "Answer Crystal Carla's questions",
         qa: [
           [[["carla", "Malgrath's ashcrows smashed all the canyon lamps. I can light them again, but I need a Signkeeper's help."], ["carla", "First: what letter does LAMP start with? Sign it!"]], "L", "What letter does LAMP start with?"],
           [[["carla", "Yes! Next: which letter looks like a circle? Hint: all your fingertips touch your thumb."]], "O", "Which letter looks like a circle?"],
-          [[["carla", "Last one! The lamps matter most at NIGHT. Sign the letter NIGHT starts with."]], "N", "What letter does NIGHT start with?"],
+          [[["carla", "The lamps matter most at NIGHT. Sign the letter NIGHT starts with."]], "N", "What letter does NIGHT start with?"],
+          [[["carla", "They're lighting up! Before you go, tell the lamplighters THANK YOU. Fingertips at your chin, then move your hand out toward them."]], "THANK YOU", "Sign THANK YOU!"],
         ],
         done: [["carla", "The lamps are glowing! Lou can light the way up to Magmaw's volcano now."]],
       },
@@ -253,24 +300,25 @@ export const QUESTS = {
     ],
     steps: [
       {
-        type: "learn", npc: "finn", word: "S", title: "Learn the sign for S with Fisher Finn",
-        start: [["finn", "The fourth shard sank into the deep reef, and Inkzilla turned the whole lagoon gray with hexed ink!"], ["finn", "My boat is called the S.S. Signal. Every lagoon kid learns S first: a fist, with your thumb across the front. Try it!"]],
+        type: "learn", npc: "finn", word: "S", move: "YES", title: "Learn S and YES with Fisher Finn",
+        start: [["finn", "The fourth shard sank into the deep reef, and Inkzilla turned the whole lagoon gray with hexed ink!"], ["finn", "My boat is called the S.S. Signal. Every lagoon kid learns S first: a fist, with your thumb across the front."], ["finn", "Then nod that S fist up and down, like a head nodding. That's YES! Ready to set sail? Show me!"]],
         done: [["finn", "Strong S! The water's clearing up already. Inkzilla's out at the deep reef, past the shipwreck."]],
       },
       {
-        type: "deliver", npc: "wren", to: "cora", item: "a fishing net", title: "Bring Wren's net to Captain Cora",
-        start: [["wren", "Captain Cora's boat is the only one that can sail to the deep reef. But Inkzilla shredded her net!"], ["wren", "Can you take her this one?"]],
-        done: [["cora", "A new net! Splendid. Once we're through the next gate, I'll sail you out to the reef."]],
+        type: "follow", npc: "wren", goalEmoji: "⛵", title: "Sneak through the reeds with Wren",
+        start: [["wren", "Captain Cora's boat is hidden in the reeds, but Inkzilla's hexed eyes are watching the shore!"], ["wren", "Follow me, and stay close. If one of those eyes sees us, we have to start over."]],
+        retry: "Okay, again. Quiet as a fish...",
+        done: [["wren", "We made it to Captain Cora's boat, and nobody saw us! Once we're through the next gate, she'll sail you out to the reef."]],
       },
       {
-        type: "chase", npc: "tilly", critter: "finnow", title: "Catch the finnow stealing Tilly's planks",
-        start: [["tilly", "A boy in a black robe tried to cross my bridge this morning. And now a finnow keeps stealing my planks!"], ["tilly", "Catch him, and sign to calm him down. Then my bridge is all yours."]],
-        done: [["tilly", "He was just cold and lonely. Cross away! That grumpy boy went along the beach."]],
+        type: "mirror", npc: "tilly", rounds: 5, need: 4, title: "Copy Bridgekeeper Tilly's secret signs",
+        start: [["tilly", "A boy in a black robe tried to cross my bridge this morning. Now only REAL Signkeepers may cross!"], ["tilly", "I'll sign, you copy. No letters to help you, just my hands! Get four out of five."]],
+        done: [["tilly", "You read hands like a pro! Cross away. That grumpy boy went along the beach."]],
       },
       {
-        type: "find", npc: "sol", item: "Captain Cora's compass", title: "Find the lost compass",
-        start: [["sol", "Captain Cora dropped her compass in the reeds. Without it, nobody can find the reef through the ink!"]],
-        done: [["sol", "The compass! Look, the needle is pointing right at the reef gate."]],
+        type: "fish", npc: "sol", count: 3, title: "Win Sol's fishing contest",
+        start: [["sol", "Captain Cora's compass needs a glowing pearl, and only the reef fish know where they are!"], ["sol", "Fish with me! Cast from the dock, wait for a bite, then sign FAST before it gets away. Catch three!"]],
+        done: [["sol", "Three fish! And look, this one coughed up a glowing pearl. The compass needle is pointing right at the reef gate."]],
       },
       {
         type: "guard", npc: "ray", title: "Beat Inkzilla's gate guard",
@@ -314,23 +362,29 @@ export const QUESTS = {
         qa: [
           [[["juno", "{name}?! You made it out too! I've been hiding in the ruins since that night."], ["juno", "Is it really you? Prove it! Sign the first letter of our school's motto: WE SIGN TOGETHER."]], "W", "First letter of WE SIGN TOGETHER?"],
           [[["juno", "It IS you! Okay, what's the last letter of the alphabet? You have to draw it in the air!"]], "Z", "The last letter of the alphabet?"],
+          [[["juno", "Did Malgrath scare you into giving up? Tell me NO! Two fingers and your thumb, snapping shut."]], "NO", "Sign NO!"],
         ],
         done: [["juno", "Just like old times! Malgrath turned our school into a haunted fortress, and Gourdgeist guards the fifth shard. Librarian Lyle is hiding in the library."]],
       },
       {
-        type: "find", npc: "lyle", item: "your old spellbook", title: "Find your old spellbook",
-        start: [["lyle", "My favorite student! Your spellbook is still somewhere in these ruins."], ["lyle", "Every sign you ever learned is inside. You'll need all of them for Gourdgeist."]],
-        done: [["lyle", "There it is! Keep it close. Headmaster Ada is waiting for you upstairs."]],
+        type: "riddle", npc: "lyle", word: "WAX", title: "Solve Librarian Lyle's candle riddle",
+        start: [["lyle", "My favorite student! I hid your old spellbook behind a riddle, so Malgrath couldn't find it."], ["lyle", "What drips down a candle, and goes hard as it cools? Sign it!"]],
+        done: [["lyle", "W-A-X! Here's your spellbook. Every sign you ever learned is inside. Headmaster Ada is waiting for you upstairs."]],
       },
       {
-        type: "riddle", npc: "ada", word: "YAK", title: "Pass Headmaster Ada's test",
-        start: [["ada", "You've come so far. A true Signkeeper must pass one last test before facing Gourdgeist."], ["ada", "Which hairy ox lives high in the mountains? Sign it!"]],
-        done: [["ada", "Y-A-K. Well done. I always knew you'd be a great Signkeeper. Now go. Someone is waiting for you in the training yard."]],
+        type: "quiz", npc: "ada", icon: "🎓", title: "Pass Headmaster Ada's final exam",
+        qs: [
+          ["Every country uses the same sign language.", false, "There are hundreds! ASL, British Sign Language, Japanese Sign Language, and many more."],
+          ["Deaf people can be doctors, pilots, teachers, and artists.", true, "Deaf people do every kind of job there is."],
+          ["To get a Deaf person's attention, you can wave or gently tap their shoulder.", true, "A wave, a tap, or flicking the lights is polite."],
+        ],
+        start: [["ada", "You've come so far. A true Signkeeper knows signing AND the people who sign."], ["ada", "Your final exam. True, or false?"]],
+        done: [["ada", "Top marks. I always knew you'd be a great Signkeeper. Now go. Someone is waiting for you in the training yard."]],
       },
       {
-        type: "spot", npc: "nell", prompt: "Coach Brick's warm-up drill", rounds: 3, title: "Do Coach Brick's warm-up drill",
-        start: [["nell", "Coach Brick is guarding the training yard all by himself. He won't let anyone in without his warm-up drill!"], ["nell", "The team signs letters, and you shout out who signed which. Ready?"]],
-        done: [["nell", "Coach says you pass! The training yard gate is yours. Oh, and that Rook kid is in there."]],
+        type: "ghosts", npc: "nell", count: 3, title: "Hunt the ghosts in the dark with Nell",
+        start: [["nell", "Ghosts filled the training yard and blew out every candle, and Coach Brick is hiding in the shed!"], ["nell", "Take my lantern. You'll only see the ghosts close up, in its light. Sign to each one to send it home!"]],
+        done: [["nell", "The lights are back on! Coach says thanks. Oh, and that Rook kid is in the training yard."]],
       },
       {
         type: "guard", npc: "rook", title: "Beat Gourdgeist's gate guard, with Rook",
@@ -369,25 +423,27 @@ export const QUESTS = {
     ],
     steps: [
       {
-        type: "chase", npc: "nova", critter: "frostfox", title: "Catch the frostfox that froze Nova's telescope",
-        start: [["nova", "Travelers from the island? Three shards streaked through our sky that night."], ["nova", "A frostfox froze my telescope solid and skated off! Catch it, and sign to calm it down?"]],
-        done: [["nova", "Thank you, Signkeeper. One shard froze inside the Aurora Wyrm's lair, at the top of the glacier."]],
+        type: "spot", npc: "nova", prompt: "Starkeeper Nova's star signals", rounds: 2, title: "Read Starkeeper Nova's star signals",
+        start: [["nova", "Travelers from the island? Three shards streaked through our sky that night."], ["nova", "The Starkeepers talk across the ice with hand signals. Show me you can read them, and I'll tell you where the shard fell."]],
+        done: [["nova", "A natural! One shard froze inside the Aurora Wyrm's lair, at the top of the glacier."]],
       },
       {
-        type: "riddle", npc: "sven", word: "STAR", title: "Answer Sven's ice riddle",
-        start: [["sven", "I carve the old Signkeeper riddles into the ice. Answer mine to pass."], ["sven", "What twinkles in the night sky? Sign it!"]],
-        done: [["sven", "S-T-A-R. Like the shards that fell from the sky. Pass, friend."]],
+        type: "snowball", npc: "sven", count: 4, title: "Win Sven's snowball fight",
+        start: [["sven", "Malgrath's blizzard brought my ice sculptures to life, and now they're throwing snowballs at everyone!"], ["sven", "Snowmen will pop up all around you. Run to each one and sign before it throws. Splat four, and they'll melt back into sculptures!"]],
+        done: [["sven", "Ha! Back to good, quiet sculptures. You've got quick hands, friend. Pass!"]],
       },
       {
-        type: "collect", npc: "mira", count: 3, title: "Find the pieces of Mira's star map",
-        start: [["mira", "My star map shows the safe path across the glacier. Malgrath's blizzard tore it into three pieces!"]],
-        done: [["mira", "My map, all back together! Look, it shows the way to the Wyrm's gate."]],
+        type: "race", npc: "mira", title: "Sled race Mira across the glacier",
+        start: [["mira", "My star map shows the safe path across the glacier, but the blizzard buried it. I know the way by heart, though!"], ["mira", "Race me to the flag at the end of the safe path! If you can keep up, you'll know the way too."]],
+        retry: "Again! The ice is slippery, but you've got this.",
+        done: [["mira", "You kept up! That's the safe path to the Wyrm's gate. Follow it up."]],
       },
       {
         type: "convo", npc: "frost", title: "Help Frost send a message to Yuki",
         qa: [
           [[["frost", "My sister Yuki is freezing up ahead, and she can't hear me over the wind. But she can SEE signs!"], ["rook", "...I know how that feels. Let's help."], ["frost", "Sign T, for TEA. I'm bringing her hot tea!"]], "T", "Sign T, for TEA!"],
           [[["frost", "She waved! Now sign S, for SOON."]], "S", "Sign S, for SOON!"],
+          [[["frost", "One more: tell her SORRY it took so long. A fist on your chest, rubbing a circle."]], "SORRY", "Sign SORRY!"],
         ],
         done: [["frost", "She signed back THANK YOU! She'll open the gate for you."]],
       },
@@ -433,19 +489,20 @@ export const QUESTS = {
         done: [["zephyr", "A natural! I'll part the clouds for you. Princess Luna can help you reach the nest."]],
       },
       {
-        type: "riddle", npc: "luna", word: "RAIN", title: "Answer Princess Luna's riddle",
-        start: [["luna", "Welcome to Thunder Peaks. Malgrath's storm has trapped my people. Only a true Signkeeper may pass my gate."], ["luna", "What falls from clouds and makes puddles? Sign it!"]],
-        done: [["luna", "R-A-I-N. Wise and brave! Go with my blessing."]],
+        type: "follow", npc: "luna", goalEmoji: "☁️", watchers: 3, title: "Sneak past the storm sentries with Princess Luna",
+        start: [["luna", "Welcome to Thunder Peaks. Malgrath's storm sentries guard the way to my secret cloud bridge."], ["luna", "Follow me closely, and keep out of their sight. Those hexed eyes see everything near them!"]],
+        retry: "Again, quietly. I'll lead.",
+        done: [["luna", "My secret cloud bridge! Wise AND brave. Go with my blessing."]],
       },
       {
-        type: "deliver", npc: "gale", to: "puff", item: "a bag of sky seeds", title: "Bring Gale's sky seeds to Puff",
-        start: [["gale", "Puff grows the cloud bridges, but the storm blew all the seeds away. Without bridges, nobody can reach the nest!"]],
-        done: [["puff", "Sky seeds! Watch... a brand new cloud bridge! Go on across!"]],
+        type: "mirror", npc: "gale", rounds: 5, need: 4, title: "Copy Gale's sky-sailor signals",
+        start: [["gale", "Sky sailors talk in hand signals. The wind's too loud for anything else!"], ["gale", "I'll flash you a signal, you copy it fast. Get four out of five, and you can sail with us to Puff's cloud bridge."]],
+        done: [["gale", "You'd make a great sky sailor! Puff is growing a new cloud bridge for you right now."]],
       },
       {
-        type: "collect", npc: "skye", count: 3, title: "Find the bells of Skye's wind chime",
-        start: [["skye", "My wind chime calms the storm winds. Malgrath's lightning knocked off all three bells!"]],
-        done: [["skye", "All my bells! Listen... the winds are softer already. The nest gate is just ahead."]],
+        type: "simon", npc: "skye", rounds: ["H", "HK", "HKU", "HKUG"], title: "Echo Skye's wind chime",
+        start: [["skye", "My wind chime calms the storm winds, but only if someone echoes its song!"], ["skye", "It rings a pattern of signs. Watch, then sign it back. Each time, the song gets longer!"]],
+        done: [["skye", "Listen... the chime is singing on its own now, and the winds are softer already. The nest gate is just ahead."]],
       },
       {
         type: "guard", npc: "thane", title: "Beat the Storm Owl's gate guard",
@@ -489,9 +546,9 @@ export const QUESTS = {
         done: [["echo", "They remember me now. Thank you. Malgrath's tower is at the very top."]],
       },
       {
-        type: "collect", npc: "vex", count: 3, title: "Find the three pieces of the Rift key",
-        start: [["vex", "Malgrath broke the key to his tower into three pieces and hid them in this area. Without it, nobody gets any closer."]],
-        done: [["vex", "All three pieces! Let's open this thing."]],
+        type: "stars", npc: "vex", word: "ORBIT", clue: "What goes around and around a planet?", title: "Draw the constellation that opens Malgrath's tower",
+        start: [["vex", "Malgrath's tower opens for a constellation. Its stars are scattered all over this part of the Rift."], ["vex", "The stars spell the answer to a riddle: what goes around and around a planet? Sign them in order to join them up!"]],
+        done: [["vex", "O-R-B-I-T! Look at it shine! The tower's lock is spinning open. Let's get closer."]],
       },
       {
         type: "riddle", npc: "sage", word: "QUEST", title: "Answer the Last Sage's riddle",
@@ -499,9 +556,10 @@ export const QUESTS = {
         done: [["sage", "Q-U-E-S-T. Yes. And yours is almost over. Be brave, child."]],
       },
       {
-        type: "chase", npc: "lumi", critter: "voidjelly", title: "Catch the voidjelly that swallowed Lumi's spark",
-        start: [["lumi", "Kai is lost in the dark up ahead. I had a spark of Signlight to guide him, but a voidjelly gobbled it up!"], ["lumi", "Catch it, and sign so it lets the spark go?"]],
-        done: [["lumi", "The spark! Kai can see again. The tower gate is right here."]],
+        type: "defend", npc: "lumi", seconds: 45, target: "Lumi's spark of Signlight", raider: "🌑", raiderName: "void wisps", every: 2000, title: "Protect Lumi's spark from the void wisps",
+        start: [["lumi", "Kai is lost in the dark up ahead. I'm holding up a spark of Signlight to guide him home!"], ["lumi", "But void wisps want to swallow it! Keep them away until Kai finds his way. Sign at each one!"]],
+        retry: "They're coming again! Help me!",
+        done: [["lumi", "Kai made it home! The spark is safe. The tower gate is right here."]],
       },
       {
         type: "guard", npc: "rook", title: "Break through to Malgrath, with Rook",
@@ -543,14 +601,14 @@ export const QUESTS = {
     ],
     steps: [
       {
-        type: "learn", npc: "pim", word: "C", title: "Learn the royal C with Page Pim",
-        start: [["pim", "A visitor? Nobody's come to Crown Keep since the Beacon broke!"], ["pim", "Every page learns C first: C for CROWN. Curve your hand like the letter C. Your turn!"]],
+        type: "learn", npc: "pim", word: "C", move: "PLEASE", title: "Learn C and royal manners with Page Pim",
+        start: [["pim", "A visitor? Nobody's come to Crown Keep since the Beacon broke!"], ["pim", "Every page learns C first: C for CROWN. Curve your hand like the letter C."], ["pim", "And the Queen insists on manners! PLEASE is a flat hand on your chest, rubbing a circle. Your turn!"]],
         done: [["pim", "Perfect! The Queen always said a Signkeeper would come. Go see Cook Basil in the kitchens."]],
       },
       {
-        type: "find", npc: "basil", item: "the royal recipe book", title: "Find Cook Basil's recipe book",
-        start: [["basil", "Every night I cooked for Queen Amara. Now my recipe book is lost somewhere in the gardens!"], ["basil", "It has her favorite soup in it. I want it ready for when she's free."]],
-        done: [["basil", "My book! I'll start the soup right away. The Queen will be so happy."]],
+        type: "escort", npc: "basil", item: "Biscuit", emoji: "🐣", goal: "nest in the royal garden", goalEmoji: "🪺", title: "Lead Biscuit, the Queen's griffin chick, home",
+        start: [["basil", "Every night I cooked for Queen Amara. Now her baby griffin, Biscuit, has run off into the gardens!"], ["basil", "Find him, and sign so he trusts you. He'll follow you then. Lead him back to his nest, at the top of the garden."]],
+        done: [["basil", "Biscuit's home, snug in his nest! When the Queen is free, he'll be the first one to greet her."]],
       },
       {
         type: "spot", npc: "sage", prompt: "Odette's royal signing test", rounds: 3, title: "Pass Scribe Odette's royal signing test",
@@ -558,9 +616,10 @@ export const QUESTS = {
         done: [["sage", "Wonderful! The Queen would be proud of your eyes AND your hands."]],
       },
       {
-        type: "deliver", npc: "iris", to: "otto", item: "the castle key", title: "Bring the castle key to Guard Otto",
-        start: [["iris", "Guard Otto is holding the tower door shut all by himself. He needs this key to lock the hexed knights out!"]],
-        done: [["otto", "The key! Now I can finally rest my arms. Captain Hale is up by the throne room."]],
+        type: "chant", npc: "iris", icon: "👑", verb: "Oath word", title: "Recite the Royal Oath with Lady Iris",
+        words: [["C", "C, for Courage"], ["R", "R, for Respect"], ["O", "O, for Open hands"], ["W", "W, for Welcome to all"], ["N", "N, for Never give up"]],
+        start: [["iris", "The tower door only opens for someone who knows the Royal Oath. The Queen wrote it in signs, long ago."], ["iris", "Sign each word with me: C, R, O, W, N."]],
+        done: [["iris", "CROWN! The door is open. Captain Hale is waiting by the throne room."]],
       },
       {
         type: "guard", npc: "hale", title: "Beat the throne room guard for Captain Hale",

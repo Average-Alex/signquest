@@ -2,15 +2,18 @@
 // screens. The battle itself lives in game.js.
 
 import { getPrediction, hasModel, HoldTimer, knnSampleCount, activeRecognizer } from "./classifier.js";
-import { biomeBattleOver, enterBiome, resetBiomes, startLoop } from "./biome.js";
+import { biomeBattleOver, enterBiome, refitView, resetBiomes, startLoop } from "./biome.js";
 import {
   BIOME_AREAS, BOSS_EXTRA_LEVELS, BUDDY_MAX_LEVEL, buddyXpToLevel, CONSUMABLES, creatureLevel, creatureName, CREATURES,
-  ARMOR, DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, HERO_SPELLS, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLUTIONS_3, EVOLVE_LEVEL, EVOLVE_LEVEL_3, buddyMoves, stageOf, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
+  ARMOR, DEFAULT_CLASS, DIMENSIONS, ELEMENTS, HERO_CLASSES, HERO_SPELLS, TOWER_SPELLS, rarityOf, SHARD_ZONES, EVOLUTIONS, EVOLUTIONS_3, EVOLVE_LEVEL, EVOLVE_LEVEL_3, buddyMoves, stageOf, SHOP, STAGES, TEAM_SIZE, TIPS, ZONES,
 } from "./config.js";
 import { startBattle } from "./game.js";
+import { eggStatus, eggTitle, maybeHatch } from "./eggs.js";
+import { backToTower, towerBattleOver } from "./tower.js";
+import { openHub } from "./hub.js";
 import { musicForScreen, musicSettingChanged, playMusic } from "./music.js";
 import * as progress from "./progress.js";
-import { creatureImg, DECOR, decorSrc, heroImg, itemImg, LANDMARKS, landmarkSrc, LOOK_OPTIONS, randomLook } from "./sprites.js";
+import { creatureImg, DECOR, decorSrc, heroImg, itemImg, LANDMARKS, landmarkSrc, LOOK_OPTIONS, randomLook, SKYHAVEN_PIN, skyhavenPinSrc } from "./sprites.js";
 import { playScene } from "./story.js";
 import { worldMapSrc } from "./worldmap.js";
 
@@ -56,7 +59,7 @@ export function flashCamera(kind) {
 // Your hero, with your buddy creatures beside them.
 export function renderAvatars() {
   const { equipped } = progress.get();
-  const pets = progress.team().map((pet) => creatureImg(pet.id, "pet", false, stageOf(pet.level))).join("");
+  const pets = progress.team().map((pet) => creatureImg(pet.id, "pet", false, stageOf(pet.level), true)).join("");
   for (const el of document.querySelectorAll("[data-avatar]")) el.innerHTML = heroImg(progress.heroLook(), equipped.hat) + pets;
 }
 
@@ -98,6 +101,12 @@ showHooks.map = () => {
   $("map-level").textContent = progress.level();
   $("map-xp").style.width = `${progress.xpIntoLevel()}%`;
   $("map-coins").textContent = p.coins;
+  $("map-crests").textContent = p.crests || 0;
+  $("map-egg").textContent = eggStatus();
+  $("map-egg").title = eggTitle();
+  $("map-egg").hidden = !$("map-egg").textContent;
+  // 🥚 An egg that got warm enough in a battle or lesson hatches here.
+  maybeHatch(() => showHooks.map());
   $("map-shards").textContent = `${progress.shardCount()} / ${SHARD_ZONES.length}`;
 
   // The newest zone you can play, and which dimension's map to show.
@@ -144,6 +153,20 @@ showHooks.map = () => {
   arenaPin.setAttribute("aria-label", "Battle Arena: battle other players");
   arenaPin.onclick = () => show("arena");
   world.appendChild(arenaPin);
+
+  // ☁️ Skyhaven, floating in the sky above the Overworld: walk around with everyone, climb the Spire, raid the Rift.
+  if (dim === 0) {
+    const hubPin = document.createElement("button");
+    hubPin.className = "zone-pin hub-pin";
+    hubPin.style.cssText = `left:12%; top:53%; --w:${SKYHAVEN_PIN.w}; --h:${SKYHAVEN_PIN.h}`;
+    hubPin.innerHTML = `
+      <img class="sprite landmark" src="${skyhavenPinSrc()}" alt="">
+      <span class="banner">☁️ Skyhaven</span>
+      <span class="zone-stars">The Spire & the Rift</span>`;
+    hubPin.setAttribute("aria-label", "Skyhaven: walk around with everyone, climb the Spire of Ages, and raid the Rift");
+    hubPin.onclick = () => openHub();
+    world.appendChild(hubPin);
+  }
 
   // A portal to the other dimension. Locked until you've beaten the
   // overworld's last boss, but you can see it - something to aim for.
@@ -309,7 +332,8 @@ function showResults(z, s, result) {
   show("results");
   const { won } = result;
   const trial = result.opts?.trial;
-  $("results-title").textContent = !won ? "Knocked out!" : trial ? `🏛️ Trial ${trial.name} conquered!` : result.boss ? "Boss defeated!" : result.opts?.team ? `You beat ${result.opts.owner}!` : "Victory!";
+  const towerFight = result.opts?.tower;
+  $("results-title").textContent = !won ? "Knocked out!" : towerFight ? `🗼 Floor ${towerFight.floor} cleared!` : trial ? `🏛️ Trial ${trial.name} conquered!` : result.boss ? "Boss defeated!" : result.opts?.team ? `You beat ${result.opts.owner}!` : "Victory!";
   renderPortraits(result.portraits || []);
   $("results-armor").hidden = !result.armor;
   if (result.armor) {
@@ -335,7 +359,11 @@ function showResults(z, s, result) {
     const learned = HERO_SPELLS.find((sp) => sp.zone === result.zone.id);
     $("results-shard").textContent = `💎 You recovered a Beacon Shard! (${progress.shardCount()} of ${SHARD_ZONES.length})${learned ? ` You learned a new spell: ${learned.icon} ${learned.name}!` : ""}`;
   }
-  biomeBattleOver(z, won);
+  // 🗼 A Trial Tower floor: the tower keeps score (and pays Crests).
+  if (towerFight) {
+    $("results-shard").hidden = false;
+    $("results-shard").textContent = towerBattleOver(won, towerFight);
+  } else biomeBattleOver(z, won);
   // Losing should point at what helps, not just say "you lost".
   $("results-tip").hidden = won;
   $("results-tip").textContent = "Tip: sign fast to make the monster dizzy, and use potions when your HP is low. You can buy more in the Shop.";
@@ -354,9 +382,9 @@ function showResults(z, s, result) {
 
   $("results-again").textContent = won ? "🔁 Again" : "🔁 Try again";
   // A trainer only battles once (and a lost trainer battle restarts when they spot you again).
-  $("results-again").hidden = Boolean(result.opts?.team);
+  $("results-again").hidden = Boolean(result.opts?.team || towerFight);
   $("results-again").onclick = () => playStage(z, s, result.foe.id, result.level, result.opts);
-  $("results-next").onclick = () => enterBiome(z);
+  $("results-next").onclick = () => (towerFight ? backToTower(towerFight.spec) : enterBiome(z));
 }
 
 // The results screen's portraits: you and your buddies, each with a level
@@ -481,11 +509,11 @@ showHooks.book = () => {
       const names = [creature.name, EVOLUTIONS[creature.id], EVOLUTIONS_3[creature.id]];
       const line = EVOLUTIONS[creature.id]
         ? `<div class="evo-line">${[1, 2, 3]
-            .map((n) => `<figure class="evo-step${n > stage ? " locked" : ""}${n === stage ? " now" : ""}">${creatureImg(creature.id, "", false, n)}<figcaption>${n > stage ? "???" : names[n - 1]}</figcaption></figure>`)
+            .map((n) => `<figure class="evo-step${n > stage ? " locked" : ""}${n === stage ? " now" : ""}">${creatureImg(creature.id, "", false, n, true)}<figcaption>${n > stage ? "???" : names[n - 1]}</figcaption></figure>`)
             .join('<span class="evo-arrow">▶</span>')}</div>`
         : "";
       card.innerHTML = `
-        <div class="book-art">${creatureImg(creature.id, "", false, stage)}</div>${line}
+        <div class="book-art">${creatureImg(creature.id, "", false, stage, true)}</div>${line}
         <div class="book-name">${creatureName(creature.id, mine.level)}</div>
         <div class="book-el">${elBadge}</div>
         <div class="book-level">Level ${mine.level}${maxed ? " (max)" : ""}</div>${evolveNote}
@@ -537,6 +565,7 @@ showHooks.settings = () => {
   $("set-hold").value = s.holdMs;
   $("set-conf").value = s.minConfidence;
   $("set-hand").value = s.hand;
+  $("set-zoom").value = String(s.zoom ?? 1);
   $("set-recognizer").value = s.recognizer;
   $("set-narration").checked = s.narration !== false;
   $("set-music").checked = s.music !== false;
@@ -556,6 +585,7 @@ function updateSettingsText() {
 $("set-hold").oninput = (e) => (progress.updateSettings({ holdMs: Number(e.target.value) }), updateSettingsText());
 $("set-conf").oninput = (e) => (progress.updateSettings({ minConfidence: Number(e.target.value) }), updateSettingsText());
 $("set-hand").onchange = (e) => progress.updateSettings({ hand: e.target.value });
+$("set-zoom").onchange = (e) => (progress.updateSettings({ zoom: Number(e.target.value) }), refitView());
 $("set-narration").onchange = (e) => progress.updateSettings({ narration: e.target.checked });
 $("set-music").onchange = (e) => (progress.updateSettings({ music: e.target.checked }), musicSettingChanged());
 $("set-recognizer").onchange = (e) => (progress.updateSettings({ recognizer: e.target.value }), updateSettingsText());
@@ -622,30 +652,33 @@ function renderHeroOptions() {
   }
 }
 
-// Armor: win a set from each zone's boss, then wear it. Each card shows your
-// hero wearing it, its bonus, and the spell it teaches.
+// Armor: buy a set with 🔷 Crests (won from Trial Guardians), then wear it.
+// Each card shows your hero wearing it, its bonus, and the spell it teaches.
 function renderArmorPicker(box, look) {
   const group = document.createElement("div");
   group.className = "maker-group";
   group.setAttribute("role", "group");
   group.setAttribute("aria-label", "Armor");
-  group.innerHTML = `<p class="label">Armor <small>(beat a zone's boss to win its armor)</small></p>`;
+  const crests = progress.get().crests || 0;
+  group.innerHTML = `<p class="label">Armor <small>(you have 🔷 ${crests} Crests: win more from 🔷 Trial Guardians in each zone)</small></p>`;
   const row = document.createElement("div");
   row.className = "class-row armor-row";
   const wearing = progress.heroArmor().id;
   for (const armor of ARMOR) {
     const owned = progress.ownsArmor(armor.id);
-    const zone = ZONES.find((zn) => zn.id === armor.zone);
+    const affordable = crests >= (armor.crests || 0);
     const button = document.createElement("button");
-    button.className = `class-card armor-card${owned ? "" : " locked"}`;
-    button.disabled = !owned;
+    button.className = `class-card armor-card${owned ? "" : " locked"}${!owned && affordable ? " can-buy" : ""}`;
+    button.disabled = !owned && !affordable;
     button.setAttribute("aria-pressed", String(wearing === armor.id));
     const spell = armor.spell ? `<small class="armor-spell">${armor.spell.icon} ${armor.spell.name}</small>` : "";
-    button.setAttribute("aria-label", owned ? `${armor.name}: ${armor.perk}${armor.spell ? `, teaches ${armor.spell.name}` : ""}` : `${armor.name}, locked: beat the ${zone.name} boss`);
+    button.setAttribute("aria-label", owned ? `${armor.name}: ${armor.perk}${armor.spell ? `, teaches ${armor.spell.name}` : ""}` : `${armor.name}: costs ${armor.crests} Crests${affordable ? ", tap to buy" : ""}`);
     button.innerHTML = owned
       ? heroImg({ ...look, armor: armor.id }) + `<b>${armor.icon} ${armor.name}</b><small class="class-perk">${armor.perk}</small>${spell}`
-      : heroImg({ ...look, armor: armor.id }) + `<b>🔒 ${armor.name}</b><small class="class-trait">Beat the ${zone.name} boss</small>`;
+      : heroImg({ ...look, armor: armor.id }) + `<b>🔒 ${armor.name}</b><small class="class-trait">${affordable ? "Tap to buy: " : ""}🔷 ${armor.crests} Crests</small><small class="class-perk">${armor.perk}</small>`;
     button.onclick = () => {
+      if (!owned && !progress.buyArmor(armor.id)) return;
+      if (!owned) announce(`You bought the ${armor.name}!`);
       progress.wearArmor(armor.id);
       renderAvatars();
       renderHeroOptions();
@@ -664,7 +697,7 @@ function renderSpellList(box) {
   const armor = progress.heroArmor();
   const group = document.createElement("div");
   group.className = "maker-group";
-  group.innerHTML = `<p class="label">Spells <small>(each zone's boss teaches its own spell)</small></p>`;
+  group.innerHTML = `<p class="label">Spells <small>(each zone's boss teaches its own spell, and the 🗼 Trial Towers teach more)</small></p>`;
   const list = document.createElement("div");
   list.className = "spell-list";
   const spells = [...HERO_SPELLS, ...(armor.spell ? [{ ...armor.spell, fromArmor: armor.name }] : [])];
@@ -677,6 +710,15 @@ function renderSpellList(box) {
         <small>${known ? (sp.fromArmor ? `from ${sp.fromArmor}` : el ? el.name : "Free") : `Beat the ${teacher.icon} ${teacher.name} boss`}</small></span>`;
     })
     .join("");
+  // 🗼 The Trial Towers' spells.
+  const learnedTower = progress.towerSpells();
+  list.innerHTML += TOWER_SPELLS.map((sp) => {
+    const known = learnedTower.includes(sp.id);
+    const zone = ZONES.find((zn) => zn.id === sp.tower);
+    const el = ELEMENTS[sp.element];
+    return `<span class="spell-chip${known ? "" : " locked"} el-${sp.element}">${known ? sp.icon : "🔒"} ${sp.name}
+      <small>${known ? `${el ? el.name : ""}${sp.all ? " · hits all" : ""}` : `🗼 ${zone.icon} ${zone.name} tower, floor ${sp.floor}`}</small></span>`;
+  }).join("");
   group.appendChild(list);
   box.appendChild(group);
 }

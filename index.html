@@ -20,14 +20,75 @@
     </div>
   </div>
 
+  <!-- 0. Log in / sign up (login.js) -->
+  <section id="screen-login" class="screen" hidden>
+    <h1 tabindex="-1" class="logo">✨ SignQuest ✨</h1>
+    <p class="tagline">Sign to cast spells!</p>
+
+    <div class="card setup auth">
+      <div class="auth-tabs" role="tablist" aria-label="Log in or sign up">
+        <button id="tab-login" class="auth-tab on" role="tab" aria-selected="true" type="button">Log in</button>
+        <button id="tab-signup" class="auth-tab" role="tab" aria-selected="false" type="button">Sign up</button>
+      </div>
+      <form id="auth-form" novalidate>
+        <div id="field-username" hidden>
+          <label for="auth-username" class="label">Username</label>
+          <input id="auth-username" type="text" maxlength="16" autocomplete="username" spellcheck="false" placeholder="3-16 letters, numbers, or _" aria-describedby="hint-username">
+          <p id="hint-username" class="field-hint" aria-live="polite"></p>
+        </div>
+        <label for="auth-email" class="label">Email</label>
+        <input id="auth-email" type="email" maxlength="254" autocomplete="email" spellcheck="false" placeholder="name@example.com" aria-describedby="hint-email">
+        <p id="hint-email" class="field-hint" aria-live="polite"></p>
+        <label for="auth-password" class="label">Password</label>
+        <div class="password-row">
+          <input id="auth-password" type="password" maxlength="64" autocomplete="current-password" placeholder="At least 8 characters" aria-describedby="hint-password">
+          <button id="show-password" class="btn small" type="button" aria-pressed="false">👁️ Show</button>
+        </div>
+        <div id="strength" class="strength" hidden><span id="strength-bar"></span></div>
+        <p id="hint-password" class="field-hint" aria-live="polite"></p>
+        <div id="field-signup" hidden>
+          <label for="auth-confirm" class="label">Type your password again</label>
+          <input id="auth-confirm" type="password" maxlength="64" autocomplete="new-password" aria-describedby="hint-confirm">
+          <p id="hint-confirm" class="field-hint" aria-live="polite"></p>
+          <label class="agree">
+            <input id="auth-agree" type="checkbox">
+            <span>I've read and agree to the <button id="open-agreement" class="link" type="button">User Agreement</button>. (Under 13? A parent or guardian said it's okay.)</span>
+          </label>
+          <p id="hint-agree" class="field-hint" aria-live="polite"></p>
+        </div>
+        <p id="auth-error" class="error" role="alert" hidden></p>
+        <button id="auth-submit" class="btn big go" type="submit">Log in ▶</button>
+      </form>
+      <p class="auth-switch"><span id="auth-switch-text">New here?</span> <button id="auth-switch" class="link" type="button">Make an account</button></p>
+      <button id="auth-guest" class="btn small" type="button" hidden>Play offline as a guest</button>
+    </div>
+
+    <p class="privacy">🔒 Your camera stays on this device. Your password is scrambled before it's saved. <button id="open-agreement-2" class="link" type="button">Read the User Agreement</button></p>
+  </section>
+
+  <!-- The user agreement (agreement.js) -->
+  <div id="agreement" class="story agreement-wrap" role="dialog" aria-modal="true" aria-labelledby="agreement-title" hidden>
+    <div class="card agreement">
+      <h2 id="agreement-title">📜 User Agreement</h2>
+      <div id="agreement-text" class="agreement-text" tabindex="0"></div>
+      <div class="agreement-buttons">
+        <button id="agreement-accept" class="btn go" type="button">I agree ✓</button>
+        <button id="agreement-close" class="btn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 1. Title / setup -->
-  <section id="screen-title" class="screen">
+  <section id="screen-title" class="screen" hidden>
     <h1 tabindex="-1" class="logo">✨ SignQuest ✨</h1>
     <p class="tagline">Sign to cast spells!</p>
 
     <div class="card setup">
-      <label for="player-name" class="label">Your name</label>
-      <input id="player-name" type="text" maxlength="16" autocomplete="off" placeholder="Name">
+      <p id="title-account" class="title-account" hidden></p>
+      <div id="title-name">
+        <label for="player-name" class="label">Your name</label>
+        <input id="player-name" type="text" maxlength="16" autocomplete="off" placeholder="Name">
+      </div>
 
       <p class="label">Your hero</p>
       <div class="hero-row">
@@ -46,7 +107,7 @@
       <button id="keyboard-play" class="btn small" hidden>⌨️ Play with keyboard (test mode)</button>
     </div>
 
-    <p class="privacy">🔒 Your camera stays on this device. No video or pictures are saved or sent anywhere.</p>
+    <p id="title-privacy" class="privacy">🔒 Your camera stays on this device. No video or pictures are saved or sent anywhere.</p>
   </section>
 
   <!-- 2. World map -->
@@ -64,9 +125,9 @@
       <div class="top-actions">
         <span class="coins shards" aria-label="Beacon Shards">💎 <span id="map-shards"></span></span>
         <span class="coins" aria-label="Coins">🪙 <span id="map-coins"></span></span>
-        <button id="map-book" class="btn small">📖 Book</button>
-        <button class="btn small" data-go="shop">🛍️ Shop</button>
-        <button class="btn small icon" data-go="settings" aria-label="Settings">⚙️</button>
+        <span class="coins crests" aria-label="Crests">🔷 <span id="map-crests"></span></span>
+        <span id="map-egg" class="coins egg" hidden></span>
+        <button id="map-book" class="btn small" hidden>📖 Book</button>
       </div>
     </header>
     <h2 tabindex="-1" class="sr-only">World map</h2>
@@ -78,8 +139,10 @@
     <div class="screen-top">
       <button class="btn small" data-go="map">⬅ Map</button>
       <h2 tabindex="-1" id="biome-title"></h2>
+      <button id="biome-fullscreen" class="btn small icon" type="button" aria-label="Full screen">⛶</button>
       <div class="top-actions">
         <span class="coins" aria-label="Coins">🪙 <span id="biome-coins"></span></span>
+        <span id="biome-egg" class="coins egg" hidden></span>
         <button id="biome-book" class="btn small">📖 Book</button>
       </div>
     </div>
@@ -120,10 +183,91 @@
       </div>
     </div>
     <div id="biome-goals" class="biome-goals"></div>
-    <p class="biome-help">Walk with the arrow keys or WASD, or tap where to go. Go anywhere you like! Walk into a creature to battle it, or walk up to a trainer to ask. ❗ side quest · 🌟 rare creature · ⚔️ trainer · 👑 boss · 🔐 chest · 🪧 sign</p>
   </section>
 
   <!-- 3. Learn card -->
+  <!-- ☁️ Skyhaven (hub.js): a floating town to walk around with everyone,
+       with the Spire of Ages and the Rift. -->
+  <section id="screen-hub" class="screen" hidden>
+    <div class="screen-top">
+      <button class="btn small" data-go="map">⬅ Map</button>
+      <h2 tabindex="-1">☁️ Skyhaven</h2>
+      <div class="top-actions">
+        <span id="hub-count" class="coins"></span>
+        <span class="coins" aria-label="Coins">🪙 <span id="hub-coins"></span></span>
+      </div>
+    </div>
+    <div class="hub-wrap">
+      <canvas id="hub-canvas" class="sprite hub-canvas" aria-label="Skyhaven. Use the arrow keys, or tap where to walk."></canvas>
+      <div id="hub-action" class="card hub-action" aria-live="polite" hidden>
+        <span id="hub-action-text"></span>
+        <button id="hub-action-go" class="btn" type="button"></button>
+      </div>
+      <div id="hub-emotes" class="hub-emotes" role="group" aria-label="Emotes"></div>
+    </div>
+  </section>
+
+  <!-- 🗼 A zone's Trial Tower (tower.js): climb it floor by floor. -->
+  <section id="screen-tower" class="screen" hidden>
+    <div class="screen-top">
+      <button id="tower-back" class="btn small" type="button">⬅ Leave tower</button>
+      <h2 tabindex="-1" id="tower-title"></h2>
+      <div class="top-actions">
+        <span id="tower-progress" class="coins"></span>
+        <span class="coins crests" aria-label="Crests">🔷 <span id="tower-crests"></span></span>
+      </div>
+    </div>
+    <div class="tower-layout">
+      <div class="tower-wrap"><div id="tower" class="tower"></div></div>
+      <div class="card tower-panel" aria-live="polite">
+        <div id="tower-foe-art" class="tower-foe-art"></div>
+        <p id="tower-floor-name" class="tower-floor-name"></p>
+        <p id="tower-foe-name" class="tower-foe-name"></p>
+        <p id="tower-foe-kind" class="tower-foe-kind"></p>
+        <p id="tower-reward" class="tower-reward"></p>
+        <button id="tower-fight" class="btn big" type="button">⚔️ Fight!</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⚔️ A co-op raid (raid.js): everyone at the same raid fights one giant
+       creature together, on a battlefield like the zones' battles. -->
+  <section id="screen-raid" class="screen" hidden>
+    <div class="screen-top">
+      <button id="raid-leave" class="btn small" type="button">⬅ Leave raid</button>
+      <h2 tabindex="-1" id="raid-title"></h2>
+      <span id="raid-timer" class="coins"></span>
+    </div>
+    <div id="raid-field" class="raid-field">
+      <div class="raid-hud">
+        <b id="raid-boss-name"></b>
+        <div class="raid-hp" aria-hidden="true"><div id="raid-hp-fill"></div><span id="raid-hp-text"></span></div>
+      </div>
+      <div id="raid-team" class="raid-team"></div>
+      <div id="raid-boss-art" class="raid-boss-art"></div>
+      <div class="raid-banner">
+        <p id="raid-phase" class="raid-phase" aria-live="polite"></p>
+        <button id="raid-start" class="btn go" type="button" hidden>⚔️ Start the raid now</button>
+      </div>
+    </div>
+    <div class="card raid-panel">
+      <div class="raid-sign">
+        <div class="camera-slot"></div>
+        <div class="raid-target">
+          <p id="raid-prompt" class="raid-prompt"></p>
+          <div id="raid-letter" class="big-letter"></div>
+          <div class="hold" aria-hidden="true"><div id="raid-hold" class="hold-fill"></div></div>
+        </div>
+        <img id="raid-img" class="hand-img small" alt="" hidden>
+      </div>
+      <div class="raid-info">
+        <p class="raid-spell-name">🌟 Your raid spell: <b>Unity Comet</b>. Every raider's sign throws one!</p>
+        <div class="raid-me"><span>❤️ You</span><div class="raid-myhp" aria-hidden="true"><div id="raid-myhp-fill"></div></div></div>
+        <ul id="raid-log" class="raid-log" aria-live="polite"></ul>
+      </div>
+    </div>
+  </section>
+
   <section id="screen-learn" class="screen" hidden>
     <div class="screen-top">
       <button class="btn small" data-go="map">⬅ Map</button>
@@ -162,10 +306,11 @@
         <div class="counter-body">
           <span class="counter-hand-box"><img id="counter-img" class="counter-hand" alt=""></span>
           <div class="counter-side">
-            <p class="counter-ask">Sign it back, or tap it:</p>
+            <p id="counter-ask" class="counter-ask">Sign it back, or tap it:</p>
             <div id="counter-choices" class="counter-choices"></div>
           </div>
         </div>
+        <p id="counter-seeing" class="counter-seeing" aria-live="polite"></p>
         <div class="counter-bars">
           <div class="hold" aria-hidden="true"><div id="counter-hold" class="hold-fill"></div></div>
           <div id="counter-time" class="counter-time" aria-hidden="true"><div id="counter-time-fill"></div></div>
@@ -266,6 +411,7 @@
       <span id="arena-rank" class="count"></span>
     </div>
     <p id="arena-offline" class="error" hidden></p>
+    <div id="raid-list" class="card raid-list" hidden></div>
     <div class="arena-lobby">
       <div id="arena-me" class="card arena-card arena-me"></div>
       <div class="card arena-card plaza-wrap">
@@ -525,6 +671,15 @@
           <option value="left">Left hand</option>
         </select>
       </label>
+      <label class="setting">
+        <span>View while exploring (or press - and + to zoom)</span>
+        <select id="set-zoom">
+          <option value="0.75">🔎 Close up</option>
+          <option value="1">Normal</option>
+          <option value="1.25">Far</option>
+          <option value="1.5">🔭 Very far</option>
+        </select>
+      </label>
       <label class="setting setting-check">
         <span>Music</span>
         <input id="set-music" type="checkbox">
@@ -545,6 +700,17 @@
       <p id="recognizer-info" class="small-text"></p>
       <button id="open-calibrate" class="btn small">🎯 Teach the camera your hands</button>
       <button id="replay-opening" class="btn small">🎬 Watch the opening again</button>
+      <div id="account-box" class="account-box" hidden>
+        <p id="account-who"></p>
+        <button id="logout-btn" class="btn small" type="button">🚪 Log out</button>
+        <button id="delete-account" class="btn small" type="button">Delete my account</button>
+        <div id="delete-box" hidden>
+          <label for="delete-password" class="label">Type your password to delete your account for good:</label>
+          <input id="delete-password" type="password" maxlength="64" autocomplete="current-password">
+          <button id="delete-confirm" class="btn small warn" type="button">Delete forever</button>
+          <p id="delete-error" class="error" role="alert" hidden></p>
+        </div>
+      </div>
       <div class="danger">
         <button id="reset-btn" class="btn small">Start over</button>
         <button id="reset-confirm" class="btn small warn" hidden>Yes, erase my progress</button>

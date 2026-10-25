@@ -17,6 +17,22 @@ The Arena (everything under /api/) keeps who's online and where they are in
 the plaza, parties, challenges, the ranked queue, and live matches, in memory. Only "I signed it, this fast"
 ever comes here - the camera and sign reading stay on each player's device.
 
+Accounts (log in and sign up, under /api/account/) are in accounts.py. Hidden
+folders like .accounts and .cert are never served.
+
+Raids (/api/raid/...): co-op battles against a zone's giant raid creature,
+like Pokemon GO raids. Players who walk up to the same raid (same creature,
+same tier) share one room: a short lobby, then a RAID_TIME_S battle where
+everyone signs at once and every hit comes off one shared HP pool. The pool
+is far too big for one player, so it takes a group. Each player's sign reading
+stays on their device; only "I hit it for this much" comes here.
+
+Skyhaven (/api/hub/...): the town in the sky where everyone walks around
+together. /api/hub/state says where you are (and any emote you're showing)
+and gets back everyone else there. Its Rift spawns a Rift raid boss now and
+then (RIFT_BOSSES, on a clock everyone shares: RIFT_CYCLE_S, open for
+RIFT_OPEN_S of it); /api/raid/rift says which one, and for how long.
+
 A match is between two sides (one player each, or two parties of the same
 size), in one of three game modes. A side is out when its HP runs out.
 Ratings go up and down like chess (Elo), whatever the mode.
@@ -40,6 +56,7 @@ Ratings go up and down like chess (Elo), whatever the mode.
 """
 
 import json
+import os
 import random
 import re
 import shutil
@@ -53,6 +70,9 @@ import uuid
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+import accounts
 
 ONLINE_S = 10  # seen this recently = online
 GONE_S = 25  # a player gone this long leaves their match (and loses)
@@ -108,6 +128,175 @@ parties = {}  # id -> {id, leader, members}
 challenges = {}  # id -> {id, frm, to, made}
 queue = {}  # entry id (party or player) -> {id, members, since}
 matches = {}  # id -> match
+
+
+# ---------- Raids ----------
+
+RAID_LOBBY_S = 30  # the lobby gathers players this long (or until someone starts it)
+RAID_TIME_S = 180  # to bring the raid creature down
+RAID_GONE_S = 12  # a raider not heard from this long has left
+RAID_HP = {1: 1800, 2: 3000, 3: 4500, 4: 6000}  # by tier: about 3, 5, and 8 players' worth; 4 is a Rift boss
+RIFT_TIER = 4
+# Skyhaven's Rift: one boss at a time, in this order, each open RIFT_OPEN_S out of every RIFT_CYCLE_S.
+RIFT_BOSSES = ["raid-rift-chronodrake", "raid-rift-maw", "raid-rift-hydra", "raid-rift-stag", "raid-rift-bloom", "raid-rift-seraph"]
+RIFT_CYCLE_S = 15 * 60
+RIFT_OPEN_S = 12 * 60
+RAID_HIT_MAX = 30  # the most one sign can do (the client sends its own damage)
+raids = {}  # room id -> room
+
+
+def raid_tick():
+    t = now()
+    for rid, room in list(raids.items()):
+        for pid, rp in list(room["players"].items()):
+            if t - rp["seen"] > RAID_GONE_S:
+                del room["players"][pid]
+        if room["phase"] == "lobby" and t >= room["start_at"] and room["players"]:
+            room["phase"], room["ends_at"] = "battle", t + RAID_TIME_S
+        if room["phase"] == "battle":
+            if room["hp"] <= 0:
+                room["phase"], room["over_at"] = "won", t
+            elif t >= room["ends_at"]:
+                room["phase"], room["over_at"] = "lost", t
+        # Finished rooms stay a little, so everyone sees how it ended.
+        if (not room["players"] and room["phase"] != "battle") or (room.get("over_at") and t - room["over_at"] > 30):
+            del raids[rid]
+
+
+def raid_view(room, pid=None):
+    t = now()
+    return {
+        "room": room["id"], "raid": room["raid"], "tier": room["tier"], "phase": room["phase"],
+        "hp": max(0, room["hp"]), "maxHp": room["max_hp"],
+        "startsIn": max(0, room["start_at"] - t) if room["phase"] == "lobby" else 0,
+        "timeLeft": max(0, room["ends_at"] - t) if room["phase"] == "battle" else 0,
+        # (Players are told apart by a short tag, never their private ids.)
+        "players": [{"tag": rp["tag"], "name": rp["name"], "look": rp["look"], "dmg": rp["dmg"], "me": p == pid}
+                    for p, rp in sorted(room["players"].items(), key=lambda kv: kv[1]["tag"])],
+        "hits": room["hits"][-20:],  # recent hits, so everyone sees everyone's spells fly
+        "log": room["log"][-6:],
+    }
+
+
+def rift_now(t=None):
+    """Which Rift boss is out, and when things change. Everyone works it out from the same clock."""
+    t = now() if t is None else t
+    turn, into = divmod(t, RIFT_CYCLE_S)
+    turn = int(turn)
+    up = into < RIFT_OPEN_S
+    return {
+        "boss": RIFT_BOSSES[turn % len(RIFT_BOSSES)] if up else None,
+        "closesIn": RIFT_OPEN_S - into if up else 0,
+        "next": RIFT_BOSSES[(turn + 1) % len(RIFT_BOSSES)],
+        "nextIn": RIFT_CYCLE_S - into,
+        "schedule": [RIFT_BOSSES[(turn + k) % len(RIFT_BOSSES)] for k in range(1, 4)],
+    }
+
+
+def raid_api(path, body):
+    raid_tick()
+    pid = str(body.get("id") or "")[:40]
+    action = path.rsplit("/", 1)[-1]
+    if action == "rift":
+        return rift_now()
+    if action == "list":
+        return {"raids": [raid_view(r) for r in raids.values() if r["phase"] in ("lobby", "battle")]}
+    if not pid:
+        return {"error": "no id"}
+    mine = next((r for r in raids.values() if pid in r["players"]), None)
+    if action == "join":
+        raid, tier = str(body.get("raid") or "")[:40], int(body.get("tier") or 1)
+        if tier not in RAID_HP or not raid.startswith("raid-"):
+            return {"error": "No such raid."}
+        # Rift bosses only while they're out, and only at the Rift's tier.
+        if raid.startswith("raid-rift-") != (tier == RIFT_TIER) or (tier == RIFT_TIER and rift_now()["boss"] != raid):
+            return {"error": "The Rift is calm right now."}
+        if mine:
+            del mine["players"][pid]
+        room = next((r for r in raids.values() if r["raid"] == raid and r["tier"] == tier and r["phase"] in ("lobby", "battle")), None)
+        if not room:
+            rid = uuid.uuid4().hex[:8]
+            room = raids[rid] = {"id": rid, "raid": raid, "tier": tier, "phase": "lobby", "players": {}, "start_at": now() + RAID_LOBBY_S,
+                                 "ends_at": 0, "hp": RAID_HP[tier], "max_hp": RAID_HP[tier], "log": [], "hits": [], "seq": 0, "tags": 0}
+        room["tags"] += 1
+        room["players"][pid] = {"name": str(body.get("name") or "Hero")[:16], "look": body.get("look") if isinstance(body.get("look"), dict) else {},
+                                "dmg": 0, "seen": now(), "tag": room["tags"]}
+        room["log"].append(f"{room['players'][pid]['name']} joined the raid!")
+        return raid_view(room, pid)
+    if not mine:
+        return {"error": "Not in a raid."}
+    mine["players"][pid]["seen"] = now()
+    if action == "state":
+        return raid_view(mine, pid)
+    if action == "start":
+        if mine["phase"] == "lobby":
+            mine["start_at"] = now()
+            raid_tick()
+        return raid_view(mine, pid)
+    if action == "hit":
+        if mine["phase"] == "battle":
+            dmg = max(0, min(RAID_HIT_MAX, int(body.get("dmg") or 0)))
+            before = mine["hp"] / mine["max_hp"]
+            mine["hp"] -= dmg
+            mine["players"][pid]["dmg"] += dmg
+            mine["seq"] += 1
+            mine["hits"].append({"seq": mine["seq"], "tag": mine["players"][pid]["tag"], "dmg": dmg})
+            del mine["hits"][:-30]
+            after = mine["hp"] / mine["max_hp"]
+            for mark in (0.75, 0.5, 0.25):
+                if before > mark >= after:
+                    mine["log"].append(f"{int(mark * 100)}% HP left! {mine['players'][pid]['name']} landed the big hit!")
+            raid_tick()
+        return raid_view(mine, pid)
+    if action == "leave":
+        del mine["players"][pid]
+        raid_tick()
+        return {"ok": True}
+    return {"error": "unknown"}
+
+
+# ---------- Skyhaven ----------
+
+HUB_GONE_S = 8  # someone not heard from this long has left town
+HUB_EMOTES = ["👋", "😄", "🎉", "❤️", "😮", "⚔️"]
+hub = {}  # id -> {name, look, hat, pos, emote, emote_at, seen, tag}
+hub_tags = [0]
+
+
+def hub_api(path, body):
+    pid = str(body.get("id") or "")[:40]
+    if not pid:
+        return {"error": "no id"}
+    t = now()
+    for p, h in list(hub.items()):
+        if t - h["seen"] > HUB_GONE_S:
+            del hub[p]
+    action = path.rsplit("/", 1)[-1]
+    if action == "leave":
+        hub.pop(pid, None)
+        return {"ok": True}
+    if action != "state":
+        return {"error": "unknown"}
+    me = hub.get(pid)
+    if not me:
+        hub_tags[0] += 1
+        me = hub[pid] = {"tag": hub_tags[0], "emote": None, "emote_at": 0}
+    pos = body.get("pos") if isinstance(body.get("pos"), dict) else {}
+    me.update({
+        "name": str(body.get("name") or "Hero")[:16],
+        "look": body.get("look") if isinstance(body.get("look"), dict) else {},
+        "hat": str(body.get("hat") or "")[:30] or None,
+        "pos": {"x": float(pos.get("x") or 0), "y": float(pos.get("y") or 0), "flip": bool(pos.get("flip"))},
+        "seen": t,
+    })
+    if body.get("emote") in HUB_EMOTES:
+        me["emote"], me["emote_at"] = body["emote"], t
+    # (Everyone else, told apart by a short tag, never their private ids.)
+    return {
+        "others": [{"tag": h["tag"], "name": h["name"], "look": h["look"], "hat": h["hat"], "pos": h["pos"],
+                    "emote": h["emote"] if t - h["emote_at"] < 3 else None} for p, h in hub.items() if p != pid],
+        "rift": rift_now(t),
+    }
 
 
 def now():
@@ -668,6 +857,15 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def send_head(self):
+        # Never serve hidden folders and files: .accounts (everyone's
+        # accounts), .cert (the https private key), .git, ...
+        parts = unquote(urlsplit(self.path).path).replace("\\", "/").split("/")
+        if any(part.startswith(".") for part in parts if part):
+            self.send_error(404)
+            return None
+        return super().send_head()
+
     def do_POST(self):
         if not self.path.startswith("/api/"):
             self.send_error(404)
@@ -675,8 +873,18 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             length = min(int(self.headers.get("Content-Length") or 0), 20000)
             body = json.loads(self.rfile.read(length) or b"{}")
-            with lock:
-                out = api(self.path, body if isinstance(body, dict) else {})
+            body = body if isinstance(body, dict) else {}
+            if self.path.startswith("/api/account/"):
+                out = accounts.handle(self.path, body)  # (it has its own lock)
+            elif self.path.startswith("/api/raid/"):
+                with lock:
+                    out = raid_api(self.path, body)
+            elif self.path.startswith("/api/hub/"):
+                with lock:
+                    out = hub_api(self.path, body)
+            else:
+                with lock:
+                    out = api(self.path, body)
         except Exception as e:  # never let one bad request take the arena down
             out = {"error": str(e)}
         data = json.dumps(out).encode()
@@ -718,9 +926,15 @@ def certificate(folder):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     root = Path(__file__).parent
     handler = partial(Handler, directory=str(root))
+    # On a hosting service (Render, Railway, a VPS behind Caddy...), it sets PORT
+    # and handles https itself, so there's no certificate to make here.
+    if os.environ.get("PORT"):
+        port = int(os.environ["PORT"])
+        print(f"SignQuest running on port {port}")
+        ThreadingHTTPServer(("", port), handler).serve_forever()
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     print(f"SignQuest running at http://localhost:{port}  (Ctrl+C to stop)")
     lan = lan_address()
     made = certificate(root / ".cert")

@@ -5,6 +5,10 @@ export const LETTERS = "ABCDEFGHIKLMNOPQRSTUVWXY".split("");
 // J and Z are drawn in the air, so the moving-sign recognizer (motion.js) handles them.
 export const MOTION_LETTERS = ["J", "Z"];
 export const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+// Letters whose handshapes look a lot alike (a fist with the thumb somewhere
+// different, two fingers up or pointing...). Counter-signs never offer them
+// together as choices.
+export const LOOK_ALIKES = [["A", "E", "M", "N", "S", "T"], ["U", "V", "R", "H"], ["G", "H", "Q", "P"], ["K", "P", "V"]];
 
 // Short handshape tips for learn cards and hints. Keep them short: the
 // youngest players are 6.
@@ -221,6 +225,61 @@ export const CREATURES = [
   { id: "voidjelly", name: "Voidjelly", zone: "void", kind: "wild", element: "dark", moves: [quick("Void Sting", "🌑"), stun("Black Hole", "🌀"), big("Abyss Wave", "🌊")] },
   // The final boss. He can't join your team, and isn't in the creature book.
   { id: "malgrath", name: "Malgrath the Hollow King", zone: "void", kind: "boss", element: "dark", catchable: false, moves: [quick("Hollow Bolt", "🌑"), heal("Dark Mend", "💜"), big("Shatter", "💥", 5)] },
+
+  // ⚔️ Raid creatures: one giant legend per zone, fought at its Raid shrine
+  // once the zone's boss is beaten (biome.js RAIDS). Huge, and much tougher.
+  { id: "raid-meadow", name: "Elderoot the Ancient", zone: "meadow", kind: "raid", element: "nature", catchable: false, moves: [quick("Root Lash", "🌿"), heal("Spring Bloom", "💚"), big("Forest Quake", "🌳", 6)] },
+  { id: "raid-forest", name: "Sporemother", zone: "forest", kind: "raid", element: "nature", catchable: false, moves: [quick("Spore Cloud", "🍄"), stun("Dream Dust", "💤"), big("Glow Burst", "✨", 6)] },
+  { id: "raid-caves", name: "Pyroclast Colossus", zone: "caves", kind: "raid", element: "fire", catchable: false, moves: [quick("Magma Fist", "🔥"), shield("Obsidian Skin", "🛡️"), big("Eruption", "🌋", 6)] },
+  { id: "raid-river", name: "Abyssal Leviathan", zone: "river", kind: "raid", element: "water", catchable: false, moves: [quick("Tidal Bite", "🌊"), stun("Whirlpool", "🌀"), big("Deep Surge", "💦", 6)] },
+  { id: "raid-castle", name: "Wraithlord", zone: "castle", kind: "raid", element: "dark", catchable: false, moves: [quick("Grave Chill", "👻"), heal("Soul Feast", "💜"), big("Night Terror", "🌙", 6)] },
+  { id: "raid-keep", name: "Crown Colossus", zone: "keep", kind: "raid", element: "rock", catchable: false, moves: [quick("Royal Slam", "👑"), shield("Golden Guard", "🛡️"), big("Kingsfall", "💥", 6)] },
+  { id: "raid-spires", name: "Frostwing Empress", zone: "spires", kind: "raid", element: "ice", catchable: false, moves: [quick("Frost Fang", "❄️"), stun("Deep Freeze", "🥶"), big("Aurora Breath", "🌌", 6)] },
+  { id: "raid-clouds", name: "Thunderbird Rex", zone: "clouds", kind: "raid", element: "lightning", catchable: false, moves: [quick("Static Talon", "⚡"), stun("Thunderclap", "📢"), big("Sky Splitter", "🌩️", 6)] },
+  { id: "raid-void", name: "Nebula Kraken", zone: "void", kind: "raid", element: "dark", catchable: false, moves: [quick("Star Tentacle", "🌠"), heal("Black Hole", "🕳️"), big("Supernova", "💫", 6)] },
+
+  // 🔷 Trial Guardians: one crystal-studded guardian per zone, fought alone at
+  // its Trial shrine (biome.js TRIALS). Beating one pays 🔷 Crests, which
+  // unlock armor.
+  { id: "trial-meadow", name: "Lumen Pegasus", zone: "meadow", kind: "trial", element: "light", catchable: false, moves: [quick("Halo Kick", "✨"), heal("Dawn Glow", "💚"), big("Radiant Charge", "🌟", 5)] },
+  { id: "trial-forest", name: "Prism Sphinx", zone: "forest", kind: "trial", element: "nature", catchable: false, moves: [quick("Crystal Claw", "💎"), stun("Riddle Gaze", "💫"), big("Prism Pounce", "🌈", 5)] },
+  { id: "trial-caves", name: "Cinder Warden", zone: "caves", kind: "trial", element: "fire", catchable: false, moves: [quick("Ember Wing", "🔥"), shield("Obsidian Ward", "🛡️"), big("Molten Dive", "🌋", 5)] },
+  { id: "trial-river", name: "Tidecaller Medusa", zone: "river", kind: "trial", element: "water", catchable: false, moves: [quick("Crystal Sting", "💧"), stun("Tide Lock", "🌀"), big("Riptide Crown", "🌊", 5)] },
+  { id: "trial-castle", name: "Lantern Warden", zone: "castle", kind: "trial", element: "dark", catchable: false, moves: [quick("Ghost Flame", "🕯️"), heal("Soul Light", "💜"), big("Lantern Doom", "🎃", 5)] },
+  { id: "trial-keep", name: "Gilded Paladin", zone: "keep", kind: "trial", element: "rock", catchable: false, moves: [quick("Gold Strike", "⚔️"), shield("Aegis", "🛡️"), big("Judgment", "👑", 5)] },
+  { id: "trial-spires", name: "Glacial Ninetails", zone: "spires", kind: "trial", element: "ice", catchable: false, moves: [quick("Frost Tail", "❄️"), stun("Whiteout", "🥶"), big("Nine Blizzards", "🌨️", 5)] },
+  { id: "trial-clouds", name: "Tempest Griffin", zone: "clouds", kind: "trial", element: "lightning", catchable: false, moves: [quick("Volt Talon", "⚡"), stun("Gale Screech", "📢"), big("Storm Dive", "🌩️", 5)] },
+  { id: "trial-void", name: "Astral Djinn", zone: "void", kind: "trial", element: "dark", catchable: false, moves: [quick("Star Palm", "🌠"), heal("Wish", "🌟"), big("Cosmic Wish", "💫", 5)] },
+  // 🔷 Trial Wardens: they hold the floors of each zone's Trial Tower (tower.js). Only met there.
+  { id: "warden-meadow", name: "Petal Knight", zone: "meadow", kind: "warden", element: "nature", catchable: false, moves: [quick("Petal Slash", "🌸"), heal("Pollen Mend", "💚"), big("Bloom Burst", "🌺", 4)] },
+  { id: "warden-forest", name: "Glowmoth Sentinel", zone: "forest", kind: "warden", element: "nature", catchable: false, moves: [quick("Wing Gust", "🦋"), stun("Lantern Dust", "💤"), big("Glow Flare", "✨", 4)] },
+  { id: "warden-caves", name: "Obsidian Imp", zone: "caves", kind: "warden", element: "fire", catchable: false, moves: [quick("Fork Jab", "🔱"), shield("Obsidian Skin", "🛡️"), big("Cinder Burst", "🔥", 4)] },
+  { id: "warden-river", name: "Shellback Sentinel", zone: "river", kind: "warden", element: "water", catchable: false, moves: [quick("Trident Thrust", "🔱"), shield("Clam Guard", "🐚"), big("Riptide", "🌊", 4)] },
+  { id: "warden-castle", name: "Phantom Butler", zone: "castle", kind: "warden", element: "dark", catchable: false, moves: [quick("Tray Toss", "🍽️"), stun("Spooky Bow", "👻"), big("Candle Haunt", "🕯️", 4)] },
+  { id: "warden-keep", name: "Tower Knight", zone: "keep", kind: "warden", element: "rock", catchable: false, moves: [quick("Lance Jab", "⚔️"), shield("Tower Shield", "🛡️"), big("Royal Charge", "👑", 4)] },
+  { id: "warden-spires", name: "Frost Sentinel", zone: "spires", kind: "warden", element: "ice", catchable: false, moves: [quick("Ice Fist", "❄️"), stun("Freezing Glare", "🥶"), big("Avalanche", "🏔️", 4)] },
+  { id: "warden-clouds", name: "Storm Herald", zone: "clouds", kind: "warden", element: "lightning", catchable: false, moves: [quick("Zap Feather", "⚡"), stun("Thunder Horn", "📯"), big("Storm Dive", "🌩️", 4)] },
+  { id: "warden-void", name: "Star Wraith", zone: "void", kind: "warden", element: "dark", catchable: false, moves: [quick("Star Claw", "🌠"), heal("Nebula Mend", "💜"), big("Supernova", "💥", 4)] },
+  // 👑 Tower Ultimates: each Trial Tower's top floor. The toughest fight in the zone.
+  { id: "ultimate-meadow", name: "Queen Bloomheart", zone: "meadow", kind: "ultimate", element: "nature", catchable: false, moves: [quick("Thorn Whip", "🌹"), heal("Royal Bloom", "💚"), big("Garden's Wrath", "🌺", 7), stun("Petal Storm", "🌸")] },
+  { id: "ultimate-forest", name: "The Mycelium King", zone: "forest", kind: "ultimate", element: "nature", catchable: false, moves: [quick("Root Grab", "🌿"), stun("Spore Haze", "🍄"), big("Fungal Quake", "🌳", 7), heal("Deep Roots", "💚")] },
+  { id: "ultimate-caves", name: "Infernus, Lord of Cinders", zone: "caves", kind: "ultimate", element: "fire", catchable: false, moves: [quick("Hellfire Claw", "🔥"), shield("Magma Wings", "🛡️"), big("Cataclysm", "🌋", 7), stun("Brimstone Roar", "📢")] },
+  { id: "ultimate-river", name: "Thalassa, Tide Empress", zone: "river", kind: "ultimate", element: "water", catchable: false, moves: [quick("Trident Strike", "🔱"), heal("Tidal Grace", "💙"), big("Tsunami", "🌊", 7), stun("Maelstrom", "🌀")] },
+  { id: "ultimate-castle", name: "The Hollow Count", zone: "castle", kind: "ultimate", element: "dark", catchable: false, moves: [quick("Fang Strike", "🦇"), heal("Night Feast", "💜"), big("Midnight Toll", "🔔", 7), stun("Hypnotic Gaze", "👁️")] },
+  { id: "ultimate-keep", name: "King Aurelius the Eternal", zone: "keep", kind: "ultimate", element: "rock", catchable: false, moves: [quick("Golden Blade", "⚔️"), shield("Eternal Guard", "🛡️"), big("Crown of Ages", "👑", 7), stun("Royal Decree", "📜")] },
+  { id: "ultimate-spires", name: "Glacius, the Frozen Titan", zone: "spires", kind: "ultimate", element: "ice", catchable: false, moves: [quick("Glacier Fist", "🧊"), shield("Permafrost", "🛡️"), big("Ice Age", "❄️", 7), stun("Whiteout", "🌨️")] },
+  { id: "ultimate-clouds", name: "Zephyros, Storm Sovereign", zone: "clouds", kind: "ultimate", element: "lightning", catchable: false, moves: [quick("Thunder Talon", "⚡"), stun("Sky Crack", "💫"), big("Tempest", "🌩️", 7), heal("Eye of the Storm", "🌀")] },
+  { id: "ultimate-void", name: "Nihil, the Void Emperor", zone: "void", kind: "ultimate", element: "dark", catchable: false, moves: [quick("Star Rend", "🌠"), heal("Event Horizon", "🕳️"), big("Big Crunch", "💥", 7), stun("Thousand Eyes", "👁️")] },
+  // 🌀 Rift raid bosses: they come through the Rift in Skyhaven (hub.js), one at a time, now and then.
+  // `zone`: where their letters and battlefield come from. Only met there.
+  { id: "raid-rift-chronodrake", name: "Chronodrake", zone: "keep", kind: "rift", element: "rock", catchable: false, moves: [quick("Gear Gnash", "⚙️"), shield("Rewind", "⏪"), big("Time Quake", "⏳", 7)] },
+  { id: "raid-rift-maw", name: "The Abyssal Maw", zone: "void", kind: "rift", element: "dark", catchable: false, moves: [quick("Devour", "👄"), stun("Dread Stare", "👁️"), big("Swallow the Stars", "🌑", 7)] },
+  { id: "raid-rift-hydra", name: "Prism Hydra", zone: "spires", kind: "rift", element: "ice", catchable: false, moves: [quick("Triple Bite", "💎"), heal("Regrow", "💙"), big("Prism Breath", "🌈", 7)] },
+  { id: "raid-rift-stag", name: "The Astral Stag", zone: "forest", kind: "rift", element: "light", catchable: false, moves: [quick("Star Antlers", "🦌"), heal("Moonlit Rest", "💛"), big("Constellation Charge", "🌟", 7)] },
+  { id: "raid-rift-bloom", name: "Blightbloom", zone: "meadow", kind: "rift", element: "nature", catchable: false, moves: [quick("Chomp", "🌺"), stun("Sleep Pollen", "💤"), big("Overgrowth", "🌿", 7)] },
+  { id: "raid-rift-seraph", name: "Voltwing Seraph", zone: "clouds", kind: "rift", element: "lightning", catchable: false, moves: [quick("Halo Zap", "⚡"), shield("Six-Wing Guard", "🛡️"), big("Judgment Bolt", "🌩️", 7)] },
+  // ⏳ The top of the Spire of Ages (hub.js, tower.js).
+  { id: "spire-keeper", name: "Aeon, Keeper of the Spire", zone: "void", kind: "spirekeeper", element: "light", catchable: false, moves: [quick("Orb Strike", "🔮"), heal("Turn Back Time", "⏳"), big("End of Ages", "💫", 8), stun("Frozen Moment", "⌛")] },
 ];
 for (const c of CREATURES) c.moves[2].element = c.element;
 
@@ -291,7 +350,7 @@ export const RENAMED_CREATURES = {
   // Crown Keep came back (it was the Sunstone Desert for a while).
   scarabite: "shieldbug", sphinxie: "griffling", dunehop: "squirepup", cactling: "crownling",
 };
-export const rarityOf = (c) => RARITIES[c.kind === "boss" ? "boss" : CREATURE_RARITY[c.id] || "common"];
+export const rarityOf = (c) => RARITIES[c.kind === "boss" || c.kind === "raid" || c.kind === "trial" || c.kind === "warden" || c.kind === "ultimate" || c.kind === "rift" || c.kind === "spirekeeper" ? "boss" : CREATURE_RARITY[c.id] || "common"];
 
 export const EVOLUTIONS = {
   pip: "Lumos", puddlepup: "Puddlehound", sproutling: "Bloomling", thistlefox: "Thornfox", petalpuff: "Bloompuff", frog: "Croak Emperor",
@@ -371,34 +430,69 @@ export const HERO_SPELLS = [
   { id: "thunder", name: "Thunder Call", icon: "⚡", cost: 7, power: 4.6, element: "lightning", zone: "clouds" },
 ];
 export const HERO_MOVES = HERO_SPELLS.filter((sp) => !sp.zone); // always known
+// 🗼 Spells taught by the Trial Towers (tower.js): beat a tower's boss floors
+// (the Guardian on floors 5 and 10, the Ultimate on 15) to learn them.
+// `tower`: the zone, `floor`: the floor that teaches it.
+const towerSpell = (tower, floor, id, name, icon, cost, power, element, all = false) => ({ id, name, icon, cost, power, element, all, tower, floor });
+export const TOWER_SPELLS = [
+  towerSpell("meadow", 5, "bramble", "Bramble Lash", "🌱", 5, 3.6, "nature"),
+  towerSpell("meadow", 10, "petalstorm", "Petal Tempest", "🌸", 7, 4.6, "nature", true),
+  towerSpell("meadow", 15, "bloomwrath", "Bloomheart's Wrath", "🌺", 10, 9, "nature"),
+  towerSpell("forest", 5, "glowburst", "Glowcap Burst", "🍄", 5, 3.6, "nature"),
+  towerSpell("forest", 10, "moonbeam", "Moonmoth Beam", "🦋", 7, 5, "light"),
+  towerSpell("forest", 15, "mycelsurge", "Mycelium Surge", "🌳", 10, 7.5, "nature", true),
+  towerSpell("caves", 5, "cinderfork", "Cinder Fork", "🔱", 5, 3.6, "fire"),
+  towerSpell("caves", 10, "obsidianrain", "Obsidian Rain", "🌋", 7, 4.6, "rock", true),
+  towerSpell("caves", 15, "infernoflame", "Infernus Flame", "🔥", 10, 9, "fire"),
+  towerSpell("river", 5, "shellshot", "Shell Shot", "🐚", 5, 3.6, "water"),
+  towerSpell("river", 10, "tridenttide", "Trident Tide", "🔱", 7, 5, "water"),
+  towerSpell("river", 15, "tsunami", "Empress Tsunami", "🌊", 10, 7.5, "water", true),
+  towerSpell("castle", 5, "candlecurse", "Candle Curse", "🕯️", 5, 3.6, "dark"),
+  towerSpell("castle", 10, "batswarm", "Bat Swarm", "🦇", 7, 4.6, "dark", true),
+  towerSpell("castle", 15, "midnighttoll", "Midnight Toll", "🔔", 10, 9, "dark"),
+  towerSpell("keep", 5, "lancecharge", "Lance Charge", "⚔️", 5, 3.6, "rock"),
+  towerSpell("keep", 10, "royalsmite", "Royal Smite", "🛡️", 7, 5, "light"),
+  towerSpell("keep", 15, "crownofages", "Crown of Ages", "👑", 10, 7.5, "light", true),
+  towerSpell("spires", 5, "icefist", "Ice Fist", "🧊", 5, 3.6, "ice"),
+  towerSpell("spires", 10, "blizzard", "Blizzard", "🌨️", 7, 4.6, "ice", true),
+  towerSpell("spires", 15, "absolutezero", "Absolute Zero", "❄️", 10, 9, "ice"),
+  towerSpell("clouds", 5, "staticfeather", "Static Feather", "🪶", 5, 3.6, "lightning"),
+  towerSpell("clouds", 10, "chainlightning", "Chain Lightning", "⚡", 7, 4.6, "lightning", true),
+  towerSpell("clouds", 15, "tempestfury", "Tempest Fury", "🌩️", 10, 9, "lightning"),
+  towerSpell("void", 5, "starshard", "Star Shard", "🌠", 5, 3.6, "dark"),
+  towerSpell("void", 10, "nebulaburst", "Nebula Burst", "🌌", 7, 4.6, "light", true),
+  towerSpell("void", 15, "bigbang", "Big Bang", "💥", 10, 7.5, "dark", true),
+];
 // Armor: beat a zone's boss to win its armor set, then wear it in the Hero
 // screen. Each one changes how your hero looks (`style` and `colors`), gives
 // a bonus (`hp` and `power` multiply, `crit` adds), and teaches a spell.
+// Armor sets: bought with 🔷 Crests (`crests`), won from Trial Guardians.
 export const ARMOR = [
   { id: "tunic", name: "Traveler's Clothes", zone: null, icon: "👕", perk: "Your own outfit", style: null },
-  { id: "bloom", name: "Bloom Guard", zone: "meadow", icon: "🌼", perk: "10% more HP", hp: 1.1, style: "ranger",
+  { id: "bloom", name: "Bloom Guard", zone: "meadow", crests: 4, icon: "🌼", perk: "10% more HP", hp: 1.1, style: "ranger",
     colors: { R: "#5aa848", r: "#3c7a34", T: "#ffd84a", G: "#f08cb0", g: "#c8607a" }, spell: { id: "petal", name: "Petal Storm", icon: "🌸", cost: 5, power: 2.8, element: "nature", all: true } },
-  { id: "ranger", name: "Glowcap Mail", zone: "forest", icon: "🍄", perk: "More critical hits", crit: 0.08, style: "ranger",
+  { id: "ranger", name: "Glowcap Mail", zone: "forest", crests: 6, icon: "🍄", perk: "More critical hits", crit: 0.08, style: "ranger",
     colors: { R: "#5a4a8a", r: "#3a2e6a", T: "#7fe3ff", G: "#7fe3ff", g: "#3fb0d0" }, spell: { id: "arrows", name: "Spore Arrows", icon: "🏹", cost: 6, power: 3, element: "nature", all: true } },
-  { id: "crystal", name: "Obsidian Plate", zone: "caves", icon: "🌋", perk: "20% more HP", hp: 1.2, style: "armor",
+  { id: "crystal", name: "Obsidian Plate", zone: "caves", crests: 8, icon: "🌋", perk: "20% more HP", hp: 1.2, style: "armor",
     colors: { R: "#3a2a2e", r: "#241a1e", T: "#ff8a2a", G: "#ffd23f", g: "#ff6a2a" }, spell: { id: "crystalcrash", name: "Lava Crash", icon: "🌋", cost: 6, power: 3.5, element: "fire" } },
-  { id: "tide", name: "Coral Scale", zone: "river", icon: "🐚", perk: "10% more power, 10% more HP", hp: 1.1, power: 1.1, style: "armor",
+  { id: "tide", name: "Coral Scale", zone: "river", crests: 10, icon: "🐚", perk: "10% more power, 10% more HP", hp: 1.1, power: 1.1, style: "armor",
     colors: { R: "#3a8ad0", r: "#22609a", T: "#7fe3ff", G: "#e8fbff", g: "#7fe3ff" }, spell: { id: "riptide", name: "Riptide", icon: "🌀", cost: 5, power: 3, element: "water" } },
-  { id: "ember", name: "Phantom Plate", zone: "castle", icon: "🎃", perk: "15% more power", power: 1.15, style: "armor",
+  { id: "ember", name: "Phantom Plate", zone: "castle", crests: 12, icon: "🎃", perk: "15% more power", power: 1.15, style: "armor",
     colors: { R: "#4a3a5e", r: "#2e2240", T: "#f08a24", G: "#f08a24", g: "#c0601a" }, spell: { id: "dragonflame", name: "Jack o' Blast", icon: "🎃", cost: 7, power: 4, element: "dark" } },
-  { id: "royal", name: "Royal Armor", zone: "keep", icon: "👑", perk: "25% more HP", hp: 1.25, style: "armor",
+  { id: "royal", name: "Royal Armor", zone: "keep", crests: 14, icon: "👑", perk: "25% more HP", hp: 1.25, style: "armor",
     colors: { R: "#e0dcea", r: "#a8a0bc", T: "#ffd23f", G: "#6a4bd6", g: "#4a2fa8" }, spell: { id: "decree", name: "Royal Decree", icon: "👑", cost: 7, power: 3.5, element: "light", all: true } },
-  { id: "frost", name: "Aurora Plate", zone: "spires", icon: "🧊", perk: "20% more HP, more critical hits", hp: 1.2, crit: 0.05, style: "armor",
+  { id: "frost", name: "Aurora Plate", zone: "spires", crests: 16, icon: "🧊", perk: "20% more HP, more critical hits", hp: 1.2, crit: 0.05, style: "armor",
     colors: { R: "#bfe8ff", r: "#7fb8e0", T: "#ffffff", G: "#7fe3ff", g: "#3fa8d0" }, spell: { id: "glacier", name: "Glacier Spike", icon: "🧊", cost: 7, power: 4, element: "ice" } },
-  { id: "storm", name: "Thunder Mail", zone: "clouds", icon: "⚡", perk: "10% more power, more critical hits", power: 1.1, crit: 0.1, style: "ranger",
+  { id: "storm", name: "Thunder Mail", zone: "clouds", crests: 18, icon: "⚡", perk: "10% more power, more critical hits", power: 1.1, crit: 0.1, style: "ranger",
     colors: { R: "#e8b84a", r: "#b88a2a", T: "#7fe3ff", G: "#fff27a", g: "#e0b82a" }, spell: { id: "skybolt", name: "Sky Bolt", icon: "🌩️", cost: 7, power: 4.2, element: "lightning" } },
-  { id: "void", name: "Cosmic Plate", zone: "void", icon: "🪐", perk: "25% more power, 10% more HP", power: 1.25, hp: 1.1, style: "armor",
+  { id: "void", name: "Cosmic Plate", zone: "void", crests: 22, icon: "🪐", perk: "25% more power, 10% more HP", power: 1.25, hp: 1.1, style: "armor",
     colors: { R: "#3a2860", r: "#241848", T: "#c58cf0", G: "#c58cf0", g: "#8a5ad6" }, spell: { id: "voidrift", name: "Cosmic Burst", icon: "🪐", cost: 9, power: 5, element: "dark", all: true } },
 ];
 export const armorById = (id) => ARMOR.find((a) => a.id === id) || ARMOR[0];
 // Your spells, having beaten the bosses of `beatenZones` (zone ids), wearing `armorId`.
-export function heroSpells(beatenZones, armorId) {
-  const spells = HERO_SPELLS.filter((sp) => !sp.zone || beatenZones.includes(sp.zone));
+// `towerSpells`: ids of the Trial Tower spells you've learned (progress.towerSpells).
+export function heroSpells(beatenZones, armorId, towerSpells = []) {
+  const spells = [...HERO_SPELLS.filter((sp) => !sp.zone || beatenZones.includes(sp.zone)), ...TOWER_SPELLS.filter((sp) => towerSpells.includes(sp.id))];
   const armor = armorById(armorId);
   return armor.spell ? [...spells, armor.spell] : spells;
 }
@@ -430,7 +524,8 @@ export const DEFAULT_CLASS = "mage";
 // as it winds up (always for its big moves). Sign it back in time (or tap the
 // right letter) to block the hit; signing it also bounces some damage back.
 export const COUNTER_CHANCE = 0.5;
-export const COUNTER_MS = 4500; // how long you have (Assist mode: no time limit)
+export const COUNTER_MS = 7000; // how long you have: time to read the sign, then make it (Assist mode: no time limit)
+export const COUNTER_EASE = 0.15; // counters accept a sign this much less sure than normal (you're signing under pressure)
 export const COUNTER_REFLECT = 1.2; // bounced back at the creature when you sign it, in letters' worth of damage
 
 // Damage is in HP points. Each letter you sign deals SIGN_DAMAGE (times your
@@ -510,6 +605,7 @@ export const playerMaxHp = (playerLevel) => Math.min(250, 97 + playerLevel * 3);
 // Defaults for the Settings screen.
 export const DEFAULT_SETTINGS = {
   holdMs: 150, // how long a sign must be held to count (short: signs should feel near-instant)
+  zoom: 1, // how much of a zone you see while exploring: 0.75 close up ... 1.5 far out (biome.js ZOOMS)
   minConfidence: 0.6, // how sure the recognizer must be that it's the target letter
   hand: "auto", // "auto" | "right" | "left" - which hand the player signs with
   recognizer: "auto", // "auto" | "model" | "knn" | "keyboard"

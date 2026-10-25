@@ -935,8 +935,9 @@ if __name__ == "__main__":
     # and handles https itself, so there's no certificate to make here.
     if os.environ.get("PORT"):
         port = int(os.environ["PORT"])
-        print(accounts.storage_status())
-        print(f"SignQuest running on port {port}")
+        # flush: a host's log isn't a screen, so Python would otherwise hold these lines back.
+        print(accounts.storage_status(), flush=True)
+        print(f"SignQuest running on port {port}", flush=True)
         ThreadingHTTPServer(("", port), handler).serve_forever()
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     print(f"SignQuest running at http://localhost:{port}  (Ctrl+C to stop)")

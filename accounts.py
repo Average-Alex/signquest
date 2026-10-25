@@ -204,6 +204,10 @@ def handle(path, body):
             save(db)
             return {"token": token, "user": public(user)}
 
+        if action == "storage":
+            # Where accounts are kept, so you can check a host is set up right (nothing else is shared).
+            return {"storage": "database" if DATABASE_URL else "file"}
+
         if action == "me":
             user = user_for(db, body.get("token"))
             return {"user": public(user)} if user else {"error": "Please log in again."}

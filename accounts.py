@@ -8,6 +8,12 @@ Accounts are saved in .accounts/users.json next to this file (or in the
 folder SIGNQUEST_DATA names, on a host with a disk that survives restarts).
 serve.py never serves that folder, and .gitignore keeps it out of git.
 
+On a host whose files are wiped on every restart (Render's free plan), set
+DATABASE_URL to a Postgres database's connection link (Neon, Supabase...)
+instead: the same accounts are then kept there, in one row of a small table
+(signquest_store). That needs the psycopg package (requirements.txt);
+without DATABASE_URL, nothing outside Python itself is used.
+
 Passwords are never stored: only a salted PBKDF2-SHA256 hash of each one.
 Logging in gives the browser a random session token; only a SHA-256 hash of
 it is stored, so the file alone can't be used to log in. Too many wrong
@@ -41,7 +47,27 @@ lock = threading.Lock()
 fails = {}  # email -> (how many wrong in a row, locked until)
 
 
+DATABASE_URL = os.environ.get("DATABASE_URL")
+table_ready = False
+
+
+def connect():
+    """A connection to the DATABASE_URL database, with its table made the first time."""
+    global table_ready
+    import psycopg  # only needed with DATABASE_URL
+
+    conn = psycopg.connect(DATABASE_URL, autocommit=True)
+    if not table_ready:
+        conn.execute("CREATE TABLE IF NOT EXISTS signquest_store (key text PRIMARY KEY, value jsonb NOT NULL)")
+        table_ready = True
+    return conn
+
+
 def load():
+    if DATABASE_URL:
+        with connect() as conn:
+            row = conn.execute("SELECT value FROM signquest_store WHERE key = 'accounts'").fetchone()
+        return row[0] if row else {"users": {}, "sessions": {}}
     try:
         return json.loads(STORE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -49,7 +75,16 @@ def load():
 
 
 def save(db):
-    STORE.parent.mkdir(exist_ok=True)
+    if DATABASE_URL:
+        from psycopg.types.json import Jsonb
+
+        with connect() as conn:
+            conn.execute(
+                "INSERT INTO signquest_store (key, value) VALUES ('accounts', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                (Jsonb(db),),
+            )
+        return
+    STORE.parent.mkdir(parents=True, exist_ok=True)
     tmp = STORE.with_suffix(".tmp")
     tmp.write_text(json.dumps(db, indent=1), encoding="utf-8")
     tmp.replace(STORE)  # all at once, so a crash can't leave half a file

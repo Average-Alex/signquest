@@ -1,0 +1,3 @@
+# Only needed on a host that keeps accounts in a database (DATABASE_URL; see accounts.py).
+# Running the game on your own computer needs nothing here.
+psycopg[binary]==3.2.3

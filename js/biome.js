@@ -3623,6 +3623,11 @@ function draw(biome, now) {
     const lift = stepLift(frame);
     things.push({ y: f.y, img: spriteCanvas(heroSrc(f.look, f.hat, frame, false)), x: f.x, flip: f.moving ? f.flip : hero.x < f.x, lift, tilt: lean(f.moving, !f.flip), shadow: true });
   }
+  // 👥 Other players exploring this zone.
+  for (const o of biome.others?.values() || []) {
+    const frame = walkFrame(o.moving, now, 110, o.x);
+    things.push({ y: o.y, img: spriteCanvas(heroSrc(o.look, o.hat, frame, false)), x: o.x, flip: o.flip, lift: stepLift(frame), tilt: lean(o.moving, !o.flip), shadow: true });
+  }
   // The mission's giver faces you too.
   const mission = biome.mission;
   if (mission) things.push({ y: mission.giver.y, img: spriteCanvas(heroSrc(mission.giver.look, mission.giver.hat, 0, false)), x: mission.giver.x, flip: hero.x < mission.giver.x, shadow: true });
@@ -3752,6 +3757,8 @@ function draw(biome, now) {
     motionTrialMarker(biome),
     // Townsfolk: their names.
     ...biome.folk.map((f) => ({ x: f.x, y: f.y - 31, html: `<small>${f.name}</small>`, cls: " npc folk" })),
+    // Other players' names (typed by them, so escaped).
+    ...[...(biome.others?.values() || [])].map((o) => ({ x: o.x, y: o.y - 31, html: `<small>👤 ${escapeHtml(o.name)}</small>`, cls: " npc player" })),
     ...missionMarkers(biome, now),
   ];
   placeLabels(markers, camX, camY);
@@ -3933,6 +3940,14 @@ function frame(now) {
     moveFolk(biome, dt, now);
     moveMission(biome, dt, now);
   }
+  // Other players glide toward where the server last saw them.
+  for (const o of biome.others?.values() || []) {
+    const k = Math.min(1, dt * 8);
+    o.moving = Math.hypot(o.tx - o.x, o.ty - o.y) > 0.6;
+    if (o.moving) o.flip = o.tx < o.x;
+    o.x += (o.tx - o.x) * k;
+    o.y += (o.ty - o.y) * k;
+  }
   const target = cameraTarget(biome);
   const follow = biome.cinematic ? 3.5 : 6; // a slower, smoother pan during the opening
   biome.camX += (target.x - biome.camX) * Math.min(1, dt * follow);
@@ -3957,6 +3972,48 @@ function frame(now) {
 }
 
 // `from`: the zone you walked in from, along a road (null from the map).
+// ---------- 👥 Other players in the same zone ----------
+// A few times a second, tell the server where you are in this zone and get
+// back everyone else here (serve.py: the same as Skyhaven, one room per zone).
+// Players are told apart by a short tag; nobody's private id is shared.
+const PRESENCE_MS = 400;
+let presenceBusy = false;
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+function playerId() {
+  let id = progress.get().arenaId;
+  if (!id) {
+    id = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+    progress.update({ arenaId: id });
+  }
+  return id;
+}
+
+async function sendPresence() {
+  const biome = current;
+  if (!biome || presenceBusy || !isShowing("biome")) return;
+  presenceBusy = true;
+  const p = progress.get();
+  try {
+    const res = await fetch("/api/hub/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: playerId(), room: `zone:${biome.zone.id}`, name: p.name || "Hero", look: progress.heroLook(), hat: p.equipped.hat, pos: { x: biome.hero.x, y: biome.hero.y, flip: biome.hero.flip } }),
+    });
+    const out = await res.json();
+    const next = new Map();
+    for (const o of out.others || []) {
+      const had = biome.others?.get(o.tag);
+      next.set(o.tag, { ...o, x: had ? had.x : o.pos.x, y: had ? had.y : o.pos.y, tx: o.pos.x, ty: o.pos.y, flip: had ? had.flip : o.pos.flip, moving: false });
+    }
+    biome.others = next;
+  } catch {
+    // No server (the game opened as a file, or offline): explore on your own.
+  }
+  presenceBusy = false;
+}
+setInterval(sendPresence, PRESENCE_MS);
+
 export function enterBiome(z, from = null) {
   current = null; // the old loop stops; this one starts once the zone's opening has played
   if (!biomes.has(z)) biomes.set(z, build(z));

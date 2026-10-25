@@ -255,11 +255,13 @@ def raid_api(path, body):
     return {"error": "unknown"}
 
 
-# ---------- Skyhaven ----------
+# ---------- Skyhaven, and walking around the zones together ----------
+# Everyone sends where they are (and which "room": "hub" for Skyhaven, or
+# "zone:<id>" for a zone) and gets back everyone else in the same room.
 
-HUB_GONE_S = 8  # someone not heard from this long has left town
+HUB_GONE_S = 8  # someone not heard from this long has left
 HUB_EMOTES = ["👋", "😄", "🎉", "❤️", "😮", "⚔️"]
-hub = {}  # id -> {name, look, hat, pos, emote, emote_at, seen, tag}
+hub = {}  # id -> {room, name, look, hat, pos, emote, emote_at, seen, tag}
 hub_tags = [0]
 
 
@@ -283,6 +285,7 @@ def hub_api(path, body):
         me = hub[pid] = {"tag": hub_tags[0], "emote": None, "emote_at": 0}
     pos = body.get("pos") if isinstance(body.get("pos"), dict) else {}
     me.update({
+        "room": str(body.get("room") or "hub")[:40],
         "name": str(body.get("name") or "Hero")[:16],
         "look": body.get("look") if isinstance(body.get("look"), dict) else {},
         "hat": str(body.get("hat") or "")[:30] or None,
@@ -294,7 +297,7 @@ def hub_api(path, body):
     # (Everyone else, told apart by a short tag, never their private ids.)
     return {
         "others": [{"tag": h["tag"], "name": h["name"], "look": h["look"], "hat": h["hat"], "pos": h["pos"],
-                    "emote": h["emote"] if t - h["emote_at"] < 3 else None} for p, h in hub.items() if p != pid],
+                    "emote": h["emote"] if t - h["emote_at"] < 3 else None} for p, h in hub.items() if p != pid and h["room"] == me["room"]],
         "rift": rift_now(t),
     }
 
